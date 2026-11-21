@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { loadDistrict, loadLatest } from "../src/lib/data";
 
 // Must match astro.config.mjs (and its SITE_URL / SITE_BASE overrides).
 const ORIGIN = `${process.env.SITE_URL || "https://thatorjohn.github.io"}${process.env.SITE_BASE || "/ag-dashboard/"}`;
@@ -113,8 +114,11 @@ test("district weather strip shows past days and a labeled forecast, with a tabl
   await expect(fig).toContainText("nClimGrid-Daily");
   await expect(fig).toContainText("National Weather Service");
   await expect(fig).toContainText("Not yet reported");
-  await expect(fig.locator(".wx-normal")).toHaveCount(1);              // 1991–2020 normal band
-  await expect(fig).toContainText("Normal high to low, 1991–2020");
+  const weather = loadDistrict("blacklands").weather;
+  const normalDays = weather?.days.filter((day) => day.normal_hi_f != null && day.normal_lo_f != null) ?? [];
+  const normalBandCount = normalDays.length > 1 ? 1 : 0;
+  await expect(fig.locator(".wx-normal")).toHaveCount(normalBandCount);
+  await expect(fig.getByText("Normal high to low, 1991–2020", { exact: true })).toHaveCount(normalBandCount);
   const rows = fig.locator("tbody tr");
   expect(await rows.count()).toBeGreaterThan(30);
   await fig.getByText("Daily numbers").click();
@@ -149,9 +153,15 @@ test("no page mentions Open-Meteo", async ({ page }) => {
   }
 });
 
-test("district rain since Jan. 1 shows this year against normal, with a month table", async ({ page }) => {
+test("district rain since Jan. 1 shows the chart and month table when the data is available", async ({ page }) => {
   await page.goto("district/blacklands/");
   const fig = page.locator("figure.sr");
+  const { season_rain } = loadDistrict("blacklands");
+  if (loadLatest().sources.nclimgrid.stale || !season_rain) {
+    await expect(fig).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Rain since Jan. 1" })).toHaveCount(0);
+    return;
+  }
   await expect(fig.getByRole("img")).toHaveAttribute("aria-label", /Rain since Jan\. 1 in Blacklands, in inches\. Since Jan\. 1, the district has had about [\d.]+ in of rain through/);
   await expect(fig).toContainText("Typical range (middle 80% of years)");
   await fig.getByText("Month by month").click();
