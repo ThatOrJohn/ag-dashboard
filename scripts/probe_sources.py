@@ -186,7 +186,7 @@ def probe_pages() -> dict:
 def probe_burn_bans() -> dict:
     # TFS publishes the daily burn-ban map as a KMZ (zipped KML); counties under a ban are filled red.
     import io, re, zipfile
-    r = get("http://tfsfrp.tamu.edu/WILDFIRES/Burn_Ban.kmz")
+    r = get("https://tfsfrp.tamu.edu/WILDFIRES/Burn_Ban.kmz")
     out = {k: v for k, v in r.items() if k != "body"}
     try:
         z = zipfile.ZipFile(io.BytesIO(r["body"]))

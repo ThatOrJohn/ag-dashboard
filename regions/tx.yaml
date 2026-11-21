@@ -89,7 +89,7 @@ sources:
   burn_bans:
     name: Texas A&M Forest Service
     url: https://texasforestservice.tamu.edu/
-    kmz: http://tfsfrp.tamu.edu/WILDFIRES/Burn_Ban.kmz
+    kmz: https://tfsfrp.tamu.edu/WILDFIRES/Burn_Ban.kmz
     max_age_days: 2
     # KML style ids: #PolyStyle02 is filled red (ban), #PolyStyle00 is transparent (no ban). Confirmed
     # 2026-11-20 against TFS's own BURNBAN.txt list (89 = 89, same counties). See docs/decisions/0003.
