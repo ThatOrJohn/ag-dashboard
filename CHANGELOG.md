@@ -3,6 +3,9 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- The Texas overview shows confirmed New World screwworm cases and recent county detections, with
+  links to movement restrictions and planned sterile fly releases. The card flags stale figures
+  after three days without a refresh and disappears after 14 days.
 - Cattle & Hay and Edwards Plateau show weekly San Angelo auction prices for slaughter hair lambs and
   goat kids in the 50–69 lb class, with a comparison to the prior reported sale where available.
 - County cards show the largest satellite-classified crop categories, their share of county land, and

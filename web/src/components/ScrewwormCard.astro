@@ -1,0 +1,83 @@
+---
+import { day, pulled } from "../lib/format";
+import type { ScrewwormCard, Source } from "../lib/types";
+
+interface Props {
+  card: ScrewwormCard;
+  source: Source;
+  asof: string;
+}
+
+const { card, source, asof } = Astro.props;
+---
+<section aria-labelledby="screwworm-h" data-screwworm data-stale-at={card.stale_at} data-hide-at={card.hide_at}>
+  <h2 id="screwworm-h">New World screwworm in Texas</h2>
+  <div class="card">
+    <p class="notice warn" data-stale-notice hidden={!source.delayed}>
+      <strong>Stale data.</strong> The figures below are from the last successful refresh.
+    </p>
+    <dl class="totals">
+      <div><dt>Active animal cases</dt><dd class="big">{card.active_animals}</dd></div>
+      <div><dt>Total animal cases</dt><dd class="big">{card.animals}</dd></div>
+      <div><dt>Wild-fly trap detections</dt><dd class="big">{card.fly_traps}</dd></div>
+    </dl>
+    <p class="asof">
+      {source.url ? <a href={source.url}>{source.name}</a> : source.name}
+      {source.fetched_at && <> · Last refreshed <time datetime={source.fetched_at}>{pulled(source.fetched_at)}</time></>}
+    </p>
+
+    {card.recent.length > 0 && (
+      <>
+        <h3>Recent county detections</h3>
+        <table>
+          <caption class="sr-only">Animal cases and wild-fly trap detections on each county’s latest confirmation date</caption>
+          <thead><tr><th scope="col">County</th><th scope="col">Confirmed</th><th scope="col" class="n">Animals</th><th scope="col" class="n">Traps</th></tr></thead>
+          <tbody>
+            {card.recent.map((row) => (
+              <tr>
+                <th scope="row">{row.county}</th>
+                <td><time datetime={row.date}>{day(row.date, asof)}</time></td>
+                <td class="n">{row.animals}</td>
+                <td class="n">{row.fly_traps}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    )}
+    <ul class="maps">
+      <li><a href={card.movement_map_url}>Texas movement restriction map</a></li>
+      <li><a href={card.dispersal_url}>USDA weekly map of planned sterile fly releases</a></li>
+    </ul>
+  </div>
+</section>
+
+<script>
+  const section = document.querySelector<HTMLElement>("[data-screwworm]");
+  const notice = section?.querySelector<HTMLElement>("[data-stale-notice]");
+  if (section && notice) {
+    const staleAt = Date.parse(section.dataset.staleAt!);
+    const hideAt = Date.parse(section.dataset.hideAt!);
+    let timer: number;
+    function update(section: HTMLElement, notice: HTMLElement) {
+      window.clearTimeout(timer);
+      const now = Date.now();
+      section.hidden = now >= hideAt;
+      notice.hidden = now < staleAt;
+      if (!section.hidden) {
+        timer = window.setTimeout(() => update(section, notice), (notice.hidden ? staleAt : hideAt) - now);
+      }
+    }
+    update(section, notice);
+    window.addEventListener("pageshow", () => update(section, notice));
+  }
+</script>
+
+<style>
+  .totals { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 0; }
+  .totals dt { color: var(--ink-2); }
+  .totals dd { margin: .25rem 0 0; }
+  h3 { margin-top: 1rem; }
+  .maps { display: flex; flex-wrap: wrap; gap: 0 1.25rem; list-style: none; margin: .5rem 0 0; padding: 0; }
+  .maps a { display: inline-flex; align-items: center; min-height: 44px; }
+</style>

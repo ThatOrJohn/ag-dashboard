@@ -18,6 +18,8 @@
   where available ([0019](decisions/0019-county-satellite-summaries.md)).
 - Weekly San Angelo sheep and goat auction prices for Edwards Plateau on Cattle & Hay
   ([0020](decisions/0020-san-angelo-sheep-goats.md)).
+- Texas New World screwworm detections with a stale-data warning and automatic expiry
+  ([0021](decisions/0021-screwworm-detections.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next

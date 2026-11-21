@@ -8,6 +8,7 @@ export interface Source {
   as_of: string | null;
   fetched_at: string | null;
   stale: boolean;
+  delayed?: boolean;           // snapshot is past its warning age and still shown
   between_reports?: boolean;   // in the source's quiet months (NASS winter break)
 }
 
@@ -52,6 +53,17 @@ export interface MarketCard {
   series?: { id: string; price_cwt: number | null; head: number | null; prev: number | null; year_ago: number | null }[];
   receipts?: number | null;
   narrative?: string | null;
+}
+
+export interface ScrewwormCard {
+  active_animals: number;
+  animals: number;
+  fly_traps: number;
+  recent: { county: string; date: string; animals: number; fly_traps: number }[];
+  stale_at: string;
+  hide_at: string;
+  movement_map_url: string;
+  dispersal_url: string;
 }
 
 export interface CountyCard {
@@ -100,7 +112,7 @@ export interface DistrictSummary {
 
 export interface Persona { id: string; name: string; blurb?: string; card_order: string[] }
 
-export type SourceKey = "usdm" | "nass" | "ams" | "burn_bans" | "nws" | "census" | "nass_county" | "rap" | "cdl" | "nclimgrid" | "normals" | "stage4";
+export type SourceKey = "usdm" | "nass" | "ams" | "burn_bans" | "nws" | "census" | "nass_county" | "rap" | "cdl" | "nclimgrid" | "normals" | "stage4" | "screwworm";
 
 // Annual figures (kad/annual_build.py). Missing means "not published", never zero.
 export type CoverKey = "pfg" | "afg" | "shr" | "tre" | "ltr" | "bgr";
@@ -142,6 +154,7 @@ export interface Latest {
     burn_bans: { count: number; of: number } | null;
     crops: Record<"corn" | "sorghum" | "cotton" | "wheat", { progress: ProgressCard; condition: ConditionCard }>;
     pasture: ConditionCard;
+    screwworm?: ScrewwormCard | null;
     headline?: Headline;
     headline_all?: Headline;
   };

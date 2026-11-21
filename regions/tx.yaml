@@ -98,6 +98,15 @@ sources:
     # 2026-11-20 against TFS's own BURNBAN.txt list (89 = 89, same counties). See docs/decisions/0003.
     ban_style: "#PolyStyle02"
     no_ban_style: "#PolyStyle00"
+  screwworm:
+    name: USDA APHIS New World Screwworm
+    url: https://www.aphis.usda.gov/animals/animal-health/livestock-and-poultry-disease/stop-screwworm/current-status/confirmed
+    csv_url: https://publicdashboards.dl.usda.gov/t/MRP_PUB/views/NewWorldScrewwormPublicReporting_17805168329840/ExportToCSV.csv?:showVizHome=no
+    movement_map_url: https://tahc.maps.arcgis.com/apps/instant/nearby/index.html?appid=8455917e956b474f995cc3b94d3ef54b&sliderDistance=1
+    dispersal_url: https://www.aphis.usda.gov/animals/animal-health/livestock-and-poultry-disease/stop-screwworm/current-status
+    # Days since the last validated download. Confirmations can be weeks apart.
+    warn_after_days: 3
+    hide_after_days: 14
   # Observed weather: county-average high, low and rain (decisions 0013, 0014). NCEI's preliminary month runs
   # about a week behind, so this allows for that plus a slow update.
   nclimgrid:

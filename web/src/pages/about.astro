@@ -10,8 +10,8 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
 ---
 <Base title="About the data · Texas Ag Dashboard" description="Where every figure on these Texas agriculture pages comes from, how I compute district totals, and what I don't claim." current="about">
   <h1>About the data</h1>
-  <p class="lede">Every figure on this site comes from a public source, shows that source and its date, and hides when
-    the source stops updating rather than showing old numbers.</p>
+  <p class="lede">Every figure on this site shows its public source and date. I hide figures when they pass
+    the age limit for their source.</p>
 
   <p class="notice"><strong>{L.nass_notice}</strong></p>
 
@@ -19,13 +19,13 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
   <div class="table-wrap">
     <table>
       <caption class="sr-only">Sources and how current each one is</caption>
-      <thead><tr><th scope="col">Source</th><th scope="col">Newest figure</th><th scope="col">Status</th></tr></thead>
+      <thead><tr><th scope="col">Source</th><th scope="col">Data date</th><th scope="col">Status</th></tr></thead>
       <tbody>
         {rows.map(([, s]) => (
           <tr>
             <th scope="row">{s.url ? <a href={s.url}>{s.name}</a> : s.name}{s.license ? ` (${s.license})` : ""}</th>
             <td>{!s.as_of ? "none yet" : s.as_of.endsWith("-01-01") ? s.as_of.slice(0, 4) : day(s.as_of)}</td>
-            <td><span class={`tag ${s.stale ? "ban" : "ok"}`}>{!s.as_of ? "Not yet available" : s.stale ? "Not current: hidden" : s.between_reports ? "Between seasons" : "Current"}</span></td>
+            <td><span class={`tag ${s.stale ? "ban" : s.delayed ? "" : "ok"}`}>{!s.as_of ? "Not yet available" : s.stale ? "Not current: hidden" : s.delayed ? "Stale: last good refresh" : s.between_reports ? "Between seasons" : "Current"}</span></td>
           </tr>
         ))}
       </tbody>
@@ -46,6 +46,10 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
     <li><strong>Texas A&amp;M Forest Service</strong>: county burn bans, from the daily map behind their
       <a href="https://tfsweb.tamu.edu/wildfire-and-other-disasters/burn-bans-and-information/">burn ban page</a>.
       County judges and commissioners courts set bans; check yours before you burn.</li>
+    <li><strong>USDA APHIS New World Screwworm</strong>. I count confirmed Texas animal cases and wild-fly trap
+      detections from USDA’s public export. The source date is when I last verified the download. I flag the
+      figures after three days without a successful refresh and hide them after 14 days. The USDA release
+      map shows planned coverage. Texas Animal Health Commission publishes the movement restriction map.</li>
     <li><strong><a href="https://www.weather.gov/documentation/services-web-api">National Weather Service</a></strong>:
       the 7-day forecast high, low and rain at each Texas county's center. Public domain.</li>
     <li><strong><a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">NOAA NCEI nClimGrid-Daily</a></strong>:

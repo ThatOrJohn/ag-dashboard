@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from tempfile import NamedTemporaryFile
 
 import pandas as pd
 
@@ -51,7 +52,14 @@ def upsert_obs(region: Region, source: str, new: pd.DataFrame) -> int:
 def write_snapshot(region: Region, name: str, obj) -> None:
     p = region.data_dir / "snapshots" / f"{name}.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(obj, indent=1, default=str))
+    with NamedTemporaryFile(mode="w", dir=p.parent, delete=False) as tmp:
+        pending = p.parent / tmp.name
+        try:
+            tmp.write(json.dumps(obj, indent=1, default=str))
+            tmp.close()
+            pending.replace(p)
+        finally:
+            pending.unlink(missing_ok=True)
 
 
 def read_snapshot(region: Region, name: str):

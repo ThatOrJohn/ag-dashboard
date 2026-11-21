@@ -419,6 +419,48 @@ def market_cards(region: Region, ams: pd.DataFrame, notes: dict, fresh: Freshnes
     return out
 
 
+# --- Screwworm ---------------------------------------------------------------------------------------
+
+def screwworm_card(region: Region, fresh: Freshness) -> dict | None:
+    cfg = region.source("screwworm")
+    if not cfg:
+        return None
+    snap = store.read_snapshot(region, "screwworm")
+    checked = (pd.Timestamp(snap["fetched_at"]).tz_convert(region.timezone).tz_localize(None).normalize()
+               if snap is not None else None)
+    if checked is not None and checked > fresh.asof:
+        checked = None
+    age = (fresh.asof - checked).days if checked is not None else None
+    hidden = age is None or age >= cfg["hide_after_days"]
+    delayed = not hidden and age >= cfg["warn_after_days"]
+    fresh.sources["screwworm"] = {
+        "name": cfg["name"], "url": cfg["url"], "license": cfg.get("license"), "as_of": _iso(checked),
+        "fetched_at": snap["fetched_at"] if checked is not None else None, "stale": hidden, "delayed": delayed,
+    }
+    if hidden:
+        return None
+
+    names = {county.fips: county.name for county in region.counties}
+    detections = snap["detections"]
+    recent = {}
+    for row in sorted(detections, key=lambda r: r["date"], reverse=True):
+        fips = row["fips"]
+        county = recent.setdefault(fips, {"county": names[fips], "date": row["date"], "animals": 0, "fly_traps": 0})
+        if row["date"] == county["date"]:
+            county["fly_traps" if row["fly_trap"] else "animals"] += 1
+    fly_traps = sum(row["fly_trap"] for row in detections)
+
+    return {
+        "active_animals": sum(row["active"] and not row["fly_trap"] for row in detections),
+        "animals": len(detections) - fly_traps,
+        "fly_traps": fly_traps,
+        "recent": list(recent.values())[:5],
+        "stale_at": (checked + pd.Timedelta(days=cfg["warn_after_days"])).tz_localize(region.timezone).isoformat(),
+        "hide_at": (checked + pd.Timedelta(days=cfg["hide_after_days"])).tz_localize(region.timezone).isoformat(),
+        "movement_map_url": cfg["movement_map_url"], "dispersal_url": cfg["dispersal_url"],
+    }
+
+
 # --- Build -------------------------------------------------------------------------------------------
 
 def build(region: Region, asof: date | None = None, failures: list[str] | None = None) -> dict:
@@ -535,7 +577,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
         "drought": drought_summary(w_all, {region.state_fips: 1.0}, map_date, official=True) if drought_ok else None,
         "burn_bans": {"count": sum(v.get("burn_ban", False) for v in counties.values()), "of": len(counties)}
         if bans_ok else None,
-        "crops": crops, "pasture": pasture,
+        "crops": crops, "pasture": pasture, "screwworm": screwworm_card(region, fresh),
     }
     statewide = next((m for m in markets if m["scope"] == "statewide"), None)
     texas["headline"] = headline.texas(texas, statewide)

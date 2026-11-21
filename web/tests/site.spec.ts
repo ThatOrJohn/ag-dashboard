@@ -41,6 +41,29 @@ for (const p of PAGES) {
   });
 }
 
+test("the Texas screwworm card warns and expires on an open page", async ({ page }) => {
+  const { screwworm } = loadLatest().texas;
+  test.skip(!screwworm, "No screwworm snapshot was available at build time");
+  if (!screwworm) return;
+  const staleAt = Date.parse(screwworm.stale_at);
+  const hideAt = Date.parse(screwworm.hide_at);
+  await page.clock.install({ time: staleAt - 60_000 });
+  await page.goto("");
+  const card = page.getByRole("region", { name: "New World screwworm in Texas" });
+  const warning = card.getByText("Stale data.");
+  await expect(card).toBeVisible();
+  await expect(warning).toBeHidden();
+  await expect(card.getByRole("link", { name: "Texas movement restriction map" })).toBeVisible();
+  await expect(card.getByRole("link", { name: "USDA weekly map of planned sterile fly releases" })).toBeVisible();
+
+  await page.clock.fastForward(60_000);
+  await expect(warning).toBeVisible();
+  await page.clock.fastForward(hideAt - staleAt);
+  await expect(card).toBeHidden();
+  await page.reload();
+  await expect(card).toBeHidden();
+});
+
 test("Texas map links a featured-district county to its card", async ({ page }) => {
   await page.goto("");
   const link = page.locator('svg.map a[href*="district/blacklands/#c-48491"]');
