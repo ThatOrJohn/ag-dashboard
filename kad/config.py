@@ -81,6 +81,10 @@ def load_region(region_id: str) -> Region:
     unknown = {c.district for c in counties} - known
     if unknown:
         raise ValueError(f"counties reference districts missing from {region_id}.yaml: {sorted(unknown)}")
+    weekly = {w["id"] for w in raw.get("sources", {}).get("nass", {}).get("weekly", [])}
+    for d in raw["districts"]:
+        if set(d.get("crops", [])) - weekly:
+            raise ValueError(f"{d['slug']}: crops {d['crops']} must be weekly NASS series ids ({sorted(weekly)})")
     return Region(id=raw["id"], name=raw["name"], state_fips=raw["state_fips"], timezone=raw["timezone"],
                   districts=raw["districts"], counties=counties, personas=raw.get("personas", []),
                   sources=raw.get("sources", {}),

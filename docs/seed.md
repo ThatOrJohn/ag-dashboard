@@ -8,9 +8,9 @@ personal project, published on GitHub Pages; not a revenue product.
 ## Decisions so far (Nov 2026)
 - **Texas only, for a long time.** Keep data keyed by FIPS so another state isn't a rewrite, but build no
   multi-state framework. National sources are pulled only for national context (the intro map).
-- **Featured districts:** five NASS districts get the full district view: Blacklands (first), South
-  Central, Edwards Plateau, East Texas North and East Texas South (decision 0010). The rest of Texas is
-  statewide context for now; opening the full view to every district comes later. Rosters in feasibility.md.
+- **Featured districts:** five NASS districts are featured: Blacklands (first), South Central, Edwards
+  Plateau, East Texas North and East Texas South (decision 0010). They started as the only districts with the
+  full view; every district got it on 2026-11-21 (decision 0018). Rosters in feasibility.md.
 - **No programmatic per-county pages** unless a county view carries real value (see below).
 - **Exit plan is acceptable:** if pipelines rot and the value is near zero, leave the site up with a notice
   saying what stopped and when.

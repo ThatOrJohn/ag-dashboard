@@ -124,3 +124,19 @@ def test_district_crop_mix_sums_counties_combines_developed_and_compares_years()
 def test_district_crop_mix_needs_every_county():
     idx = {"A": {"cdl:corn": {2025: 1.0}}}
     assert ab.district_crop_mix(["A", "B"], idx) is None
+
+
+def test_new_counties_make_per_county_sources_due_before_refresh_days(tmp_path, monkeypatch):
+    # After more districts get the full view, CDL and RAP catch up now instead of waiting out refresh_days.
+    r = region(tmp_path, monkeypatch)
+    for key in ("cdl", "rap"):
+        store.log_fetch(r, key)
+    fips = [c.fips for c in r.counties]
+    store.write_snapshot(r, "rap_fetched", {f: "2026-11-01T00:00:00+00:00" for f in fips[:-1]})
+    rows = [{"geo": f, "var": "corn", "date": pd.Timestamp(y, 1, 1), "value": 1.0, "source": "cdl"}
+            for f in fips for y in (2024, 2025) if not (f == fips[-1] and y == 2024)]
+    store.upsert_obs(r, "cdl", pd.DataFrame(rows))
+    assert annual.due(r, "cdl") and annual.due(r, "rap")
+    store.write_snapshot(r, "rap_fetched", {f: "2026-11-01T00:00:00+00:00" for f in fips})
+    store.upsert_obs(r, "cdl", pd.DataFrame([{**rows[0], "geo": fips[-1], "date": pd.Timestamp(2024, 1, 1)}]))
+    assert not annual.due(r, "cdl") and not annual.due(r, "rap")   # a year no county has (unreleased) isn't owed

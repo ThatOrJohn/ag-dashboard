@@ -18,6 +18,7 @@ calls a public ArcGIS geoprocessing service, `Calculate_Statistics_with_HI` (dat
   dataset's cell size. Each class's acres = its share of the county's land pixels (all but background and
   water) × the county's Census land area.
 - **2021 to last year** for home-district counties (585 county-years, a one-time backfill, then 117 a year).
+  Since [0018](0018-every-district-full-view.md), every Texas county (254 a year).
 - District pages show "What covers the land": our sum of county acres for the newest year that every county
   has, against the earliest. The four developed classes are combined. Only crops show a change in acres;
   grass, forest, shrub, wetland, barren and developed say "not compared".

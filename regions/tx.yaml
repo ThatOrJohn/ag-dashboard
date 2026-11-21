@@ -6,38 +6,40 @@ state_alpha: TX
 state_fips: "48"
 timezone: America/Chicago
 
-# NASS agricultural statistics districts. `home` districts are the featured districts (the site's word for them)
-# and get the full working view, in this order; the rest are statewide context. Names follow Quick Stats
+# NASS agricultural statistics districts. Every district gets the full working view (district page, county cards).
+# `home` districts are the featured districts (the site's word for them): header links and first place on the
+# Texas page, in this order (decision 0018). Names follow Quick Stats
 # (`nass`, asd_desc), our first source; NASS's district map page uses others ("South East Texas" for
 # EAST TEXAS SOUTH, "North East Texas" for EAST TEXAS NORTH). `phrase` is how a headline names it mid-sentence
-# ("Drought eased in the Blacklands"); default "the <name> district".
+# ("Drought eased in the Blacklands"); default "the <name> district". `crops` are the statewide crop cards the
+# district page shows, from the weekly crops below; default all four. Set where a crop is minor in the district.
 districts:
   - { slug: blacklands,           nass: BLACKLANDS,           name: Blacklands,           home: 1, phrase: the Blacklands }
   - { slug: south-central,        nass: SOUTH CENTRAL,        name: South Central,        home: 2 }
-  - { slug: edwards-plateau,      nass: EDWARDS PLATEAU,      name: Edwards Plateau,      home: 3, phrase: the Edwards Plateau }
-  - { slug: east-texas-north,     nass: EAST TEXAS NORTH,     name: East Texas North,     home: 4 }
+  - { slug: edwards-plateau,      nass: EDWARDS PLATEAU,      name: Edwards Plateau,      home: 3, phrase: the Edwards Plateau, crops: [wheat] }
+  - { slug: east-texas-north,     nass: EAST TEXAS NORTH,     name: East Texas North,     home: 4, crops: [wheat] }
   - { slug: east-texas-south,     nass: EAST TEXAS SOUTH,     name: East Texas South,     home: 5 }
-  - { slug: northern-high-plains, nass: NORTHERN HIGH PLAINS, name: Northern High Plains }
-  - { slug: southern-high-plains, nass: SOUTHERN HIGH PLAINS, name: Southern High Plains }
-  - { slug: northern-low-plains,  nass: NORTHERN LOW PLAINS,  name: Northern Low Plains }
-  - { slug: southern-low-plains,  nass: SOUTHERN LOW PLAINS,  name: Southern Low Plains }
-  - { slug: cross-timbers,        nass: CROSS TIMBERS,        name: Cross Timbers }
-  - { slug: trans-pecos,          nass: TRANS-PECOS,          name: Trans-Pecos }
-  - { slug: upper-coast,          nass: UPPER COAST,          name: Upper Coast }
+  - { slug: northern-high-plains, nass: NORTHERN HIGH PLAINS, name: Northern High Plains, phrase: the Northern High Plains }
+  - { slug: southern-high-plains, nass: SOUTHERN HIGH PLAINS, name: Southern High Plains, phrase: the Southern High Plains }
+  - { slug: northern-low-plains,  nass: NORTHERN LOW PLAINS,  name: Northern Low Plains, phrase: the Northern Low Plains }
+  - { slug: southern-low-plains,  nass: SOUTHERN LOW PLAINS,  name: Southern Low Plains, phrase: the Southern Low Plains }
+  - { slug: cross-timbers,        nass: CROSS TIMBERS,        name: Cross Timbers, phrase: the Cross Timbers, crops: [wheat] }
+  - { slug: trans-pecos,          nass: TRANS-PECOS,          name: Trans-Pecos, phrase: the Trans-Pecos, crops: [cotton, wheat] }
+  - { slug: upper-coast,          nass: UPPER COAST,          name: Upper Coast, phrase: the Upper Coast }
   - { slug: south-texas,          nass: SOUTH TEXAS,          name: South Texas }
-  - { slug: coastal-bend,         nass: COASTAL BEND,         name: Coastal Bend }
-  - { slug: lower-valley,         nass: LOWER VALLEY,         name: Lower Valley }
+  - { slug: coastal-bend,         nass: COASTAL BEND,         name: Coastal Bend, phrase: the Coastal Bend }
+  - { slug: lower-valley,         nass: LOWER VALLEY,         name: Lower Valley, phrase: the Lower Valley }
 
 # Personas are config (ms-sound-check 0010). card_order names sections the build emits.
 personas:
   # Sections: crop:<id>, pasture, drought, rain, burn_bans, cattle. Pages are /for/<id>/.
   - id: corn-sorghum
     name: Corn & Sorghum
-    blurb: Statewide progress and condition, then drought and rain in the home districts.
+    blurb: Statewide progress and condition, then drought and rain by district.
     card_order: [crop:corn, crop:sorghum, drought, rain, cattle]
   - id: cotton
     name: Cotton
-    blurb: Statewide progress and condition, then drought and rain in the home districts.
+    blurb: Statewide progress and condition, then drought and rain by district.
     card_order: [crop:cotton, drought, rain, burn_bans]
   - id: wheat
     name: Wheat & Small Grains
@@ -49,7 +51,7 @@ personas:
     card_order: [cattle, pasture, drought, rain, burn_bans]
   - id: land-water
     name: Land, Water & Weather
-    blurb: Drought, rain and burn bans in the home districts, with pasture condition for context.
+    blurb: Drought, rain and burn bans by district, with pasture condition for context.
     card_order: [drought, rain, burn_bans, pasture]
 
 # Every source: where it comes from, how often it should update, and how old its newest figure may be
@@ -103,7 +105,7 @@ sources:
     license: Public domain (NOAA)
     ncei_state_code: "41"      # NCEI's code for Texas (not FIPS); us-state-codes_ncei-to-fips.csv
     max_age_days: 14
-  # 7-day forecast at home-district county centers. max_age is from the forecast's first day (today).
+  # 7-day forecast at every county's center. max_age is from the forecast's first day (today).
   nws:
     name: National Weather Service forecast
     url: https://www.weather.gov/documentation/services-web-api

@@ -1,4 +1,4 @@
-"""National Weather Service API: 7-day forecast high, low and rain at each home-district county's center.
+"""National Weather Service API: 7-day forecast high, low and rain at each Texas county's center.
 
   GET https://api.weather.gov/points/{lat},{lon}      → properties.forecastGridData (cached: it doesn't change)
   GET https://api.weather.gov/gridpoints/{wfo}/{x},{y} → maxTemperature, minTemperature (°C) and
@@ -69,7 +69,7 @@ def parse(geo: str, props: dict, tz: str) -> list[dict]:
 
 
 def fetch(region: Region, *, counties=None) -> pd.DataFrame:
-    counties = counties if counties is not None else [c for d in region.home_districts for c in region.counties_in(d["slug"])]
+    counties = counties if counties is not None else list(region.counties)
     http = _http()
     urls = grid_urls(region, http, counties)
     today = pd.Timestamp.now(tz=region.timezone).tz_localize(None).normalize()

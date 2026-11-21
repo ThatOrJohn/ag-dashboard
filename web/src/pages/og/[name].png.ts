@@ -10,7 +10,7 @@ export const getStaticPaths = (() => {
   const L = loadLatest();
   return [
     { params: { name: "index" }, props: { kind: "texas" } },
-    ...L.districts.filter((d) => d.home).map((d) => ({ params: { name: `district-${d.slug}` }, props: { kind: "district", id: d.slug } })),
+    ...L.districts.map((d) => ({ params: { name: `district-${d.slug}` }, props: { kind: "district", id: d.slug } })),
     ...L.personas.map((p) => ({ params: { name: `for-${p.id}` }, props: { kind: "persona", id: p.id } })),
     { params: { name: "about" }, props: { kind: "about" } },
   ];

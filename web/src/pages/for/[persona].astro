@@ -19,7 +19,8 @@ const { persona } = Astro.props as { persona: Persona & { blurb?: string } };
 const L = loadLatest();
 const S = L.sources;
 const tx = L.texas;
-const homes = L.districts.filter((d) => d.home);
+// Featured districts first, then the rest in config order.
+const allDistricts = [...L.districts.filter((d) => d.home), ...L.districts.filter((d) => !d.home)];
 
 type Block = { kind: "cards"; items: string[] } | { kind: "section"; id: string };
 const blocks: Block[] = [];
@@ -65,10 +66,10 @@ const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
           <DroughtBar levels={tx.drought.now} label="Share of Texas by drought category" />
           <div class="table-wrap">
             <table>
-              <caption class="sr-only">Drought in the featured districts</caption>
+              <caption class="sr-only">Drought by district</caption>
               <thead><tr><th scope="col">District</th><th class="n" scope="col">In drought (D1+)</th><th class="n" scope="col">vs last week</th><th class="n" scope="col">A year ago</th></tr></thead>
               <tbody>
-                {homes.map((d) => (
+                {allDistricts.map((d) => (
                   <tr><th scope="row"><a href={href(`district/${d.slug}/`)}>{d.name}</a></th>
                     <td class="n">{pct(d.drought?.now.d1)}</td>
                     <td class="n">{d.drought?.week_ago ? change(d.drought.now.d1, d.drought.week_ago.d1) : "n/a"}</td>
@@ -84,10 +85,10 @@ const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
         <>
           <div class="table-wrap">
             <table>
-              <caption class="sr-only">Rain in the featured districts</caption>
+              <caption class="sr-only">Rain by district</caption>
               <thead><tr><th scope="col">District</th><th class="n" scope="col">{`7 days to ${day(S.nclimgrid.as_of, L.asof)}`}</th><th class="n" scope="col">30 days, vs normal</th><th class="n" scope="col">Forecast, next 7 days</th></tr></thead>
               <tbody>
-                {homes.map((d) => (
+                {allDistricts.map((d) => (
                   <tr><th scope="row"><a href={href(`district/${d.slug}/`)}>{d.name}</a></th>
                     <td class="n">{inches(d.rain_7d_in)}</td><td class="n">{inches(d.rain_30d_in)}{d.rain_vs_normal?.pct != null ? ` (${d.rain_vs_normal.pct}%)` : ""}</td><td class="n">{inches(d.rain_next_7d_in)}</td></tr>
                 ))}
@@ -100,8 +101,8 @@ const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
       )}
       {b.kind === "section" && b.id === "burn_bans" && tx.burn_bans && (
         <>
-          <p>{`${tx.burn_bans.count} of ${tx.burn_bans.of} Texas counties have a burn ban. In the featured districts: ` +
-            homes.map((d) => `${d.name} ${d.burn_bans ?? "n/a"} of ${d.counties}`).join("; ") + "."}</p>
+          <p>{`${tx.burn_bans.count} of ${tx.burn_bans.of} Texas counties have a burn ban. By district: ` +
+            allDistricts.map((d) => `${d.name} ${d.burn_bans ?? "n/a"} of ${d.counties}`).join("; ") + "."}</p>
           <AsOf source={S.burn_bans} label="Updated" note="county judges set bans; check yours before burning" />
         </>
       )}

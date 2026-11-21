@@ -45,7 +45,7 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
       <a href="https://tfsweb.tamu.edu/wildfire-and-other-disasters/burn-bans-and-information/">burn ban page</a>.
       County judges and commissioners courts set bans; check yours before you burn.</li>
     <li><strong><a href="https://www.weather.gov/documentation/services-web-api">National Weather Service</a></strong>:
-      the 7-day forecast high, low and rain at each featured-district county's center. Public domain.</li>
+      the 7-day forecast high, low and rain at each Texas county's center. Public domain.</li>
     <li><strong><a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">NOAA NCEI nClimGrid-Daily</a></strong>:
       daily high, low and rain averaged over each county: the observed weather, and, from 1991–2020, the
       normals I compute (each calendar day's 30-year mean, smoothed over a month), so "vs normal" compares like with like.
@@ -72,8 +72,8 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
       30 m, summed by county. Satellite-classified, so it differs somewhat from survey figures.</li>
   </ul>
 
-  <h2>Why these districts</h2>
-  <p>{`${listAnd(homes)} are the districts I started with, so they get the full district view, with a card for every county. The rest of Texas is shown statewide and in the district table, for context. Other districts will get the same view in time.`}</p>
+  <h2>Featured districts</h2>
+  <p>{`${listAnd(homes)} are the districts I started with, so they get links in the header and first place on the Texas page. Every one of Texas's ${L.districts.length} NASS districts has the same full district view, with a card for every county.`}</p>
 
   <h2>How I compute what isn't published</h2>
   <ul>

@@ -16,9 +16,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 // When the pipeline last fetched anything: the newest source pull, not the build time.
 const lastPull = Object.values(latest.sources).map((s) => s.fetched_at).filter((t): t is string => !!t).sort().at(-1);
 const homes = latest.districts.filter((d) => d.home);
+const others = latest.districts.filter((d) => !d.home);
 // Share image per page (src/pages/og/[name].png.ts). The build stamp in the query keeps share caches honest.
 const ogName = current === "about" ? "about" : current?.startsWith("for-") ? current
-  : homes.some((d) => d.slug === current) ? `district-${current}` : "index";
+  : latest.districts.some((d) => d.slug === current) ? `district-${current}` : "index";
 const ogUrl = `${new URL(href(`og/${ogName}.png`), Astro.site)}?v=${latest.generated_at.replace(/\D/g, "").slice(0, 12)}`;
 // Theme rule: no stored value follows the system; a stored "light" or "dark" overrides it.
 const THEME_INIT =
@@ -61,11 +62,16 @@ const THEME_INIT =
           {homes.map((d) => (
             <a class="nav-district" href={href(`district/${d.slug}/`)} aria-current={current === d.slug ? "page" : undefined}>{d.name}</a>
           ))}
-          {/* Phones: the districts fold into one menu so the header stays one row. */}
+          {/* Wide screens: the featured districts are inline and this menu holds the rest. Narrow screens: every
+              district folds into it so the header stays one row. */}
           <details class="nav-menu">
-            <summary>Districts</summary>
+            <summary><span class="nav-wide">More districts</span><span class="nav-narrow">Districts</span></summary>
             <div class="nav-menu-list">
               {homes.map((d) => (
+                <a class="nav-narrow" href={href(`district/${d.slug}/`)} aria-current={current === d.slug ? "page" : undefined}>{d.name}</a>
+              ))}
+              <span class="nav-narrow nav-menu-rule" aria-hidden="true" />
+              {others.map((d) => (
                 <a href={href(`district/${d.slug}/`)} aria-current={current === d.slug ? "page" : undefined}>{d.name}</a>
               ))}
             </div>

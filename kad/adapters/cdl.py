@@ -122,7 +122,7 @@ def fetch(region: Region, *, deadline: float | None = None):
     last = date.today().year - 1            # a year's CDL comes out early the next year; it may not exist yet
     have = store.read_obs(region, SOURCE)
     have_keys = set(zip(have["geo"], have["date"].dt.year)) if not have.empty else set()
-    counties = [c for d in region.home_districts for c in region.counties_in(d["slug"])]
+    counties = list(region.counties)
     todo = [(c, y) for y in range(last, first - 1, -1) for c in counties if (c.fips, y) not in have_keys]
     if not todo:
         return pd.DataFrame(), True, []

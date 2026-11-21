@@ -85,6 +85,7 @@ export interface DistrictSummary {
   name: string;
   home: boolean;
   counties: number;
+  crops: ("wheat" | "cotton" | "corn" | "sorghum")[];   // statewide crop cards this district's page shows
   drought?: DroughtSummary | null;
   burn_bans?: number;
   rain_7d_in?: number | null;

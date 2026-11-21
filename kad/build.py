@@ -1,7 +1,7 @@
 """Store → JSON for the site.
 
   web/public/data/<region>/latest.json             sources + freshness, Texas digest, every county's card
-  web/public/data/<region>/districts/<slug>.json   home districts: counties, drought history, markets
+  web/public/data/<region>/districts/<slug>.json   every district: counties, drought history, markets
 
 Rules (CLAUDE.md):
 - A source past its max age is `stale`, and its sections carry no numbers (the site hides them).
@@ -24,6 +24,8 @@ from .config import SITE_OUT, Region
 NASS_NOTICE = "This product uses the NASS API but is not endorsed or certified by NASS."
 CONDITION = ("excellent", "good", "fair", "poor", "very_poor")
 DROUGHT = ("d0", "d1", "d2", "d3", "d4")
+# Statewide weekly crops, in the order district pages show them. A district lists its own in tx.yaml (`crops`).
+CROPS = ("wheat", "cotton", "corn", "sorghum")
 CATTLE_SERIES = ("steers:500", "steers:700", "heifers:500", "cows:slaughter")
 
 
@@ -443,7 +445,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     # NASS
     fresh.mark("nass", nass["date"].max() if not nass.empty else None)
     crops = {}
-    for crop in ("corn", "sorghum", "cotton", "wheat"):
+    for crop in CROPS:
         crops[crop] = {"progress": progress_card(region, nass, crop, asof_ts),
                        "condition": condition_card(region, nass, crop, asof_ts)}
     pasture = condition_card(region, nass, "pasture", asof_ts)
@@ -506,7 +508,8 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     districts = []
     for d in region.districts:
         d_area = {c.fips: c.land_sqmi for c in region.counties_in(d["slug"])}
-        entry = {"slug": d["slug"], "name": d["name"], "home": bool(d.get("home")), "counties": len(d_area)}
+        entry = {"slug": d["slug"], "name": d["name"], "home": bool(d.get("home")), "counties": len(d_area),
+                 "crops": d.get("crops", list(CROPS))}
         if drought_ok:
             entry["drought"] = drought_summary(w, d_area, map_date)
         if bans_ok:
@@ -521,9 +524,8 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
             entry["rain_vs_normal"] = _district_vs_normal(counties, d_area)
         if estimate:
             entry["rain_estimate"] = _district_estimate(counties, d_area)
-        if d.get("home"):
-            local = next((m for m in markets if m.get("district") == d["slug"]), None)
-            entry["headline"] = headline.district(entry, d.get("phrase") or f"the {d['name']} district", local)
+        local = next((m for m in markets if m.get("district") == d["slug"]), None)
+        entry["headline"] = headline.district(entry, d.get("phrase") or f"the {d['name']} district", local)
         districts.append(entry)
 
     texas = {
@@ -569,7 +571,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     (out / "districts").mkdir(parents=True, exist_ok=True)
     (out / "latest.json").write_text(json.dumps(latest, separators=(",", ":")))
 
-    for d in region.home_districts:
+    for d in region.districts:
         d_area = {c.fips: c.land_sqmi for c in region.counties_in(d["slug"])}
         annual_cards = {}
         for f in d_area:

@@ -5,8 +5,8 @@ import { loadDistrict, loadLatest } from "../src/lib/data";
 // Must match astro.config.mjs (and its SITE_URL / SITE_BASE overrides).
 const ORIGIN = `${process.env.SITE_URL || "https://thatorjohn.github.io"}${process.env.SITE_BASE || "/ag-dashboard/"}`;
 const NASS = "This product uses the NASS API but is not endorsed or certified by NASS.";
-const PAGES = ["", "district/blacklands/", "district/south-central/", "district/edwards-plateau/", "district/east-texas-north/", "district/east-texas-south/", "about/",
-  "for/corn-sorghum/", "for/cotton/", "for/wheat/", "for/cattle-hay/", "for/land-water/"];
+const DISTRICTS = loadLatest().districts.map((d) => `district/${d.slug}/`);
+const PAGES = ["", ...DISTRICTS, "about/", "for/corn-sorghum/", "for/cotton/", "for/wheat/", "for/cattle-hay/", "for/land-water/"];
 
 for (const p of PAGES) {
   test.describe(`/${p}`, () => {
@@ -41,7 +41,7 @@ for (const p of PAGES) {
   });
 }
 
-test("Texas map links a home-district county to its card", async ({ page }) => {
+test("Texas map links a featured-district county to its card", async ({ page }) => {
   await page.goto("");
   const link = page.locator('svg.map a[href*="district/blacklands/#c-48491"]');
   await expect(link).toHaveCount(1);
@@ -50,6 +50,32 @@ test("Texas map links a home-district county to its card", async ({ page }) => {
   await expect(page.locator("#c-48491")).toContainText("Williamson");
   await expect(page.locator("#c-48491")).toHaveAttribute("open", "");   // the map click opens the card
   await expect(page.locator("#c-48491")).toContainText("Rain, 7 days to");
+});
+
+test("every district has a page, and the Texas map links counties outside the featured districts", async ({ page }) => {
+  expect(DISTRICTS).toHaveLength(15);
+  await page.goto("");
+  // Lubbock County, Southern High Plains: not a featured district.
+  const link = page.locator('svg.map a[href*="district/southern-high-plains/#c-48303"]');
+  await expect(link).toHaveCount(1);
+  await link.click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Southern High Plains");
+  await expect(page.locator(".eyebrow").first()).not.toContainText("featured district");
+  await expect(page.locator("#c-48303")).toHaveAttribute("open", "");
+  await page.goto("");
+  await page.getByRole("region", { name: /Other districts this week/ }).getByRole("link", { name: "Trans-Pecos" }).click();
+  await expect(page).toHaveURL(/district\/trans-pecos\/$/);
+});
+
+test("on wide screens the header lists featured districts and a menu of the rest", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("");
+  await expect(page.locator(".nav .nav-district")).toHaveCount(5);
+  await page.locator(".nav-menu summary").click();
+  const menu = page.locator(".nav-menu-list");
+  await expect(menu.getByRole("link", { name: "Blacklands" })).toBeHidden();
+  await menu.getByRole("link", { name: "Northern High Plains" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Northern High Plains");
 });
 
 test("theme toggle switches and remembers", async ({ page }) => {

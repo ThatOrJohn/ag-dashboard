@@ -37,10 +37,10 @@ See `QUICKSTART.md` for the whole system and `docs/decisions/` before changing w
   output goes to `data/probe/` (gitignored).
 
 ## Scope
-- **Texas first.** Five NASS agricultural statistics districts are featured and get the full district view
-  (decision 0010): Blacklands first, then South Central, Edwards Plateau, East Texas North, East Texas South.
-  District names follow Quick Stats. Every other district gets the same view later; until then the rest of
-  Texas is statewide context. The list lives in `regions/tx.yaml` (`home:`). Key everything by county FIPS
+- **Texas first.** All 15 NASS agricultural statistics districts get the full district view (decision 0018).
+  Five are featured, with header links and first place (decision 0010): Blacklands first, then South Central,
+  Edwards Plateau, East Texas North, East Texas South. District names follow Quick Stats. The featured list
+  lives in `regions/tx.yaml` (`home:`). Key everything by county FIPS
   and keep state-specific settings in `regions/<state>.yaml`, so another state is config plus adapters, not a rewrite.
 - **Zoom:** US (intro) → Texas → district (main working view) → county as a map stop with a card, not a
   standalone page.

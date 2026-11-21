@@ -1,6 +1,6 @@
 # 0010: Five featured districts get the full district view, and the site says why
 
-- **Status:** Accepted
+- **Status:** Superseded in part by [0018](0018-every-district-full-view.md): every district now has the full view; the five remain featured
 - **Date:** 2026-11-20 (reworded 2026-11-21)
 
 ## Context
@@ -21,4 +21,4 @@ It answers the "why not my district" question plainly and honestly, without prom
 ## Consequences
 On narrow screens five district links don't fit in the header, so they fold into a "Districts" menu
 below 1100 px. Opening every district needs a different navigation (a picker or the map) rather than
-more header links; that is on the roadmap.
+more header links; 0018 adds a "More districts" menu and map links.

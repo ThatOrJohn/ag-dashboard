@@ -44,7 +44,7 @@ saved snapshot with no live ingestion.
 |---|---|
 | `web/src/styles/tokens.css` | Color tokens, light and dark, with AA-tuned pairs. |
 | `web/src/lib/site.ts` | Site name, author, repo link, the mark. |
-| `regions/tx.yaml` | Districts (featured = `home`, and order), personas, sources, max ages, seasons, AMS reports. |
+| `regions/tx.yaml` | Districts (all get a page; featured = `home`, and order; `crops`), personas, sources, max ages, seasons, AMS reports. |
 | `regions/tx-counties.csv` | 254 counties → district, centroid, land area. `scripts/make_county_table.py`. |
 | `kad/adapters/` | One file per source. |
 | `kad/build.py` | Freshness, seasons, district totals, JSON for the site. |

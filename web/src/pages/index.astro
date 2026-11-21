@@ -1,5 +1,5 @@
 ---
-// Texas: the statewide this-week digest and the way into the home districts.
+// Texas: the statewide this-week digest and the way into every district (featured ones first).
 import Base from "../layouts/Base.astro";
 import AsOf from "../components/AsOf.astro";
 import CropCard from "../components/CropCard.astro";
@@ -15,7 +15,6 @@ const L = loadLatest();
 const S = L.sources;
 const tx = L.texas;
 const homes = L.districts.filter((d) => d.home);
-const homeSlugs = new Set(homes.map((d) => d.slug));
 const others = L.districts.filter((d) => !d.home);
 const fipsOf = (slug: string) => Object.entries(L.counties).filter(([, c]) => c.district === slug).map(([f]) => f);
 const statewide = L.markets.filter((m) => m.scope === "statewide");
@@ -43,7 +42,7 @@ const anyStale = Object.values(S).some((s) => s.stale);
         <div>
           <DroughtMap counties={L.counties} title="Texas counties by drought category" link={(f) => {
             const d = L.counties[f]?.district;
-            return d && homeSlugs.has(d) ? href(`district/${d}/#c-${f}`) : null;
+            return d ? href(`district/${d}/#c-${f}`) : null;
           }} labels={homes.map((d) => ({ text: d.name, fips: fipsOf(d.slug) }))} />
         </div>
         <div>
@@ -65,7 +64,7 @@ const anyStale = Object.values(S).some((s) => s.stale);
 
   <section aria-labelledby="districts-h">
     <h2 id="districts-h">Featured districts</h2>
-    <p class="muted">{`These ${countWord(homes.length)} NASS agricultural statistics districts are the ones I started with, so each gets a full district view with a card for every county. The rest of Texas is further down, for context. District figures are my own totals of county data, weighted by land area.`}</p>
+    <p class="muted">{`These ${countWord(homes.length)} NASS agricultural statistics districts are the ones I started with. Every district has the same full view, with a card for every county: the other ${countWord(others.length)} are in the table below, or pick a county on the map. District figures are my own totals of county data, weighted by land area.`}</p>
     <div class="grid">
       {homes.map((d) => (
         <a class="card" href={href(`district/${d.slug}/`)} style="text-decoration:none;color:inherit">
@@ -104,15 +103,15 @@ const anyStale = Object.values(S).some((s) => s.stale);
   </section>
 
   <section aria-labelledby="rest-h">
-    <h2 id="rest-h">The rest of Texas</h2>
+    <h2 id="rest-h">Every other district</h2>
     <div class="table-wrap" tabindex="0" role="region" aria-label="Other districts this week (scrolls sideways on small screens)">
       <table>
-        <caption class="sr-only">Other NASS districts this week</caption>
+        <caption class="sr-only">Other NASS districts this week; each name links to its district page</caption>
         <thead><tr><th scope="col">District</th><th class="n" scope="col">In drought (D1+)</th><th class="n" scope="col">vs last week</th><th class="n" scope="col">{`Rain, 7 days to ${day(S.nclimgrid.as_of, L.asof)}`}</th><th class="n" scope="col">Rain vs normal, 30 days</th><th class="n" scope="col">Burn bans</th></tr></thead>
         <tbody>
           {others.map((d) => (
             <tr>
-              <th scope="row">{d.name}</th>
+              <th scope="row"><a href={href(`district/${d.slug}/`)}>{d.name}</a></th>
               <td class="n">{d.drought ? pct(d.drought.now.d1) : "n/a"}</td>
               <td class="n">{d.drought?.week_ago ? change(d.drought.now.d1, d.drought.week_ago.d1) : "n/a"}</td>
               <td class="n">{inches(d.rain_7d_in)}</td>

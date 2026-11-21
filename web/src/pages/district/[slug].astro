@@ -15,7 +15,7 @@ import { loadDistrict, loadLatest } from "../../lib/data";
 import { category, categoryName, change, day, href, inches, pct } from "../../lib/format";
 
 export function getStaticPaths() {
-  return loadLatest().districts.filter((d) => d.home).map((d) => ({ params: { slug: d.slug } }));
+  return loadLatest().districts.map((d) => ({ params: { slug: d.slug } }));
 }
 
 const { slug } = Astro.params as { slug: string };
@@ -24,10 +24,10 @@ const D = loadDistrict(slug);
 const S = L.sources;
 const sum = D.summary;
 const keep = D.counties.map((c) => c.fips);
-const crops = slug === "edwards-plateau" || slug === "east-texas-north" ? (["wheat"] as const) : (["wheat", "cotton", "corn", "sorghum"] as const);
+const crops = sum.crops;
 ---
 <Base title={`${D.name} district, Texas: this week · Texas Ag Dashboard`} description={`Drought, rain, burn bans and cattle prices for the ${D.name} district of Texas, county by county, from public data.`} current={slug}>
-  <span class="eyebrow"><a href={href()}>Texas</a> · NASS district · featured district · week of {day(L.asof)}</span>
+  <span class="eyebrow"><a href={href()}>Texas</a> · NASS district{sum.home ? " · featured district" : ""} · week of {day(L.asof)}</span>
   <h1>{D.name}</h1>
   <Headline headline={sum.headline} sources={S} asof={L.asof} />
   <p class="muted">{`${sum.counties} counties. Pick a county on the map for its card.`}</p>

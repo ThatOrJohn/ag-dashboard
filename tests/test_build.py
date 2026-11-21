@@ -1,5 +1,6 @@
 """Build rules: stale hides, out of season says so, no last-season numbers."""
 import pandas as pd
+import pytest
 
 from kad.build import condition_card, forecast_rain_by_county, progress_card, rain_by_county, rain_estimate, weather_strip
 from kad.config import load_region
@@ -51,6 +52,19 @@ def test_region_counties_complete():
     assert [d["slug"] for d in TX.home_districts] == ["blacklands", "south-central", "edwards-plateau",
                                                       "east-texas-north", "east-texas-south"]
     assert [len(TX.counties_in(d["slug"])) for d in TX.home_districts] == [25, 21, 28, 24, 19]
+    assert len(TX.districts) == 15 and all(TX.counties_in(d["slug"]) for d in TX.districts)
+
+
+def test_district_crops_must_be_weekly_series(tmp_path, monkeypatch):
+    import yaml
+    from kad import config
+    raw = yaml.safe_load((config.REGIONS / "tx.yaml").read_text())
+    raw["districts"][0]["crops"] = ["rice"]
+    (tmp_path / "tx.yaml").write_text(yaml.safe_dump(raw))
+    (tmp_path / "tx-counties.csv").write_text((config.REGIONS / "tx-counties.csv").read_text())
+    monkeypatch.setattr(config, "REGIONS", tmp_path)
+    with pytest.raises(ValueError, match="crops"):
+        config.load_region("tx")
 
 
 def test_winter_break_is_out_of_season_not_stale():

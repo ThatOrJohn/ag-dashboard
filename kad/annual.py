@@ -31,11 +31,27 @@ def _adapters():
     }
 
 
+def pending(region: Region, key: str) -> bool:
+    """Per-county sources with counties not yet covered, e.g. after more districts get the full view. These
+    run now and continue each run until covered, rather than waiting out refresh_days."""
+    fips = {c.fips for c in region.counties}
+    if key == "rap":
+        return bool(fips - set(store.read_snapshot(region, "rap_fetched") or {}))
+    if key == "cdl":
+        have = store.read_obs(region, "cdl")
+        if have.empty:
+            return True
+        # Every year some county already has (an unreleased newest year is in no county, so it isn't owed).
+        got = set(zip(have["geo"], have["date"].dt.year))
+        return any((f, y) not in got for y in {y for _, y in got} for f in fips)
+    return False
+
+
 def due(region: Region, key: str, now: datetime | None = None) -> bool:
     now = now or datetime.now(timezone.utc)
     last = store.read_fetch_log(region).get(key)
     days = region.source(key).get("refresh_days", 30)
-    return last is None or now - datetime.fromisoformat(last) > timedelta(days=days)
+    return last is None or now - datetime.fromisoformat(last) > timedelta(days=days) or pending(region, key)
 
 
 def run_due(region: Region, *, budget_s: float = 480, force: bool = False, only: list[str] | None = None,

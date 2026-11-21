@@ -12,10 +12,11 @@
   forecast instead of Open-Meteo ([0014](decisions/0014-drop-open-meteo.md)), rain since Jan. 1
   ([0015](decisions/0015-rain-since-jan-1.md)), Stage IV rain estimates for the days NOAA hasn't published
   ([0017](decisions/0017-stage4-rain-estimates.md)).
+- Full district view for every Texas district; the five featured ones keep the header links
+  ([0018](decisions/0018-every-district-full-view.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next
-- Full district view for every Texas district, not just the five featured ones.
 - Satellite layers per county: CDL crop mix and RAP cover on the county cards.
 - Sheep and goats for Edwards Plateau (San Angelo 2014 / 2013) on Cattle & Hay.
 - Data view (tables, methods, CSV / Parquet downloads).

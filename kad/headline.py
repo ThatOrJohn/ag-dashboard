@@ -1,4 +1,4 @@
-"""Plain-language "this week" headlines for Texas and each home district.
+"""Plain-language "this week" headlines for Texas and each district.
 
 Each sentence comes from one source and is left out when that source is stale. Wording is factual and calm
 (CLAUDE.md: plain, non-alarmist language): "eased", "expanded", "held steady", never "crisis" or "severe
