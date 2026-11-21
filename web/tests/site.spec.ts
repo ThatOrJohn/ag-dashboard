@@ -23,11 +23,11 @@ for (const p of PAGES) {
         await page.goto(p);
         await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /^(?!.*dark).*$/);
         const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
-        // Map county names are ink with a 3px paper halo (paint-order: stroke), so the glyphs sit on paper,
-        // the same AA pair as body text. Axe measures SVG text against the county fill and can't see the
-        // halo, so contrast on .county-name only is excluded here (docs/decisions/0005).
+        // Map county names and district labels are ink with a 3px paper halo (paint-order: stroke), so the
+        // glyphs sit on paper, the same AA pair as body text. Axe measures SVG text against the county fill and
+        // can't see the halo, so contrast on .county-name and .map-label only is excluded (docs/decisions/0005).
         const violations = r.violations
-          .map((v) => ({ ...v, nodes: v.id === "color-contrast" ? v.nodes.filter((n) => !String(n.html).includes("county-name")) : v.nodes }))
+          .map((v) => ({ ...v, nodes: v.id === "color-contrast" ? v.nodes.filter((n) => !/county-name|map-label/.test(String(n.html))) : v.nodes }))
           .filter((v) => v.nodes.length);
         expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(" ")}`)).toEqual([]);
       });

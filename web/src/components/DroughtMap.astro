@@ -64,7 +64,7 @@ const id = `m-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}`;
   {labelPos.map((l) => {
     const [first, ...rest] = l.text.split(" ");
     return rest.length
-      ? <text class="label" x={l.x} y={l.y} text-anchor="middle"><tspan x={l.x} dy="-0.15em">{first}</tspan><tspan x={l.x} dy="1.1em">{rest.join(" ")}</tspan></text>
+      ? <text class="label" x={l.x} y={l.y} text-anchor="middle"><tspan class="map-label" x={l.x} dy="-0.15em">{first}</tspan><tspan class="map-label" x={l.x} dy="1.1em">{rest.join(" ")}</tspan></text>
       : <text class="label" x={l.x} y={l.y} text-anchor="middle">{l.text}</text>;
   })}
 </svg>
