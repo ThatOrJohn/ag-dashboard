@@ -55,9 +55,11 @@ def cmd_backfill(region, args):
 
 
 def cmd_ingest(region, args):
-    from .adapters import ams, burnbans, nass, nclimgrid, nws, screwworm, stage4, usdm
+    from .adapters import ams, boll_weevil, burnbans, nass, nclimgrid, nws, screwworm, stage4, usdm
     if region.source("screwworm"):
         _try("screwworm", screwworm.refresh, region)
+    if region.source("boll_weevil"):
+        _try("boll_weevil", boll_weevil.refresh, region)
     _save(region, "usdm", _try("usdm", usdm.fetch, region))
     _save(region, "nass", _try("nass", nass.weekly, region, years_back=5 if args.force else None))
     res = _try("ams", ams.fetch, region)

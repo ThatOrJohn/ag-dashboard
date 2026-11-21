@@ -461,8 +461,24 @@ def screwworm_card(region: Region, fresh: Freshness) -> dict | None:
     }
 
 
-# --- Build -------------------------------------------------------------------------------------------
+# --- Boll weevil -------------------------------------------------------------------------------------
 
+def boll_weevil_card(region: Region, fresh: Freshness) -> dict | None:
+    key = "boll_weevil"
+    cfg = region.source(key)
+    if not cfg:
+        return None
+    snapshot = store.read_snapshot(region, key)
+    if snapshot and snapshot["week"] > fresh.asof.date().isoformat():
+        snapshot = None
+    current = fresh.mark(key, snapshot["week"] if snapshot else None)
+    if snapshot:
+        fresh.sources[key]["fetched_at"] = snapshot["fetched_at"]
+    return {"report_url": snapshot["url"] if snapshot else cfg["url"], "zone_url": cfg["zone_url"],
+            "zones": snapshot["zones"] if current else []}
+
+
+# --- Build -------------------------------------------------------------------------------------------
 def build(region: Region, asof: date | None = None, failures: list[str] | None = None) -> dict:
     asof_ts = pd.Timestamp(asof) if asof else pd.Timestamp.now(tz=region.timezone).tz_localize(None).normalize()
     fresh = Freshness(region, asof_ts)
@@ -578,6 +594,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
         "burn_bans": {"count": sum(v.get("burn_ban", False) for v in counties.values()), "of": len(counties)}
         if bans_ok else None,
         "crops": crops, "pasture": pasture, "screwworm": screwworm_card(region, fresh),
+        "boll_weevil": boll_weevil_card(region, fresh),
     }
     statewide = next((m for m in markets if m["scope"] == "statewide"), None)
     texas["headline"] = headline.texas(texas, statewide)

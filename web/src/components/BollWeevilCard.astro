@@ -1,0 +1,47 @@
+---
+import { day } from "../lib/format";
+import type { BollWeevilReport, Source } from "../lib/types";
+
+const { report, source } = Astro.props as { report: BollWeevilReport; source: Source };
+const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+---
+{source.stale ? (
+  <p class="notice">{source.as_of
+    ? `The latest report I have is for the week of ${day(source.as_of)}. The figures are more than two weeks old.`
+    : "I don’t have a weekly report to show yet."}</p>
+) : (
+  <>
+    <p class="muted">Week beginning {day(source.as_of)} · {source.name}</p>
+    <div class="table-wrap">
+      <table>
+        <caption class="sr-only">Boll weevil trapping and treatment by reporting area</caption>
+        <thead>
+          <tr>
+            <th scope="col">Reporting area</th>
+            <th scope="col" class="n">Traps inspected</th>
+            <th scope="col" class="n">Weevils caught</th>
+            <th scope="col" class="n">Weevils caught this year</th>
+            <th scope="col" class="n">Acres treated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.zones.map((zone) => (
+            <tr>
+              <th scope="row">{zone.name}</th>
+              <td class="n">{number.format(zone.traps)}</td>
+              <td class="n">{zone.traps ? number.format(zone.captures) : "No traps inspected"}</td>
+              <td class="n">{number.format(zone.captures_ytd)}</td>
+              <td class="n">{number.format(zone.acres_treated)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </>
+)}
+<p>
+  {source.stale
+    ? <a href={source.url ?? report.report_url}>Find the latest report at TBWEF</a>
+    : <a href={report.report_url}>Read the weekly report (PDF)</a>}
+  · <a href={report.zone_url}>Find your zone</a>
+</p>

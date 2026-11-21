@@ -3,6 +3,7 @@
 // Crop and pasture cards that come one after another share a grid.
 import Base from "../../layouts/Base.astro";
 import AsOf from "../../components/AsOf.astro";
+import BollWeevilCard from "../../components/BollWeevilCard.astro";
 import CropCard from "../../components/CropCard.astro";
 import DroughtBar from "../../components/DroughtBar.astro";
 import Headline from "../../components/Headline.astro";
@@ -15,7 +16,7 @@ export function getStaticPaths() {
   return loadLatest().personas.map((p) => ({ params: { persona: p.id }, props: { persona: p } }));
 }
 
-const { persona } = Astro.props as { persona: Persona & { blurb?: string } };
+const { persona } = Astro.props as { persona: Persona };
 const L = loadLatest();
 const S = L.sources;
 const tx = L.texas;
@@ -27,6 +28,8 @@ const allDistricts = [...L.districts.filter((d) => d.home), ...L.districts.filte
 type Block = { kind: "cards"; items: string[] } | { kind: "section"; id: string };
 const blocks: Block[] = [];
 for (const id of persona.card_order) {
+  if (id === "boll_weevil" && (!tx.boll_weevil || !S.boll_weevil)) continue;
+  if (id === "pest_resources" && !persona.pest_resources?.length) continue;
   const isCard = id.startsWith("crop:") || id === "pasture";
   const last = blocks[blocks.length - 1];
   if (isCard && last?.kind === "cards") last.items.push(id);
@@ -36,6 +39,7 @@ const cropKey = (id: string) => id.slice(5) as "corn" | "sorghum" | "cotton" | "
 const title = (b: Block) => b.kind === "cards"
   ? (b.items.every((i) => i === "pasture") ? "Pasture" : "Crops, statewide")
   : ({ drought: "Drought", rain: "Rain", burn_bans: "Burn bans", cattle: "Cattle markets",
+       boll_weevil: "Boll weevil monitoring", pest_resources: "Pest alerts and scouting",
        sheep_goats: "Edwards Plateau sheep and goats" } as Record<string, string>)[b.id] ?? b.id;
 // A section whose source isn't current says so instead of rendering an empty heading.
 const ready: Record<string, boolean> = { drought: !!tx.drought, rain: !S.nclimgrid.stale, burn_bans: !!tx.burn_bans, cattle: cattleMarkets.some((m) => !m.stale) };
@@ -62,6 +66,15 @@ const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
           </div>
           </>
         )
+      )}
+      {b.kind === "section" && b.id === "boll_weevil" && tx.boll_weevil && S.boll_weevil && (
+        <BollWeevilCard report={tx.boll_weevil} source={S.boll_weevil} />
+      )}
+      {b.kind === "section" && b.id === "pest_resources" && (
+        <>
+          <p class="muted">Texas A&amp;M AgriLife Extension</p>
+          <ul>{persona.pest_resources?.map((resource) => <li><a href={resource.url}>{resource.label}</a></li>)}</ul>
+        </>
       )}
       {b.kind === "section" && b.id === "drought" && tx.drought && (
         <>

@@ -32,19 +32,28 @@ districts:
 
 # Personas are config (ms-sound-check 0010). card_order names sections the build emits.
 personas:
-  # Sections: crop:<id>, pasture, drought, rain, burn_bans, cattle. Pages are /for/<id>/.
+  # Sections: crop:<id>, pasture, boll_weevil, pest_resources, drought, rain, burn_bans, cattle. Pages are /for/<id>/.
   - id: corn-sorghum
     name: Corn & Sorghum
     blurb: Statewide progress and condition, then drought and rain by district.
-    card_order: [crop:corn, crop:sorghum, drought, rain, cattle]
+    card_order: [crop:corn, crop:sorghum, pest_resources, drought, rain, cattle]
+    pest_resources:
+      - { label: Corn leafhopper alerts, url: 'https://www.texasinsects.org/agriculture-audio-updates-home.html' }
+      - { label: Corn leafhopper and red stunt guide, url: 'https://agrilifeextension.tamu.edu/asset-external/corn-leafhopper-and-the-red-stunt-disease-complex/' }
+      - { label: Sorghum aphid scouting and management, url: 'https://agrilifeextension.tamu.edu/asset-external/the-sugarcane-aphid-management-guidelines-for-grain-and-forage-sorghum-in-texas/' }
   - id: cotton
     name: Cotton
     blurb: Statewide progress and condition, then drought and rain by district.
-    card_order: [crop:cotton, drought, rain, burn_bans]
+    card_order: [crop:cotton, boll_weevil, pest_resources, drought, rain, burn_bans]
+    pest_resources:
+      - { label: Cotton jassid alerts, url: 'https://www.texasinsects.org/agriculture-audio-updates-home.html' }
+      - { label: Cotton jassid identification and scouting, url: 'https://agrilifeextension.tamu.edu/update-on-cotton-jassid/' }
   - id: wheat
     name: Wheat & Small Grains
     blurb: Planting, emergence and condition statewide, rain for the stand, and calf prices for grazing.
-    card_order: [crop:wheat, rain, drought, cattle]
+    card_order: [crop:wheat, pest_resources, rain, drought, cattle]
+    pest_resources:
+      - { label: 'Armyworms, aphids and mites in Texas small grains', url: 'https://agrilifeextension.tamu.edu/asset-external/managing-insect-and-mite-pests-of-texas-small-grains/' }
   - id: cattle-hay
     name: Cattle & Hay
     blurb: Auction prices, pasture condition, and the drought and rain that decide grazing and hay.
@@ -107,6 +116,11 @@ sources:
     # Days since the last validated download. Confirmations can be weeks apart.
     warn_after_days: 3
     hide_after_days: 14
+  boll_weevil:
+    name: Texas Boll Weevil Eradication Foundation
+    url: https://tbwef.org/
+    max_age_days: 14  # from the report week, not the download date
+    zone_url: https://tbwef.org/find-your-zone/
   # Observed weather: county-average high, low and rain (decisions 0013, 0014). NCEI's preliminary month runs
   # about a week behind, so this allows for that plus a slow update.
   nclimgrid:

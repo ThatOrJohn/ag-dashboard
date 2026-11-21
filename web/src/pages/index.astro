@@ -19,7 +19,7 @@ const homes = L.districts.filter((d) => d.home);
 const others = L.districts.filter((d) => !d.home);
 const fipsOf = (slug: string) => Object.entries(L.counties).filter(([, c]) => c.district === slug).map(([f]) => f);
 const statewide = L.markets.filter((m) => m.scope === "statewide");
-const anyStale = Object.entries(S).some(([key, source]) => key !== "screwworm" && source.stale);
+const anyStale = Object.entries(S).some(([key, source]) => !["screwworm", "boll_weevil"].includes(key) && source.stale);
 ---
 <Base title="Texas agriculture this week · Texas Ag Dashboard" description="Drought, crop progress, cattle prices and burn bans for Texas, in plain language, from public data. Updated weekly." current="texas">
   <div class="map-wrap">

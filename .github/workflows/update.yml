@@ -59,6 +59,15 @@ jobs:
       - name: Pipeline tests
         run: python -m pytest -q
 
+      - name: Install PDF text extractor if needed
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          if ! command -v pdftotext >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y poppler-utils
+          fi
+
       - name: Ingest, annual sources (when due) and build data
         if: github.event_name != 'pull_request'
         env:

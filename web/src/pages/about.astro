@@ -50,6 +50,9 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
       detections from USDA’s public export. The source date is when I last verified the download. I flag the
       figures after three days without a successful refresh and hide them after 14 days. The USDA release
       map shows planned coverage. Texas Animal Health Commission publishes the movement restriction map.</li>
+    <li><strong>Texas Boll Weevil Eradication Foundation</strong>. On the Cotton page I show trapping and
+      treatment totals for the foundation’s three reporting areas. I hide the figures more than 14 days
+      after the report’s week-beginning date.</li>
     <li><strong><a href="https://www.weather.gov/documentation/services-web-api">National Weather Service</a></strong>:
       the 7-day forecast high, low and rain at each Texas county's center. Public domain.</li>
     <li><strong><a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">NOAA NCEI nClimGrid-Daily</a></strong>:
@@ -97,7 +100,7 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
 
   <h2>Free, from public data</h2>
   <p>This site is free to use: no ads, no sign-up, no subscriptions, and nothing is sold here. Every figure comes
-    from public data published by government agencies, universities and open-data services, credited where it
+    from public data published by government agencies, universities and public reporting programs, credited where it
     appears. It is a personal project by {AUTHOR}, and the code is <a href={REPO_URL}>on GitHub</a>.</p>
 
   <h2>Not an official source</h2>

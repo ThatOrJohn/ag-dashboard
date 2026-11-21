@@ -3,6 +3,8 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- Cotton shows weekly boll weevil trapping and treatment by reporting area. Cotton, Corn & Sorghum,
+  and Wheat & Small Grains link to crop-specific pest alerts and scouting guides.
 - The Texas overview shows confirmed New World screwworm cases and recent county detections, with
   links to movement restrictions and planned sterile fly releases. The card flags stale figures
   after three days without a refresh and disappears after 14 days.

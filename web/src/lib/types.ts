@@ -110,9 +110,21 @@ export interface DistrictSummary {
   headline?: Headline;
 }
 
-export interface Persona { id: string; name: string; blurb?: string; card_order: string[] }
+export interface Persona {
+  id: string;
+  name: string;
+  blurb?: string;
+  card_order: string[];
+  pest_resources?: { label: string; url: string }[];
+}
 
-export type SourceKey = "usdm" | "nass" | "ams" | "burn_bans" | "nws" | "census" | "nass_county" | "rap" | "cdl" | "nclimgrid" | "normals" | "stage4" | "screwworm";
+export type SourceKey = "usdm" | "nass" | "ams" | "burn_bans" | "nws" | "census" | "nass_county" | "rap" | "cdl" | "nclimgrid" | "normals" | "stage4" | "screwworm" | "boll_weevil";
+
+export interface BollWeevilReport {
+  report_url: string;
+  zone_url: string;
+  zones: { name: string; traps: number; captures: number; captures_ytd: number; acres_treated: number }[];
+}
 
 // Annual figures (kad/annual_build.py). Missing means "not published", never zero.
 export type CoverKey = "pfg" | "afg" | "shr" | "tre" | "ltr" | "bgr";
@@ -155,6 +167,7 @@ export interface Latest {
     crops: Record<"corn" | "sorghum" | "cotton" | "wheat", { progress: ProgressCard; condition: ConditionCard }>;
     pasture: ConditionCard;
     screwworm?: ScrewwormCard | null;
+    boll_weevil?: BollWeevilReport | null;
     headline?: Headline;
     headline_all?: Headline;
   };

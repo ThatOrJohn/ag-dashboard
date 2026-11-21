@@ -20,6 +20,8 @@
   ([0020](decisions/0020-san-angelo-sheep-goats.md)).
 - Texas New World screwworm detections with a stale-data warning and automatic expiry
   ([0021](decisions/0021-screwworm-detections.md)).
+- Cotton boll weevil monitoring and crop-specific AgriLife pest resources
+  ([0022](decisions/0022-crop-pest-monitoring.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next

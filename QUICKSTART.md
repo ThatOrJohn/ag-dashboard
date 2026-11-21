@@ -12,6 +12,9 @@
 ```
 
 ## Run it locally
+Install Poppler (`brew install poppler` on macOS or `sudo apt-get install poppler-utils` on Ubuntu) to
+refresh the Texas boll weevil report. Builds from saved data do not require Poppler.
+
 ```sh
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
