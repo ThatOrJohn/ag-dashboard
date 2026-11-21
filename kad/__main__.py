@@ -57,7 +57,7 @@ def cmd_backfill(region, args):
 def cmd_ingest(region, args):
     from .adapters import ams, burnbans, nass, nclimgrid, nws, stage4, usdm
     _save(region, "usdm", _try("usdm", usdm.fetch, region))
-    _save(region, "nass", _try("nass", nass.weekly, region))
+    _save(region, "nass", _try("nass", nass.weekly, region, years_back=5 if args.force else None))
     res = _try("ams", ams.fetch, region)
     if res is not None:
         obs, notes = res
@@ -67,7 +67,11 @@ def cmd_ingest(region, args):
     if snap is not None:
         store.write_snapshot(region, "burn_bans", snap)
         store.log_fetch(region, "burn_bans")
-    _save(region, "nclimgrid", _try("nclimgrid", nclimgrid.recent, region))
+    observed = _try("nclimgrid", nclimgrid.recent, region)
+    if observed is not None:
+        obs, finalized = observed
+        _save(region, "nclimgrid", obs)
+        store.write_snapshot(region, "nclimgrid_final_rain", finalized)
     _save(region, "stage4", _try("stage4", stage4.recent, region))
     fc = _try("nws", nws.fetch, region)
     if fc is not None and not fc.empty:
@@ -112,7 +116,7 @@ def main(argv=None) -> int:
     ap.add_argument("command", choices=["backfill", "ingest", "annual", "build", "run", "check"])
     ap.add_argument("--region", default="tx")
     ap.add_argument("--asof", help="build as of this date (testing), YYYY-MM-DD")
-    ap.add_argument("--force", action="store_true", help="annual: run sources even if not due")
+    ap.add_argument("--force", action="store_true", help="refresh annual sources even if not due and reload NASS history on ingest")
     ap.add_argument("--only", help="annual: comma-separated source keys (census,nass_county,cdl,rap)")
     ap.add_argument("--budget", type=float, default=480, help="annual: seconds this run may spend")
     args = ap.parse_args(argv)

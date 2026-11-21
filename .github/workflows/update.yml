@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "run (normal update) or backfill (first-time history: 2 years of drought, 60 weeks of auctions)"
+        description: "run (regular update) or backfill (drought and auction history, NASS baseline, extended annual refresh)"
         default: run
         type: choice
         options: [run, backfill]
@@ -45,8 +45,10 @@ jobs:
         run: |
           git config user.name "ag-dashboard bot"
           git config user.email "actions@users.noreply.github.com"
-          if git fetch --depth 1 origin data; then
-            git worktree add store FETCH_HEAD
+          data_ref=$(git ls-remote origin refs/heads/data)
+          if [ -n "$data_ref" ]; then
+            git fetch --depth 1 origin refs/heads/data
+            git worktree add --detach store FETCH_HEAD
           else
             git worktree add --orphan -b data store
           fi
@@ -57,30 +59,47 @@ jobs:
       - name: Pipeline tests
         run: python -m pytest -q
 
+      - name: Ingest, annual sources (when due) and build data
+        if: github.event_name != 'pull_request'
+        env:
+          NASS_QUICK_STATS_API_KEY: ${{ secrets.NASS_QUICK_STATS_API_KEY }}
+          AMS_MMN_API_KEY: ${{ secrets.AMS_MMN_API_KEY }}
+          TASK: ${{ github.event_name == 'workflow_dispatch' && inputs.task || 'run' }}
+        run: |
+          if [ "$TASK" = backfill ]; then
+            python -m kad backfill --region "$REGION"
+            python -m kad run --region "$REGION" --force --budget 1200
+          else
+            python -m kad run --region "$REGION"
+          fi
+
+      - name: Build data from the saved snapshot
+        if: github.event_name == 'pull_request'
+        run: python -m kad build --region "$REGION"
+
+      - name: Save data store (single squashed commit on the data branch)
+        if: github.event_name != 'pull_request'
+        working-directory: store
+        run: |
+          previous=$(git rev-parse --verify --quiet HEAD || true)
+          git add -A
+          tree=$(git write-tree)
+          if [ -n "$previous" ] && [ "$tree" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+            exit 0
+          fi
+          snapshot=$(git commit-tree "$tree" -m "data snapshot $(date -u +%Y-%m-%dT%H:%MZ)")
+          git push --force-with-lease="refs/heads/data:$previous" origin "$snapshot:refs/heads/data"
+
+      - name: Health check
+        if: github.event_name != 'pull_request'
+        id: health
+        continue-on-error: true
+        run: python -m kad check --region "$REGION"
+
       - uses: actions/setup-node@v4
         with: { node-version-file: web/.nvmrc, check-latest: true, cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci
         working-directory: web
-
-      - name: Backfill history
-        if: github.event.inputs.task == 'backfill'
-        env:
-          NASS_QUICK_STATS_API_KEY: ${{ secrets.NASS_QUICK_STATS_API_KEY }}
-          AMS_MMN_API_KEY: ${{ secrets.AMS_MMN_API_KEY }}
-        run: |
-          python -m kad backfill --region "$REGION"
-          python -m kad annual --region "$REGION" --force --budget 1200
-
-      - name: Ingest, annual sources (when due) and build data
-        env:
-          NASS_QUICK_STATS_API_KEY: ${{ secrets.NASS_QUICK_STATS_API_KEY }}
-          AMS_MMN_API_KEY: ${{ secrets.AMS_MMN_API_KEY }}
-        run: python -m kad run --region "$REGION"
-
-      - name: Health check
-        id: health
-        continue-on-error: true
-        run: python -m kad check --region "$REGION"
 
       - name: Build site
         working-directory: web
@@ -95,15 +114,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with: { name: playwright-report, path: web/playwright-report, retention-days: 7 }
-
-      - name: Save data store (single squashed commit on the data branch)
-        if: github.event_name != 'pull_request'
-        run: |
-          cd store
-          git checkout --orphan snapshot
-          git add -A
-          git commit -q -m "data snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push -f origin HEAD:data
 
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'

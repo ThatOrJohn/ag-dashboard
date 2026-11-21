@@ -13,6 +13,7 @@ from datetime import date
 
 import pandas as pd
 
+from .. import store
 from ..config import Region
 from ..http import session
 
@@ -59,10 +60,14 @@ def _stat_key(short_desc: str) -> str | None:
     return re.sub(r"[^a-z0-9]+", "_", m.group(1).lower()).strip("_") if m else None
 
 
-def weekly(region: Region, *, years_back: int = 5, today: date | None = None) -> pd.DataFrame:
-    """State weekly crop progress + condition, and pasture condition. Current year plus `years_back` prior,
-    so the site can compare to last year and to the average for the same week."""
+def weekly(region: Region, *, years_back: int | None = None, today: date | None = None) -> pd.DataFrame:
+    """Seed five comparison years, then refresh the current and previous years and catch up after gaps."""
     today = today or date.today()
+    first_year = today.year - (5 if years_back is None else years_back)
+    if years_back is None:
+        saved = store.read_obs(region, SOURCE)
+        if not saved.empty:
+            first_year = max(first_year, min(today.year - 1, saved["date"].max().year))
     cfg = region.source("nass")
     http = session()
     out = []
@@ -70,7 +75,7 @@ def weekly(region: Region, *, years_back: int = 5, today: date | None = None) ->
         rows = query({"source_desc": "SURVEY", "state_alpha": region.extras.get("state_alpha", "TX"),
                       "agg_level_desc": "STATE", "commodity_desc": item["commodity"],
                       "statisticcat_desc": item["stat"], "freq_desc": "WEEKLY",
-                      "year__GE": today.year - years_back}, http=http)
+                      "year__GE": first_year}, http=http)
         for r in rows:
             if item.get("class") and r.get("class_desc") != item["class"]:
                 continue

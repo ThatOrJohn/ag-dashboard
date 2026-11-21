@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pandas as pd
 
-from .. import normals
+from .. import normals, store
 from ..config import Region
 from ..http import session
 from ..report import plain_error
@@ -69,19 +69,21 @@ def _state_code(region: Region) -> str:
     return code
 
 
-def recent(region: Region, *, months: int = 3, today: pd.Timestamp | None = None) -> pd.DataFrame:
+def recent(region: Region, *, months: int = 3, today: pd.Timestamp | None = None) -> tuple[pd.DataFrame, list[str]]:
     """Daily county averages: high, low and rain for this month and the `months - 1` before it, plus rain back
     to Jan. 1 for the season-to-date chart (of last year too, while NOAA's newest day is still in it).
 
     The site's observed weather (decision 0014). The newest month is preliminary (`-prelim.csv`) until NCEI
-    finalizes it (`-scaled.csv`); either is used, final first, and a newer pull replaces older rows in the store.
+    finalizes it (`-scaled.csv`). Once a finalized rain month ages out of the recent window, reuse its saved
+    rows. Return the finalized months alongside the observations so the caller can save them in that order.
     """
     ncei_state = _state_code(region)
     today = (today or pd.Timestamp.now()).normalize()
     now = today.to_period("M")
     jan = pd.Period(f"{(today - pd.Timedelta(days=14)).year}-01", "M")
+    finalized = set(store.read_snapshot(region, "nclimgrid_final_rain") or [])
     tasks = [(var, now - k) for k in range(months) for var in RECENT_VARS]
-    tasks += [("prcp", p) for p in pd.period_range(jan, now - months, freq="M")] if jan <= now - months else []
+    tasks += [("prcp", p) for p in pd.period_range(jan, now - months, freq="M") if str(p) not in finalized]
     http = session()
 
     def one(task):
@@ -91,22 +93,25 @@ def recent(region: Region, *, months: int = 3, today: pd.Timestamp | None = None
             if r.status_code == 404:
                 continue
             r.raise_for_status()
-            return task, r.text
-        return task, None                                # not out yet (first days of a month)
+            return task, kind, r.text
+        return task, None, None                          # not out yet (first days of a month)
 
     rows = []
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for (var, p), text in pool.map(one, tasks):
+        for (var, p), kind, text in pool.map(one, tasks):
             if text is None:
                 continue
+            before = len(rows)
             for geo, vals in parse(text, ncei_state, region.state_fips).items():
                 for d, v in enumerate(vals[:p.days_in_month], 1):
                     if v is not None:
                         rows.append({"geo": geo, "var": RECENT_VARS[var], "date": pd.Timestamp(p.year, p.month, d),
                                      "value": v, "source": "nclimgrid"})
+            if var == "prcp" and kind == "scaled" and len(rows) > before:
+                finalized.add(str(p))
     if not rows:
         raise RuntimeError("no nClimGrid county files found for the last months")
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), sorted(month for month in finalized if month >= str(jan))
 
 
 def fetch(region: Region, *, deadline: float | None = None):

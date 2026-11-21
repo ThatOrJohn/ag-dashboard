@@ -27,6 +27,18 @@ python -m pytest -q
 `python -m kad build --asof YYYY-MM-DD` shows the site as of another date (e.g. a January date to see the
 NASS winter break). Local data is in `data/tx/` and `web/public/data/` (both gitignored).
 
+## What GitHub Actions fetches
+
+Scheduled runs, pushes to `main`, and manual `run` dispatches start with the `data` branch snapshot.
+They refresh six weeks of drought and auction data, refresh recent weather and burn bans, and check annual
+sources on their individual schedules. Once NASS crop progress has a baseline, it refreshes the current and
+previous years and catches up after longer gaps. Older year-to-date NOAA rain is reused after finalization.
+
+Use **Run workflow → backfill** for two years of drought history, 60 weeks of auction reports, the full NASS
+comparison baseline, and a longer annual refresh pass. The workflow saves the data snapshot before building
+the site and running browser tests so later runs can resume partial history. Pull requests build from the
+saved snapshot with no live ingestion.
+
 ## Where things live
 | Path | What |
 |---|---|

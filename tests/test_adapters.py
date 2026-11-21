@@ -1,11 +1,13 @@
 """Parser tests for the gotchas in docs/feasibility.md. No network."""
 import io
 import zipfile
+from datetime import date
 
 import pandas as pd
 import pytest
 
-from kad.adapters import ams, burnbans, nass, usdm
+from kad.adapters import ams, burnbans, nass, nclimgrid, usdm
+from kad.config import load_region
 
 
 class FakeResp:
@@ -49,6 +51,51 @@ def test_nass_stat_key():
     assert nass._stat_key("COTTON - PROGRESS, MEASURED IN PCT BOLLS OPENING") == "bolls_opening"
     assert nass._stat_key("PASTURELAND - CONDITION, MEASURED IN PCT VERY POOR") == "very_poor"
     assert nass._stat_key("CORN - ACRES PLANTED") is None
+
+
+@pytest.mark.parametrize("saved,years_back,want", [
+    (None, None, 2021),
+    ("2026-11-15", None, 2025),
+    ("2023-11-19", None, 2023),
+    ("2019-11-17", None, 2021),
+    ("2026-11-15", 5, 2021),
+])
+def test_nass_weekly_reuses_saved_comparison_years(monkeypatch, saved, years_back, want):
+    obs = pd.DataFrame() if saved is None else pd.DataFrame({"date": [pd.Timestamp(saved)]})
+    monkeypatch.setattr(nass.store, "read_obs", lambda region, source: obs)
+    queries = []
+
+    def query(params, **kwargs):
+        queries.append(params["year__GE"])
+        return []
+
+    monkeypatch.setattr(nass, "query", query)
+    nass.weekly(load_region("tx"), years_back=years_back, today=date(2026, 11, 21))
+    assert queries and set(queries) == {want}
+
+
+def test_nclimgrid_skips_finalized_old_rain_and_retries_preliminary(monkeypatch):
+    region = load_region("tx")
+    monkeypatch.setattr(nclimgrid.store, "read_snapshot", lambda region, name: ["2026-01"])
+    calls = []
+    csv = "cty,41001,TX: Anderson County,2026,2,PRCP," + ",".join(["1"] * 31)
+
+    class Http:
+        def get(self, url, **kwargs):
+            calls.append(url)
+            if "-202602-cty-scaled" in url and "prcp-" in url:
+                return FakeResp(404)
+            response = FakeResp(200, csv)
+            response.raise_for_status = lambda: None
+            return response
+
+    monkeypatch.setattr(nclimgrid, "session", Http)
+    obs, finalized = nclimgrid.recent(region, today=pd.Timestamp("2026-06-21"))
+    assert not any("-202601-" in url for url in calls)
+    assert any("prcp-202602-cty-prelim" in url for url in calls)
+    assert any("prcp-202604-cty-scaled" in url for url in calls)
+    assert "2026-02" not in finalized and finalized == ["2026-01", "2026-03", "2026-04", "2026-05", "2026-06"]
+    assert set(obs.loc[obs["var"] == "rain_mm", "date"].dt.month) == {2, 3, 4, 5, 6}
 
 
 def test_usdm_parse_keeps_cumulative_levels():
