@@ -43,7 +43,7 @@ const anyStale = Object.values(S).some((s) => s.stale);
           <DroughtMap counties={L.counties} title="Texas counties by drought category" link={(f) => {
             const d = L.counties[f]?.district;
             return d ? href(`district/${d}/#c-${f}`) : null;
-          }} labels={homes.map((d) => ({ text: d.name, fips: fipsOf(d.slug) }))} />
+          }} labels={L.districts.map((d) => ({ text: d.name, fips: fipsOf(d.slug) }))} />
         </div>
         <div>
           <p class="big">{pct(tx.drought.now.d1)}</p>

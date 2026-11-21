@@ -6,6 +6,7 @@ User-visible changes, newest first.
 - Every Texas district now has its own page with a card for every county: the ten districts beyond the
   five featured ones are in a "More districts" menu, the Texas map links every county, and the district
   table links each name. Forecasts and land cover for the new counties fill in over the next few updates.
+- The Texas drought map names all 15 districts, multi-word names on two lines.
 - Persona pages list drought, rain and burn bans for all 15 districts, featured ones first.
 
 ## 0.1.0 (first public version)
