@@ -2,10 +2,28 @@
 import pandas as pd
 import pytest
 
-from kad.build import condition_card, forecast_rain_by_county, progress_card, rain_by_county, rain_estimate, weather_strip
+from kad.build import (
+    Freshness, condition_card, forecast_rain_by_county, market_cards, progress_card, rain_by_county,
+    rain_estimate, weather_strip,
+)
 from kad.config import load_region
 
 TX = load_region("tx")
+
+
+def test_sheep_goat_market_displays_only_current_sale_prices():
+    obs = pd.DataFrame([
+        {"geo": "ams:2014", "date": pd.Timestamp(day), "var": var, "value": value}
+        for day, var, value in (
+            ("2026-11-10", "goat_kids:50", 380), ("2026-11-10", "hair_lambs:50", 390),
+            ("2026-11-17", "reported", 1), ("2026-11-17", "goat_kids:50", 400),
+        )
+    ])
+    market = market_cards(TX, obs, {}, Freshness(TX, pd.Timestamp("2026-11-21")))[-1]
+    assert market["kind"] == "sheep_goats" and market["district"] == "edwards-plateau"
+    assert market["series"] == [{"id": "goat_kids:50", "price_cwt": 400, "head": None, "prev": 380, "year_ago": None}]
+    stale = market_cards(TX, obs, {}, Freshness(TX, pd.Timestamp("2026-12-02")))[-1]
+    assert stale["stale"] and "series" not in stale
 
 
 def _cond(date, good, exc, crop="corn"):

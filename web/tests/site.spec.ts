@@ -102,10 +102,28 @@ test("district map click opens the county card", async ({ page }) => {
 test("persona pages follow card_order", async ({ page }) => {
   await page.goto("for/cattle-hay/");
   const h2 = await page.locator("main h2").allTextContents();
-  expect(h2.slice(0, 3)).toEqual(["Cattle markets", "Pasture", "Drought"]);
+  expect(h2.slice(0, 4)).toEqual(["Cattle markets", "Edwards Plateau sheep and goats", "Pasture", "Drought"]);
   await page.goto("");
   await page.getByRole("navigation", { name: "Views by what you raise" }).getByRole("link", { name: "Cattle & Hay" }).click();
   await expect(page).toHaveURL(/for\/cattle-hay\/$/);
+});
+
+test("the weekly San Angelo sheep and goat market appears on Cattle & Hay and Edwards Plateau", async ({ page }) => {
+  const market = loadLatest().markets.find((m) => m.slug === 2014)!;
+  await page.goto("for/cattle-hay/");
+  const section = page.getByRole("region", { name: "Edwards Plateau sheep and goats" });
+  await expect(section.getByRole("link", { name: "USDA AMS Market News" })).toHaveAttribute("href", /viewReport\/2014$/);
+  if (market.stale) {
+    await expect(section.getByText(/No recent report/)).toBeVisible();
+    await expect(section.getByRole("table")).toHaveCount(0);
+  } else if (market.series?.length) {
+    await expect(section.getByRole("columnheader", { name: "$/cwt" })).toBeVisible();
+    await expect(section.getByRole("rowheader")).toHaveCount(market.series.length);
+  }
+  await page.goto("district/edwards-plateau/");
+  await expect(page.getByRole("region", { name: "Sheep and goat market" })).toBeVisible();
+  await page.goto("for/wheat/");
+  await expect(page.getByRole("heading", { name: /Sheep and Goat Auction/ })).toHaveCount(0);
 });
 
 test("every page has a 1200x630 share image", async ({ page, request }) => {

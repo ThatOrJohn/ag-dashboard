@@ -97,7 +97,7 @@ const anyStale = Object.values(S).some((s) => s.stale);
     <div class="grid">
       {statewide.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}
     </div>
-    <p class="muted">{"Local auctions: "}{L.markets.filter((m) => m.district).map((m, i) => (
+    <p class="muted">{"Local auctions: "}{L.markets.filter((m) => m.district && m.kind !== "sheep_goats").map((m, i) => (
       <>{i > 0 ? "; " : ""}<a href={href(`district/${m.district}/#mk-h`)}>{m.name}</a>{` (${L.districts.find((d) => d.slug === m.district)?.name})`}</>
     ))}{". All markets side by side: "}<a href={href("for/cattle-hay/")}>Cattle &amp; Hay</a>.</p>
   </section>

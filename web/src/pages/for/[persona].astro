@@ -19,6 +19,8 @@ const { persona } = Astro.props as { persona: Persona & { blurb?: string } };
 const L = loadLatest();
 const S = L.sources;
 const tx = L.texas;
+const cattleMarkets = L.markets.filter((m) => m.kind !== "sheep_goats");
+const sheepGoatMarkets = L.markets.filter((m) => m.kind === "sheep_goats");
 // Featured districts first, then the rest in config order.
 const allDistricts = [...L.districts.filter((d) => d.home), ...L.districts.filter((d) => !d.home)];
 
@@ -33,9 +35,10 @@ for (const id of persona.card_order) {
 const cropKey = (id: string) => id.slice(5) as "corn" | "sorghum" | "cotton" | "wheat";
 const title = (b: Block) => b.kind === "cards"
   ? (b.items.every((i) => i === "pasture") ? "Pasture" : "Crops, statewide")
-  : ({ drought: "Drought", rain: "Rain", burn_bans: "Burn bans", cattle: "Cattle markets" } as Record<string, string>)[b.id] ?? b.id;
+  : ({ drought: "Drought", rain: "Rain", burn_bans: "Burn bans", cattle: "Cattle markets",
+       sheep_goats: "Edwards Plateau sheep and goats" } as Record<string, string>)[b.id] ?? b.id;
 // A section whose source isn't current says so instead of rendering an empty heading.
-const ready: Record<string, boolean> = { drought: !!tx.drought, rain: !S.nclimgrid.stale, burn_bans: !!tx.burn_bans, cattle: !S.ams.stale };
+const ready: Record<string, boolean> = { drought: !!tx.drought, rain: !S.nclimgrid.stale, burn_bans: !!tx.burn_bans, cattle: cattleMarkets.some((m) => !m.stale) };
 const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
 ---
 <Base title={`${persona.name}: Texas this week · Texas Ag Dashboard`} description={`${persona.name} in Texas this week: ${persona.blurb ?? ""}`} current={`for-${persona.id}`}>
@@ -107,7 +110,10 @@ const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
         </>
       )}
       {b.kind === "section" && b.id === "cattle" && (
-        <div class="grid">{L.markets.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}</div>
+        <div class="grid">{cattleMarkets.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}</div>
+      )}
+      {b.kind === "section" && b.id === "sheep_goats" && (
+        <div class="grid">{sheepGoatMarkets.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}</div>
       )}
     </section>
   ))}

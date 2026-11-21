@@ -19,6 +19,7 @@ import pandas as pd
 
 from . import annual_build as ab
 from . import headline, normals, store
+from .adapters.ams import SHEEP_GOAT_SERIES
 from .config import SITE_OUT, Region
 
 NASS_NOTICE = "This product uses the NASS API but is not endorsed or certified by NASS."
@@ -395,6 +396,7 @@ def market_cards(region: Region, ams: pd.DataFrame, notes: dict, fresh: Freshnes
         rows = ams[ams["geo"] == geo]
         latest = rows["date"].max() if not rows.empty else None
         card = {"slug": rep["slug"], "name": rep["name"], "scope": rep.get("scope", "market"),
+                "kind": rep.get("kind", "cattle"),
                 "district": rep.get("district"), "url": f"https://mymarketnews.ams.usda.gov/viewReport/{rep['slug']}",
                 "report_date": _iso(latest),
                 "stale": latest is None or (fresh.asof - latest).days > max_age}
@@ -405,7 +407,7 @@ def market_cards(region: Region, ams: pd.DataFrame, notes: dict, fresh: Freshnes
             year = _near(rows, latest - pd.Timedelta(days=364), 4)
             year = year[year["date"] == year["date"].min()].set_index("var")["value"] if not year.empty else pd.Series(dtype=float)
             series = []
-            for var in CATTLE_SERIES:
+            for var in SHEEP_GOAT_SERIES if card["kind"] == "sheep_goats" else CATTLE_SERIES:
                 if var in now:
                     series.append({"id": var, "price_cwt": _r(now[var], 2),
                                    "head": _r(now.get(f"{var}:head"), 0),
@@ -524,7 +526,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
             entry["rain_vs_normal"] = _district_vs_normal(counties, d_area)
         if estimate:
             entry["rain_estimate"] = _district_estimate(counties, d_area)
-        local = next((m for m in markets if m.get("district") == d["slug"]), None)
+        local = next((m for m in markets if m["kind"] == "cattle" and m["district"] == d["slug"]), None)
         entry["headline"] = headline.district(entry, d.get("phrase") or f"the {d['name']} district", local)
         districts.append(entry)
 

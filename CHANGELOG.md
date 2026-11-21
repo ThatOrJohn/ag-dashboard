@@ -3,6 +3,8 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- Cattle & Hay and Edwards Plateau show weekly San Angelo auction prices for slaughter hair lambs and
+  goat kids in the 50–69 lb class, with a comparison to the prior reported sale where available.
 - County cards show the largest satellite-classified crop categories, their share of county land, and
   acres from an earlier year where available. Rangeland cover shows all published cover types alongside
   the 1986–1995 average where available.

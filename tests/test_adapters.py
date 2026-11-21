@@ -5,6 +5,7 @@ from datetime import date
 
 import pandas as pd
 import pytest
+from requests import Timeout
 
 from kad.adapters import ams, burnbans, nass, nclimgrid, usdm
 from kad.config import load_region
@@ -147,3 +148,48 @@ def test_ams_buckets_by_weight_and_head_weights_prices():
     assert df["cows:slaughter"] == 120.0
     assert df["receipts"] == 4617
     assert (ams.parse(1955, rows)["geo"] == "ams:1955").all()
+
+
+def test_ams_sheep_and_goats_use_comparable_weight_and_price_units():
+    base = {"report_date": "11/17/2026", "commodity": "Slaughter Sheep/Lambs", "class": "Hair Breeds",
+            "price_unit": "Per Cwt", "avg_weight": "55", "avg_price": "400", "head_count": "10"}
+    kid = {**base, "commodity": "Slaughter Goats", "class": "Kids", "avg_price": 450}
+    rows = [
+        base, {**base, "avg_weight": 69, "avg_price": 420, "head_count": 30}, kid,
+        {**base, "avg_weight": 70}, {**base, "avg_weight": 49}, {**base, "price_unit": "Per Head"},
+        {**base, "class": "Ewes"}, {**base, "head_count": 0}, {**base, "price_unit": None},
+        {**kid, "commodity": "Feeder Goats"}, {**kid, "report_date": "11/24/2026", "avg_weight": 75},
+    ]
+    obs = ams.parse_sheep_goats(2014, rows)
+    assert obs[obs["date"] == pd.Timestamp("2026-11-17")].set_index("var")["value"].to_dict() == {
+        "reported": 1, "hair_lambs:50": 415, "hair_lambs:50:head": 40, "goat_kids:50": 450, "goat_kids:50:head": 10,
+    }
+    assert obs[obs["date"] == pd.Timestamp("2026-11-24")]["var"].tolist() == ["reported"]
+
+
+def test_ams_can_fetch_sectioned_sheep_goat_report_without_affecting_cattle(monkeypatch):
+    region = load_region("tx")
+    header = {"report_date": "11/17/2026", "report_narrative": "Auction summary."}
+    lot = {"commodity": "Slaughter Goats", "class": "Kids", "price_unit": "Per Cwt",
+           "avg_weight": 60, "avg_price": 420, "head_count": 10}
+    fail = False
+
+    def get(slug, _start, _end, *, section=""):
+        if slug == 2014:
+            if not section:
+                return [header]
+            assert section == "Details"
+            if fail:
+                raise Timeout("Read timed out")
+            return [{"report_date": header["report_date"], **lot}]
+        return [{**header, **lot, "commodity": "Feeder Cattle", "class": "Steers",
+                 "avg_weight": 540, "frame": "Medium and Large", "muscle_grade": "1"}]
+
+    monkeypatch.setattr(ams, "_get", get)
+    obs, notes = ams.fetch(region, today=date(2026, 11, 21))
+    assert "goat_kids:50" in set(obs["var"])
+    assert notes["2014"]["narrative"] == "Auction summary."
+    fail = True
+    obs, notes = ams.fetch(region, today=date(2026, 11, 21))
+    assert set(obs["geo"]) == {"ams:1955", "ams:3724", "ams:2015"}
+    assert "2014" not in notes

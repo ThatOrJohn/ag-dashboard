@@ -4,6 +4,7 @@ import { SERIES, day, moneyChange, usd } from "../lib/format";
 
 interface Props { market: MarketCard; source: Source; asof: string }
 const { market: m, source, asof } = Astro.props;
+const sheepGoats = m.kind === "sheep_goats";
 ---
 <article class="card">
   <h3>{m.name}</h3>
@@ -11,17 +12,17 @@ const { market: m, source, asof } = Astro.props;
     <p class="muted">No recent report, so prices are hidden. <a href={m.url}>See the report on Market News</a>.</p>
   ) : (
     <>
-      <div class="table-wrap">
+      {m.series?.length ? <div class="table-wrap">
         <table>
           <caption class="sr-only">{`${m.name}, average price per hundredweight, ${day(m.report_date, asof)}`}</caption>
-          <thead><tr><th scope="col">Class (Med. &amp; Large No. 1)</th><th class="n" scope="col">$/cwt</th><th class="n" scope="col">vs last sale</th></tr></thead>
+          <thead><tr><th scope="col">{sheepGoats ? "Class" : "Class (Med. & Large No. 1)"}</th><th class="n" scope="col">$/cwt</th><th class="n" scope="col">vs last sale</th></tr></thead>
           <tbody>
             {(m.series ?? []).map((s) => (
               <tr><th scope="row">{SERIES[s.id] ?? s.id}</th><td class="n">{usd(s.price_cwt)}</td><td class="n">{moneyChange(s.price_cwt, s.prev) || "n/a"}</td></tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </div> : <p class="muted">The latest report has no prices for the classes shown here.</p>}
       {m.receipts != null && <p class="muted">{`${m.receipts.toLocaleString("en-US")} head sold.`}</p>}
       {m.narrative && (
         <details>
@@ -31,5 +32,10 @@ const { market: m, source, asof } = Astro.props;
       )}
     </>
   )}
-  <p class="asof"><a href={m.url}>{source.name}</a>{` · Sale of ${day(m.report_date, asof)} · head-weighted average of the reported lots`}</p>
+  <p class="asof"><a href={m.url}>{source.name}</a>
+    {m.report_date && ` · Sale of ${day(m.report_date, asof)}`}
+    {!m.stale && !!m.series?.length && (sheepGoats
+      ? " · head-weighted averages across reported grades within each class"
+      : " · head-weighted average of the reported lots")}
+  </p>
 </article>

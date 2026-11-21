@@ -60,6 +60,7 @@ export const CROPS: Record<string, string> = { corn: "Corn", sorghum: "Sorghum",
 export const SERIES: Record<string, string> = {
   "steers:500": "Feeder steers, 500–599 lb", "steers:700": "Feeder steers, 700–799 lb",
   "heifers:500": "Feeder heifers, 500–599 lb", "cows:slaughter": "Slaughter cows",
+  "hair_lambs:50": "Slaughter hair lambs, 50–69 lb", "goat_kids:50": "Slaughter goat kids, 50–69 lb",
 };
 
 export const DROUGHT_NAMES = ["Abnormally dry", "Moderate drought", "Severe drought", "Extreme drought", "Exceptional drought"];

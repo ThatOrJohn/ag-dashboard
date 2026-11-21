@@ -48,7 +48,7 @@ personas:
   - id: cattle-hay
     name: Cattle & Hay
     blurb: Auction prices, pasture condition, and the drought and rain that decide grazing and hay.
-    card_order: [cattle, pasture, drought, rain, burn_bans]
+    card_order: [cattle, sheep_goats, pasture, drought, rain, burn_bans]
   - id: land-water
     name: Land, Water & Weather
     blurb: Drought, rain and burn bans by district, with pasture condition for context.
@@ -88,6 +88,7 @@ sources:
       - { slug: 1955, name: Texas Weekly Cattle Auction Summary, kind: cattle, scope: statewide }
       - { slug: 3724, name: Giddings Livestock Auction, kind: cattle, district: south-central }
       - { slug: 2015, name: Producers Livestock Auction (San Angelo), kind: cattle, district: edwards-plateau }
+      - { slug: 2014, name: Producers Livestock Sheep and Goat Auction (San Angelo), kind: sheep_goats, district: edwards-plateau }
   burn_bans:
     name: Texas A&M Forest Service
     url: https://texasforestservice.tamu.edu/

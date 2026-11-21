@@ -25,6 +25,7 @@ const S = L.sources;
 const sum = D.summary;
 const keep = D.counties.map((c) => c.fips);
 const crops = sum.crops;
+const sheepGoatMarkets = D.markets.filter((m) => m.kind === "sheep_goats");
 ---
 <Base title={`${D.name} district, Texas: this week · Texas Ag Dashboard`} description={`Drought, rain, burn bans and cattle prices for the ${D.name} district of Texas, county by county, from public data.`} current={slug}>
   <span class="eyebrow"><a href={href()}>Texas</a> · NASS district{sum.home ? " · featured district" : ""} · week of {day(L.asof)}</span>
@@ -146,9 +147,16 @@ const crops = sum.crops;
   <section aria-labelledby="mk-h">
     <h2 id="mk-h">Cattle markets</h2>
     <div class="grid">
-      {D.markets.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}
+      {D.markets.filter((m) => m.kind !== "sheep_goats").map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}
     </div>
   </section>
+
+  {sheepGoatMarkets.length > 0 && (
+    <section aria-labelledby="sg-h">
+      <h2 id="sg-h">Sheep and goat market</h2>
+      <div class="grid">{sheepGoatMarkets.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}</div>
+    </section>
+  )}
 
   {!S.nass.stale && (
     <section aria-labelledby="cr-h">

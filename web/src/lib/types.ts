@@ -44,6 +44,7 @@ export interface MarketCard {
   slug: number;
   name: string;
   scope: string;
+  kind?: "cattle" | "sheep_goats";
   district: string | null;
   url: string;
   report_date: string | null;
