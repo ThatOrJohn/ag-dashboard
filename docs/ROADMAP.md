@@ -14,10 +14,11 @@
   ([0017](decisions/0017-stage4-rain-estimates.md)).
 - Full district view for every Texas district; the five featured ones keep the header links
   ([0018](decisions/0018-every-district-full-view.md)).
+- County satellite summaries show CDL crop mix and RAP rangeland cover with historical comparisons
+  where available ([0019](decisions/0019-county-satellite-summaries.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next
-- Satellite layers per county: CDL crop mix and RAP cover on the county cards.
 - Sheep and goats for Edwards Plateau (San Angelo 2014 / 2013) on Cattle & Hay.
 - Data view (tables, methods, CSV / Parquet downloads).
 

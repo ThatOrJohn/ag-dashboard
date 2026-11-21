@@ -558,13 +558,18 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     cdl = store.read_obs(region, "cdl")
     census_ok = fresh.mark("census", census["date"].max() if not census.empty else None)
     county_ok = fresh.mark("nass_county", county_est["date"].max() if not county_est.empty else None)
-    rap_prod = rap[rap["var"] == "prod:her_lb_ac"] if not rap.empty else rap
-    rap_ok = fresh.mark("rap", rap_prod["date"].max() if not rap_prod.empty else None)
+    rap_cover = rap["var"].str.startswith("cover:")
+    rap_prod = rap["var"] == "prod:her_lb_ac"
+    rap_cutoff = asof_ts - pd.Timedelta(days=region.source("rap").get("max_age_days", 7))
+    # Cover and forage arrive independently. Keep the history for each series that is still current.
+    rap_current = rap_cover & rap.loc[rap_cover, "date"].ge(rap_cutoff).any()
+    rap_current |= rap_prod & rap.loc[rap_prod, "date"].ge(rap_cutoff).any()
+    rap_use = rap.loc[rap_current]
+    fresh.mark("rap", rap["date"].max())
     cdl_ok = fresh.mark("cdl", cdl["date"].max() if not cdl.empty else None)
     census_idx = ab._index(census) if census_ok else {}
     county_idx = ab._index(county_est) if county_ok else {}
     cdl_idx = ab._index(cdl) if cdl_ok else {}
-    rap_use = rap if rap_ok else rap.iloc[0:0]
     latest["sources"] = fresh.sources
 
     out = SITE_OUT / region.id

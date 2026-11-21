@@ -3,6 +3,9 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- County cards show the largest satellite-classified crop categories, their share of county land, and
+  acres from an earlier year where available. Rangeland cover shows all published cover types alongside
+  the 1986–1995 average where available.
 - Every Texas district now has its own page with a card for every county: the ten districts beyond the
   five featured ones are in a "More districts" menu, the Texas map links every county, and the district
   table links each name. Forecasts and land cover for the new counties fill in over the next few updates.

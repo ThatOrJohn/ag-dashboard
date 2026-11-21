@@ -1,10 +1,10 @@
 """Annual sources: due logic, parsers, rollups. No network."""
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 
-from kad import annual, annual_build as ab, store
+from kad import annual, annual_build as ab, build, store
 from kad.adapters import cdl, nass_annual, rap
 from kad.config import load_region
 
@@ -124,6 +124,46 @@ def test_district_crop_mix_sums_counties_combines_developed_and_compares_years()
 def test_district_crop_mix_needs_every_county():
     idx = {"A": {"cdl:corn": {2025: 1.0}}}
     assert ab.district_crop_mix(["A", "B"], idx) is None
+
+
+def test_county_crop_mix_compares_leading_crops_in_either_year():
+    idx = {"A": {
+        "cdl:grassland_pasture": {2021: 700, 2025: 800},
+        "cdl:open_water": {2021: 50, 2025: 50},
+        "cdl:developed_high_intensity": {2021: 120, 2025: 90},
+        "cdl:cotton": {2021: 150},
+        "cdl:corn": {2021: 30, 2025: 100},
+        "cdl:sorghum": {2025: 10},
+    }}
+    assert ab.cdl_card(idx, "A") == {"year": 2025, "since": 2021, "classes": [
+        {"id": "cotton", "acres": 0, "pct": 0, "acres_then": 150},
+        {"id": "corn", "acres": 100, "pct": 10, "acres_then": 30},
+        {"id": "sorghum", "acres": 10, "pct": 1, "acres_then": 0},
+    ]}
+    assert ab.cdl_card(idx, "B") is None
+    assert ab.cdl_card({"B": {"cdl:corn": {2024: 100}}}, "B") == {
+        "year": 2024, "since": None, "classes": [{"id": "corn", "acres": 100, "pct": 100}],
+    }
+
+
+def test_build_shows_current_rap_cover_with_stale_forage(tmp_path, monkeypatch):
+    r = region(tmp_path, monkeypatch)
+    monkeypatch.setattr(build, "SITE_OUT", tmp_path / "site")
+    fips = "48491"
+    store.upsert_obs(r, "rap", pd.DataFrame([
+        {"geo": fips, "var": "cover:ltr", "date": pd.Timestamp("1990-01-01"), "value": 5.5, "source": "rap"},
+        {"geo": fips, "var": "cover:ltr", "date": pd.Timestamp("2025-01-01"), "value": 7.8, "source": "rap"},
+        {"geo": fips, "var": "prod:her_lb_ac", "date": pd.Timestamp("2023-11-16"), "value": 30, "source": "rap"},
+    ]))
+    latest = build.build(r, asof=date(2026, 11, 21))
+    assert not latest["sources"]["rap"]["stale"]
+    assert latest["sources"]["rap"]["as_of"] == "2025-01-01"
+    path = tmp_path / "site" / "tx" / "districts" / "blacklands.json"
+    county = next(c for c in json.loads(path.read_text())["counties"] if c["fips"] == fips)
+    rap = county["annual"]["rangeland"]
+    assert rap["cover"]["now"]["ltr"] == 7.8
+    assert rap["cover"]["baseline"]["ltr"] == 5.5
+    assert "production" not in rap
 
 
 def test_new_counties_make_per_county_sources_due_before_refresh_days(tmp_path, monkeypatch):

@@ -116,7 +116,7 @@ export interface CountyAnnual {
     cover?: { year: number; now: Record<CoverKey, number | null>; baseline: Record<CoverKey, number | null>; baseline_years: [number, number] };
     production?: { through: string; ytd_lb_ac: number; normal_lb_ac: number | null; pct_of_normal: number | null };
   };
-  crop_mix?: { year: number; classes: { id: string; acres: number; pct: number }[] };
+  crop_mix?: { year: number; since?: number | null; classes: { id: string; acres: number; pct: number; acres_then?: number }[] };
 }
 export interface DistrictAnnual {
   counties: number;

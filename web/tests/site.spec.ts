@@ -210,3 +210,31 @@ test("district land cover lists classes, labels them satellite-classified, and c
     await expect(card.getByRole("row", { name: /^Corn/ })).toContainText(/[+−]?[\d,]+ ac/);
   }
 });
+
+test("county cards show their satellite figures when available", async ({ page }) => {
+  const { counties } = loadDistrict("blacklands");
+  const cropCounty = counties.find((c) => c.annual?.crop_mix?.since)
+    ?? counties.find((c) => c.annual?.crop_mix);
+  if (cropCounty) {
+    const mix = cropCounty.annual!.crop_mix!;
+    await page.goto(`district/blacklands/#c-${cropCounty.fips}`);
+    const card = page.locator(`#c-${cropCounty.fips}`);
+    const table = card.getByRole("table", { name: "Crop mix" });
+    await expect(table.getByRole("columnheader", { name: `${mix.year} acres` })).toBeVisible();
+    if (mix.since) {
+      await expect(table.getByRole("columnheader", { name: `${mix.since} acres` })).toBeVisible();
+    }
+    await expect(table.locator("tbody tr")).toHaveCount(mix.classes.length);
+    await expect(card.getByRole("link", { name: /Cropland Data Layer/ })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  }
+
+  const rangeCounty = counties.find((c) => c.annual?.rangeland?.cover?.now.ltr != null);
+  if (rangeCounty) {
+    await page.goto(`district/blacklands/#c-${rangeCounty.fips}`);
+    const card = page.locator(`#c-${rangeCounty.fips}`);
+    const table = card.getByRole("table", { name: "Rangeland cover" });
+    await expect(table.getByRole("rowheader", { name: "Litter" })).toBeVisible();
+    await expect(card.getByRole("link", { name: "Rangeland Analysis Platform, USDA ARS" })).toBeVisible();
+  }
+});

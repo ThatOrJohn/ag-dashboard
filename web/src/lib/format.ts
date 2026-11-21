@@ -101,7 +101,7 @@ export function usdBig(v: number | null | undefined): string {
 }
 
 export const COVER_NAMES: Record<string, string> = {
-  pfg: "Perennial grasses", afg: "Annual grasses and forbs", shr: "Shrubs", tre: "Trees", ltr: "Litter", bgr: "Bare ground",
+  pfg: "Perennial grasses and forbs", afg: "Annual grasses and forbs", shr: "Shrubs", tre: "Trees", ltr: "Litter", bgr: "Bare ground",
 };
 
 export const CDL_NAMES: Record<string, string> = {

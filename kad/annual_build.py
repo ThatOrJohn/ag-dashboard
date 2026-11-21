@@ -14,8 +14,6 @@ CENSUS_KEYS = ("farms", "land_in_farms_acres", "avg_farm_acres", "median_farm_ac
 COVER = ("pfg", "afg", "shr", "tre", "ltr", "bgr")
 BASELINE_YEARS = (1986, 1995)     # RAP's first decade: "then" for woody-cover change
 CDL_NOT_LAND = {"background", "open_water", "water"}
-CDL_SKIP = {"background", "open_water", "developed_open_space", "developed_low_intensity",
-            "developed_med_intensity", "developed_high_intensity", "barren"}
 
 
 def _r(x, n=0):
@@ -94,14 +92,36 @@ def rap_card(rap: pd.DataFrame, fips: str, asof: pd.Timestamp) -> dict | None:
 
 
 def cdl_card(idx: dict, fips: str, top: int = 6) -> dict | None:
-    c = idx.get(fips)
-    if not c:
+    """Leading crop classes in either comparison year, with shares of all county land."""
+    by_year: dict[int, dict[str, float]] = {}
+    for var, values in idx.get(fips, {}).items():
+        cls = var.split(":", 1)[1]
+        if cls not in CDL_NOT_LAND:
+            for year, acres in values.items():
+                by_year.setdefault(year, {})[cls] = acres
+
+    land_by_year = {year: sum(acres.values()) for year, acres in by_year.items()}
+    years = [year for year, land in land_by_year.items() if land > 0]
+    if not years:
         return None
-    year = max(max(v) for v in c.values())
-    acres = {k.split(":", 1)[1]: v[year] for k, v in c.items() if year in v}
-    total = sum(v for k, v in acres.items() if k not in CDL_NOT_LAND)    # shares of land, like the acres
-    ranked = sorted(((k, v) for k, v in acres.items() if k not in CDL_SKIP), key=lambda kv: -kv[1])[:top]
-    return {"year": int(year), "classes": [{"id": k, "acres": _r(v), "pct": _r(100 * v / total, 1)} for k, v in ranked]}
+    year, first = max(years), min(years)
+    now = by_year[year]
+    then = by_year[first] if first != year else {}
+    crops = (now.keys() | then.keys()) - NOT_CROP - DEVELOPED - {"aquaculture"}
+    ranked = sorted(
+        (k for k in crops if not k.startswith("class_") and max(now.get(k, 0), then.get(k, 0)) > 0),
+        key=lambda k: (-max(now.get(k, 0), then.get(k, 0)), k),
+    )[:top]
+    if not ranked:
+        return None
+    rows = []
+    for k in ranked:
+        acres = now.get(k, 0)
+        row = {"id": k, "acres": _r(acres), "pct": _r(100 * acres / land_by_year[year], 1)}
+        if first != year:
+            row["acres_then"] = _r(then.get(k, 0))
+        rows.append(row)
+    return {"year": int(year), "since": int(first) if first != year else None, "classes": rows}
 
 
 DEVELOPED = {"developed_open_space", "developed_low_intensity", "developed_med_intensity", "developed_high_intensity"}
