@@ -12,7 +12,7 @@ const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 ) : (
   <>
     <p class="muted">Week beginning {day(source.as_of)} · {source.name}</p>
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Boll weevil report by area">
       <table>
         <caption class="sr-only">Boll weevil trapping and treatment by reporting area</caption>
         <thead>
