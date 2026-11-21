@@ -1,0 +1,128 @@
+---
+// Texas: the statewide this-week digest and the way into the home districts.
+import Base from "../layouts/Base.astro";
+import AsOf from "../components/AsOf.astro";
+import CropCard from "../components/CropCard.astro";
+import DroughtBar from "../components/DroughtBar.astro";
+import DroughtMap from "../components/DroughtMap.astro";
+import Headline from "../components/Headline.astro";
+import Locator from "../components/Locator.astro";
+import MarketCard from "../components/MarketCard.astro";
+import { loadLatest } from "../lib/data";
+import { change, countWord, day, href, inches, pct } from "../lib/format";
+
+const L = loadLatest();
+const S = L.sources;
+const tx = L.texas;
+const homes = L.districts.filter((d) => d.home);
+const homeSlugs = new Set(homes.map((d) => d.slug));
+const others = L.districts.filter((d) => !d.home);
+const fipsOf = (slug: string) => Object.entries(L.counties).filter(([, c]) => c.district === slug).map(([f]) => f);
+const statewide = L.markets.filter((m) => m.scope === "statewide");
+const anyStale = Object.values(S).some((s) => s.stale);
+---
+<Base title="Texas agriculture this week · Texas Ag Dashboard" description="Drought, crop progress, cattle prices and burn bans for Texas, in plain language, from public data. Updated weekly." current="texas">
+  <div class="map-wrap">
+    <div>
+      <span class="eyebrow">Texas agriculture · week of {day(L.asof)}</span>
+      <h1>What this week looks like for Texas farms and ranches</h1>
+      <Headline headline={tx.headline} sources={S} asof={L.asof} />
+      <nav class="personas" aria-label="Views by what you raise">
+        <span class="eyebrow">See it for</span>
+        <ul>{L.personas.map((p) => <li><a href={href(`for/${p.id}/`)}>{p.name}</a></li>)}</ul>
+      </nav>
+      {anyStale && <p class="notice warn">Some sources haven't updated recently, so their sections are hidden. See <a href={href("about/")}>About the data</a>.</p>}
+    </div>
+    <div><Locator /></div>
+  </div>
+
+  {tx.drought && (
+    <section aria-labelledby="drought-h">
+      <h2 id="drought-h">Drought</h2>
+      <div class="map-wrap">
+        <div>
+          <DroughtMap counties={L.counties} title="Texas counties by drought category" link={(f) => {
+            const d = L.counties[f]?.district;
+            return d && homeSlugs.has(d) ? href(`district/${d}/#c-${f}`) : null;
+          }} labels={homes.map((d) => ({ text: d.name, fips: fipsOf(d.slug) }))} />
+        </div>
+        <div>
+          <p class="big">{pct(tx.drought.now.d1)}</p>
+          <p>{`of Texas is in drought (D1 or worse)`}{tx.drought.week_ago ? `, ${change(tx.drought.now.d1, tx.drought.week_ago.d1)} from last week` : ""}{tx.drought.year_ago ? ` and ${pct(tx.drought.year_ago.d1)} a year ago` : ""}.</p>
+          <DroughtBar levels={tx.drought.now} label="Share of Texas by drought category" />
+          <AsOf source={S.usdm} label="Map of" date={tx.drought.map_date} note="official statewide figure" />
+          {tx.burn_bans && (
+            <>
+              <h3 style="margin-top:1.5rem">Burn bans</h3>
+              <p>{`${tx.burn_bans.count} of ${tx.burn_bans.of} counties have a burn ban.`}</p>
+              <AsOf source={S.burn_bans} label="Updated" note="county judges set bans; check yours before burning" />
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <section aria-labelledby="districts-h">
+    <h2 id="districts-h">Featured districts</h2>
+    <p class="muted">{`These ${countWord(homes.length)} NASS agricultural statistics districts are the ones I started with, so each gets a full district view with a card for every county. The rest of Texas is further down, for context. District figures are my own totals of county data, weighted by land area.`}</p>
+    <div class="grid">
+      {homes.map((d) => (
+        <a class="card" href={href(`district/${d.slug}/`)} style="text-decoration:none;color:inherit">
+          <h3>{d.name}</h3>
+          {d.drought && <p>{`${pct(d.drought.now.d1)} in drought`}{d.drought.week_ago ? `, ${change(d.drought.now.d1, d.drought.week_ago.d1)} from last week` : ""}</p>}
+          <dl class="kv">
+            {d.rain_7d_in != null && (<><dt>Rain, last 7 days</dt><dd>{inches(d.rain_7d_in)}</dd></>)}
+            {d.burn_bans != null && (<><dt>Counties with a burn ban</dt><dd>{`${d.burn_bans} of ${d.counties}`}</dd></>)}
+          </dl>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <section aria-labelledby="crops-h">
+    <h2 id="crops-h">Crops</h2>
+    <p class="muted">Statewide: NASS reports weekly crop progress and condition for Texas as a whole, not by district.</p>
+    {S.nass.stale ? <p class="notice">Crop reports are hidden: NASS's newest report is older than I expect.</p> : (
+      <div class="grid">
+        {(["wheat", "cotton", "corn", "sorghum"] as const).map((c) => (
+          <CropCard crop={c} progress={tx.crops[c].progress} condition={tx.crops[c].condition} source={S.nass} asof={L.asof} />
+        ))}
+        <CropCard crop="pasture" title="Pasture and range" condition={tx.pasture} source={S.nass} asof={L.asof} />
+      </div>
+    )}
+  </section>
+
+  <section aria-labelledby="cattle-h">
+    <h2 id="cattle-h">Cattle markets</h2>
+    <div class="grid">
+      {statewide.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}
+    </div>
+    <p class="muted">{"Local auctions: "}{L.markets.filter((m) => m.district).map((m, i) => (
+      <>{i > 0 ? "; " : ""}<a href={href(`district/${m.district}/#mk-h`)}>{m.name}</a>{` (${L.districts.find((d) => d.slug === m.district)?.name})`}</>
+    ))}{". All markets side by side: "}<a href={href("for/cattle-hay/")}>Cattle &amp; Hay</a>.</p>
+  </section>
+
+  <section aria-labelledby="rest-h">
+    <h2 id="rest-h">The rest of Texas</h2>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Other districts this week (scrolls sideways on small screens)">
+      <table>
+        <caption class="sr-only">Other NASS districts this week</caption>
+        <thead><tr><th scope="col">District</th><th class="n" scope="col">In drought (D1+)</th><th class="n" scope="col">vs last week</th><th class="n" scope="col">{`Rain, 7 days to ${day(S.nclimgrid.as_of, L.asof)}`}</th><th class="n" scope="col">Rain vs normal, 30 days</th><th class="n" scope="col">Burn bans</th></tr></thead>
+        <tbody>
+          {others.map((d) => (
+            <tr>
+              <th scope="row">{d.name}</th>
+              <td class="n">{d.drought ? pct(d.drought.now.d1) : "n/a"}</td>
+              <td class="n">{d.drought?.week_ago ? change(d.drought.now.d1, d.drought.week_ago.d1) : "n/a"}</td>
+              <td class="n">{inches(d.rain_7d_in)}</td>
+              <td class="n">{d.rain_vs_normal?.pct != null ? `${d.rain_vs_normal.pct}%` : "n/a"}</td>
+              <td class="n">{d.burn_bans != null ? `${d.burn_bans} of ${d.counties}` : "n/a"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="asof">Drought: {S.usdm.name}, map of {day(S.usdm.as_of)}. Rain: NOAA nClimGrid-Daily county averages through {day(S.nclimgrid.as_of)} (NOAA publishes about a week late); normal is 1991–2020. Our county-to-district totals.</p>
+  </section>
+</Base>

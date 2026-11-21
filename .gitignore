@@ -1,0 +1,32 @@
+# secrets: never commit (NASS_QUICK_STATS_API_KEY etc.)
+.env
+.env.*
+!.env.example
+
+# pipeline store lives on the `data` branch in CI; locally it's regenerable
+data/tx/
+data/*/daily/
+data/raw/
+data/probe/
+store/
+# large rasters (Cropland Data Layer, vegetation) are fetched, not committed
+*.tif
+*.tiff
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+
+# web build
+web/node_modules/
+web/dist/
+web/.astro/
+web/public/data/
+web/test-results/
+web/playwright-report/
+
+# OS / local leftovers
+.DS_Store
+scratchpad/
+

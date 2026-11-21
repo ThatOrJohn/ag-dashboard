@@ -1,0 +1,102 @@
+---
+import Base from "../layouts/Base.astro";
+import { loadLatest } from "../lib/data";
+import { day, listAnd } from "../lib/format";
+import { AUTHOR, REPO_URL } from "../lib/site";
+
+const L = loadLatest();
+const rows = Object.entries(L.sources);
+const homes = L.districts.filter((d) => d.home).map((d) => d.name);
+---
+<Base title="About the data · Texas Ag Dashboard" description="Where every figure on these Texas agriculture pages comes from, how I compute district totals, and what I don't claim." current="about">
+  <h1>About the data</h1>
+  <p class="lede">Every figure on this site comes from a public source, shows that source and its date, and hides when
+    the source stops updating rather than showing old numbers.</p>
+
+  <p class="notice"><strong>{L.nass_notice}</strong></p>
+
+  <h2>Sources</h2>
+  <div class="table-wrap">
+    <table>
+      <caption class="sr-only">Sources and how current each one is</caption>
+      <thead><tr><th scope="col">Source</th><th scope="col">Newest figure</th><th scope="col">Status</th></tr></thead>
+      <tbody>
+        {rows.map(([, s]) => (
+          <tr>
+            <th scope="row">{s.url ? <a href={s.url}>{s.name}</a> : s.name}{s.license ? ` (${s.license})` : ""}</th>
+            <td>{!s.as_of ? "none yet" : s.as_of.endsWith("-01-01") ? s.as_of.slice(0, 4) : day(s.as_of)}</td>
+            <td><span class={`tag ${s.stale ? "ban" : "ok"}`}>{!s.as_of ? "Not yet available" : s.stale ? "Not current: hidden" : s.between_reports ? "Between seasons" : "Current"}</span></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>What each source gives</h2>
+  <ul>
+    <li><strong>USDA NASS Quick Stats</strong>: weekly crop progress, crop condition and pasture condition for Texas
+      as a whole. NASS doesn't publish these by district or county.</li>
+    <li><strong>U.S. Drought Monitor</strong> (National Drought Mitigation Center, USDA, NOAA): the share of each
+      county in each drought category, weekly. The statewide number is the Drought Monitor's own.</li>
+    <li><strong>USDA AMS Market News</strong>: the Texas Weekly Cattle Auction Summary and individual auctions
+      (Giddings, San Angelo). I show head-weighted average prices for Medium and Large No. 1 feeder cattle in
+      100 lb weight classes, and all slaughter cows together. The reporter's own summary is quoted as written.</li>
+    <li><strong>Texas A&amp;M Forest Service</strong>: county burn bans, from the daily map behind their
+      <a href="https://tfsweb.tamu.edu/wildfire-and-other-disasters/burn-bans-and-information/">burn ban page</a>.
+      County judges and commissioners courts set bans; check yours before you burn.</li>
+    <li><strong><a href="https://www.weather.gov/documentation/services-web-api">National Weather Service</a></strong>:
+      the 7-day forecast high, low and rain at each featured-district county's center. Public domain.</li>
+    <li><strong><a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">NOAA NCEI nClimGrid-Daily</a></strong>:
+      daily high, low and rain averaged over each county: the observed weather, and, from 1991–2020, the
+      normals I compute (each calendar day's 30-year mean, smoothed over a month), so "vs normal" compares like with like.
+      NOAA publishes about a week late, so weather figures say the day they run through, and the temperature
+      chart marks the days since as not yet reported. An average over a county is a rough guide; your gauge
+      will differ. Public domain.</li>
+    <li><strong><a href="https://water.noaa.gov/resources/downloads/precip/stageIV/">NWS/NCEP Stage IV</a></strong>:
+      daily rain estimated from radar and adjusted to rain gauges by the National Weather Service's River
+      Forecast Centers, which I average over each county. It fills the days NOAA's county averages haven't
+      reached yet and is always labeled an estimate. It often runs a little wetter than those averages, so it
+      never goes into a "vs normal" figure, and NOAA's numbers replace it when they come out. Public domain.</li>
+  </ul>
+  <p>Once a year, on the county cards and district pages:</p>
+  <ul>
+    <li><strong>USDA NASS Census of Agriculture</strong> (2022; next in 2027): farms and ranches, land in farms,
+      farm size, sales and livestock for every county.</li>
+    <li><strong>USDA NASS county estimates</strong>: planted acres and yield by crop, and cattle on Jan. 1. NASS
+      publishes only some counties each year, so I show the newest published year for each, and district
+      totals are a lower bound.</li>
+    <li><strong>Rangeland Analysis Platform, USDA ARS</strong>: satellite estimates over rangeland only: plant cover
+      by type each year since 1986, and forage production every 16 days, compared with the 10-year normal for the
+      same date.</li>
+    <li><strong>USDA NASS Cropland Data Layer</strong>: what's growing where, classified from satellite imagery at
+      30 m, summed by county. Satellite-classified, so it differs somewhat from survey figures.</li>
+  </ul>
+
+  <h2>Why these districts</h2>
+  <p>{`${listAnd(homes)} are the districts I started with, so they get the full district view, with a card for every county. The rest of Texas is shown statewide and in the district table, for context. Other districts will get the same view in time.`}</p>
+
+  <h2>How I compute what isn't published</h2>
+  <ul>
+    <li><strong>Districts</strong> are NASS agricultural statistics districts. NASS stopped publishing district
+      estimates after 2019, so every district figure here is <em>my own</em> total of county figures, weighted by
+      land area. It is not a USDA estimate.</li>
+    <li><strong>A county's drought category</strong> on the maps is the most severe category covering at least half
+      of the county. The county card gives the shares.</li>
+    <li><strong>"A year ago" and "5-year average"</strong> compare to the report nearest the same date in earlier
+      years. I only show a 5-year average when all five years reported that week.</li>
+    <li><strong>Out of season</strong>: crop condition ratings stop after harvest. Then I say so and give the last
+      report date, instead of showing last season's numbers.</li>
+  </ul>
+
+  <h2>Free, from public data</h2>
+  <p>This site is free to use: no ads, no sign-up, no subscriptions, and nothing is sold here. Every figure comes
+    from public data published by government agencies, universities and open-data services, credited where it
+    appears. It is a personal project by {AUTHOR}, and the code is <a href={REPO_URL}>on GitHub</a>.</p>
+
+  <h2>Not an official source</h2>
+  <p>This is a free, plain-language read on public data. It is not
+    endorsed by, or affiliated with, USDA, NASS, AMS, the Drought Monitor, NOAA, Texas A&amp;M or the State of Texas.
+    Where I differ from them, they are right. Found a wrong number?
+    Let me know by <a href={`${REPO_URL}/issues`}>opening an issue on GitHub</a>.</p>
+  <p class="muted">{`Built ${day(L.generated_at.slice(0, 10))} from data as of ${day(L.asof)}.`}</p>
+</Base>

@@ -1,0 +1,9 @@
+---
+// GitHub Pages serves 404.html from the site root for any missing path, so this one covers every page of the site.
+import Base from "../layouts/Base.astro";
+import { href } from "../lib/format";
+---
+<Base title="Page not found · Texas Ag Dashboard" description="That page isn't here. Start from the Texas overview.">
+  <h1>That page isn't here</h1>
+  <p class="lede">It may have moved. <a href={href()}>Start from the Texas overview</a>, or open a district from the menu.</p>
+</Base>

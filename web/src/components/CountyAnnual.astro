@@ -1,0 +1,84 @@
+---
+// "Over the years" inside a county card: Census of Ag, NASS county estimates, rangeland from RAP, and the
+// satellite crop mix (CDL). Each part names its source and year; missing data says "not published".
+import type { CountyAnnual, Source, SourceKey } from "../lib/types";
+import { COVER_NAMES, CROPS, cdlName, day, num, pct, usdBig } from "../lib/format";
+
+interface Props { annual?: CountyAnnual; sources: Record<SourceKey, Source>; asof: string }
+const { annual: a, sources: S, asof } = Astro.props;
+const c = a?.census;
+const est = a?.estimates ?? {};
+const crops = (["corn", "sorghum", "cotton", "wheat"] as const).filter((k) => est[k]);
+const cover = a?.rangeland?.cover;
+const prod = a?.rangeland?.production;
+const shown = (["pfg", "shr", "tre", "bgr"] as const).filter((k) => cover?.now[k] != null);
+---
+{a && (c || crops.length > 0 || est.cattle || cover || prod || a.crop_mix) && (
+  <div class="annual">
+    <h4>Over the years</h4>
+
+    {c && (
+      <>
+        <dl class="kv">
+          {c.farms != null && (<><dt>Farms and ranches</dt><dd>{num(c.farms) + (c.farms_prev != null ? ` (${num(c.farms_prev)} in ${c.prev_year})` : "")}</dd></>)}
+          {c.land_in_farms_acres != null && (<><dt>Land in farms</dt><dd>{`${num(c.land_in_farms_acres)} ac`}</dd></>)}
+          {c.median_farm_acres != null && (<><dt>Typical farm (median)</dt><dd>{`${num(c.median_farm_acres)} ac`}</dd></>)}
+          {c.sales_usd != null && (<><dt>Sales of all products</dt><dd>{usdBig(c.sales_usd)}</dd></>)}
+          {c.cattle != null && (<><dt>Cattle</dt><dd>{num(c.cattle)}</dd></>)}
+          {(c.goats ?? 0) >= 1000 && (<><dt>Goats</dt><dd>{num(c.goats)}</dd></>)}
+          {(c.sheep ?? 0) >= 1000 && (<><dt>Sheep</dt><dd>{num(c.sheep)}</dd></>)}
+        </dl>
+        <p class="asof">{`${S.census.name}, ${c.year}. Next census: 2027.`}</p>
+      </>
+    )}
+
+    {(crops.length > 0 || est.cattle) && (
+      <>
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">NASS county estimates, newest published year for each</caption>
+            <thead><tr><th scope="col">Crop</th><th class="n" scope="col">Year</th><th class="n" scope="col">Planted</th><th class="n" scope="col">Yield</th></tr></thead>
+            <tbody>
+              {crops.map((k) => {
+                const e = est[k]!;
+                return <tr><th scope="row">{CROPS[k]}</th><td class="n">{e.year}</td><td class="n">{`${num(e.planted_acres)} ac`}</td><td class="n">{e.yield != null ? `${e.yield} ${e.yield_unit}` : "n/a"}</td></tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
+        {est.cattle && <p>{`Cattle, Jan. 1, ${est.cattle.year}: ${num(est.cattle.head)} head.`}</p>}
+        <p class="asof">{`${S.nass_county.name}, newest published year for each. Crops NASS doesn't publish for this county aren't listed.`}</p>
+      </>
+    )}
+    {crops.length === 0 && !est.cattle && !S.nass_county.stale && <p class="muted">NASS doesn't publish crop or cattle estimates for this county.</p>}
+
+    {(cover || prod) && (
+      <>
+        {prod?.pct_of_normal != null && (
+          <p>{`Forage on rangeland this year: ${prod.pct_of_normal}% of the 10-year normal (${num(prod.ytd_lb_ac)} lb/ac so far, through ${day(prod.through, asof)}).`}</p>
+        )}
+        {cover && shown.length > 0 && (
+          <div class="table-wrap">
+            <table>
+              <caption class="sr-only">{`Rangeland cover, ${cover.year} vs ${cover.baseline_years[0]}–${cover.baseline_years[1]} average`}</caption>
+              <thead><tr><th scope="col">Rangeland cover</th><th class="n" scope="col">{cover.year}</th><th class="n" scope="col">{`${cover.baseline_years[0]}–${String(cover.baseline_years[1]).slice(2)}`}</th></tr></thead>
+              <tbody>
+                {shown.map((k) => <tr><th scope="row">{COVER_NAMES[k]}</th><td class="n">{pct(cover.now[k])}</td><td class="n">{pct(cover.baseline[k])}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p class="asof">Rangeland Analysis Platform, USDA ARS · satellite estimates over rangeland only</p>
+      </>
+    )}
+
+    {a.crop_mix && (
+      <>
+        <ul class="mix">
+          {a.crop_mix.classes.map((m) => <li><span>{cdlName(m.id)}</span><span class="num">{`${num(m.acres)} ac · ${m.pct}%`}</span></li>)}
+        </ul>
+        <p class="asof">{`${S.cdl.name}, ${a.crop_mix.year} · satellite-classified, 30 m`}</p>
+      </>
+    )}
+  </div>
+)}

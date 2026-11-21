@@ -1,0 +1,8 @@
+---
+// The US stop of the zoom: a small locator with Texas picked out. National data comes later.
+import { usStates } from "../lib/geo";
+const states = usStates(300, 190);
+---
+<svg class="map locator" viewBox="0 0 300 190" role="img" aria-label="Map of the United States with Texas highlighted">
+  {states.map((s) => <path class={`state${s.id === "48" ? " tx" : ""}`} d={s.d} />)}
+</svg>

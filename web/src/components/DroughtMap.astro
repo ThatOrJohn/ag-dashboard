@@ -1,0 +1,69 @@
+---
+// County drought map, rendered to static SVG at build time. Each county is a link with a text title; D3 and
+// D4 also get hatching so the worst categories read without color. A table or list beside the map carries
+// the same facts for screen readers and small screens.
+import type { CountyCard } from "../lib/types";
+import { category, categoryName } from "../lib/format";
+import { countyPaths, placeLabels } from "../lib/geo";
+
+interface Props {
+  counties: Record<string, CountyCard>;
+  keep?: string[] | null;               // FIPS to draw; all of Texas when omitted
+  link: (fips: string) => string | null;
+  labels?: { text: string; fips: string[] }[];   // text at the centroid of these counties' centroids
+  countyNames?: boolean;                // label every county (district maps)
+  width?: number;
+  height?: number;
+  title: string;
+}
+const { counties, keep = null, link, labels = [], countyNames = false, width = 640, height = 600, title } = Astro.props;
+const { counties: shapes, borders } = countyPaths(keep ? new Set(keep) : null, width, height,
+  (f) => counties[f]?.district ?? "");
+const cls = (c: number) => (c < 0 ? "f-none" : `f-d${c}`);
+const labelPos = labels.map((l) => {
+  const pts = shapes.filter((s) => l.fips.includes(s.fips));
+  return { text: l.text, x: pts.reduce((a, p) => a + p.cx, 0) / pts.length, y: pts.reduce((a, p) => a + p.cy, 0) / pts.length };
+});
+// County names: placed separately for desktop (12 user units) and phones (17, where the SVG scales down).
+const named = shapes.map((s) => ({ ...s, text: counties[s.fips]?.name ?? "" }));
+const fitD = countyNames ? placeLabels(named, 12) : new Map();
+const fitP = countyNames ? placeLabels(named, 17) : new Map();
+const id = `m-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}`;
+---
+<svg class="map" viewBox={`0 0 ${width} ${height}`} role="group" aria-label={title}>
+  <defs>
+    <pattern id={`${id}-h3`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line class="hatch-line" x1="0" y1="0" x2="0" y2="6" />
+    </pattern>
+    <pattern id={`${id}-h4`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line class="hatch-line" x1="0" y1="0" x2="0" y2="4" />
+      <line class="hatch-line" x1="0" y1="0" x2="4" y2="0" />
+    </pattern>
+  </defs>
+  {shapes.map((s) => {
+    const c = counties[s.fips];
+    const cat = category(c?.drought);
+    const t = `${c?.name ?? s.fips} County: ${c?.drought ? categoryName(cat) : "no drought data"}${c?.burn_ban ? ", burn ban" : ""}`;
+    const url = link(s.fips);
+    const body = (
+      <>
+        <path class={`county ${cls(cat)}`} d={s.d}><title>{t}</title></path>
+        {cat >= 3 && <path class="hatch" d={s.d} fill={`url(#${id}-h${cat})`} />}
+      </>
+    );
+    return url ? <a href={url} aria-label={t}>{body}</a> : <g>{body}</g>;
+  })}
+  <path class="borders" d={borders} />
+  {countyNames && (
+    <g aria-hidden="true">
+      {named.map((s) => <text class="label county-name" x={s.cx} y={s.cy} text-anchor="middle" dominant-baseline="middle"
+        style={`--fit-d:${fitD.get(s.fips)};--fit-p:${fitP.get(s.fips)}`}>{s.text}</text>)}
+    </g>
+  )}
+  {labelPos.map((l) => <text class="label" x={l.x} y={l.y} text-anchor="middle">{l.text}</text>)}
+</svg>
+<ul class="dlegend" aria-label="Map key">
+  <li><span class="sw f-none" aria-hidden="true" />No drought</li>
+  {["D0", "D1", "D2", "D3 (hatched)", "D4 (cross-hatched)"].map((n, i) => <li><span class={`sw f-d${i}`} aria-hidden="true" />{n}</li>)}
+</ul>
+<p class="asof">Each county shows the most severe category covering at least half of it. Thick lines are district borders.</p>

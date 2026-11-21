@@ -1,0 +1,17 @@
+---
+import type { DroughtLevels } from "../lib/types";
+import { bands } from "../lib/format";
+
+interface Props { levels: DroughtLevels; label: string; legend?: boolean }
+const { levels, label, legend = true } = Astro.props;
+const b = bands(levels);
+const text = b.filter((x) => x.value > 0).map((x) => `${x.label === "None" ? "no drought" : x.label} ${x.value}%`).join(", ");
+---
+<div class="dbar" role="img" aria-label={`${label}: ${text}`}>
+  {b.filter((x) => x.value > 0).map((x) => <span class={`f-${x.key}`} style={`width:${x.value}%`} />)}
+</div>
+{legend && (
+  <ul class="dlegend">
+    {b.map((x) => <li><span class={`sw f-${x.key}`} aria-hidden="true" />{`${x.label} ${x.value}%`}</li>)}
+  </ul>
+)}

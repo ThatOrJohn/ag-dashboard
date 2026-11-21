@@ -1,0 +1,148 @@
+# Texas. The only region, for a long time (docs/seed.md). Everything is keyed by county FIPS.
+# Counties and their NASS district: regions/tx-counties.csv (scripts/make_county_table.py).
+id: tx
+name: Texas
+state_alpha: TX
+state_fips: "48"
+timezone: America/Chicago
+
+# NASS agricultural statistics districts. `home` districts are the featured districts (the site's word for them)
+# and get the full working view, in this order; the rest are statewide context. Names follow Quick Stats
+# (`nass`, asd_desc), our first source; NASS's district map page uses others ("South East Texas" for
+# EAST TEXAS SOUTH, "North East Texas" for EAST TEXAS NORTH). `phrase` is how a headline names it mid-sentence
+# ("Drought eased in the Blacklands"); default "the <name> district".
+districts:
+  - { slug: blacklands,           nass: BLACKLANDS,           name: Blacklands,           home: 1, phrase: the Blacklands }
+  - { slug: south-central,        nass: SOUTH CENTRAL,        name: South Central,        home: 2 }
+  - { slug: edwards-plateau,      nass: EDWARDS PLATEAU,      name: Edwards Plateau,      home: 3, phrase: the Edwards Plateau }
+  - { slug: east-texas-north,     nass: EAST TEXAS NORTH,     name: East Texas North,     home: 4 }
+  - { slug: east-texas-south,     nass: EAST TEXAS SOUTH,     name: East Texas South,     home: 5 }
+  - { slug: northern-high-plains, nass: NORTHERN HIGH PLAINS, name: Northern High Plains }
+  - { slug: southern-high-plains, nass: SOUTHERN HIGH PLAINS, name: Southern High Plains }
+  - { slug: northern-low-plains,  nass: NORTHERN LOW PLAINS,  name: Northern Low Plains }
+  - { slug: southern-low-plains,  nass: SOUTHERN LOW PLAINS,  name: Southern Low Plains }
+  - { slug: cross-timbers,        nass: CROSS TIMBERS,        name: Cross Timbers }
+  - { slug: trans-pecos,          nass: TRANS-PECOS,          name: Trans-Pecos }
+  - { slug: upper-coast,          nass: UPPER COAST,          name: Upper Coast }
+  - { slug: south-texas,          nass: SOUTH TEXAS,          name: South Texas }
+  - { slug: coastal-bend,         nass: COASTAL BEND,         name: Coastal Bend }
+  - { slug: lower-valley,         nass: LOWER VALLEY,         name: Lower Valley }
+
+# Personas are config (ms-sound-check 0010). card_order names sections the build emits.
+personas:
+  # Sections: crop:<id>, pasture, drought, rain, burn_bans, cattle. Pages are /for/<id>/.
+  - id: corn-sorghum
+    name: Corn & Sorghum
+    blurb: Statewide progress and condition, then drought and rain in the home districts.
+    card_order: [crop:corn, crop:sorghum, drought, rain, cattle]
+  - id: cotton
+    name: Cotton
+    blurb: Statewide progress and condition, then drought and rain in the home districts.
+    card_order: [crop:cotton, drought, rain, burn_bans]
+  - id: wheat
+    name: Wheat & Small Grains
+    blurb: Planting, emergence and condition statewide, rain for the stand, and calf prices for grazing.
+    card_order: [crop:wheat, rain, drought, cattle]
+  - id: cattle-hay
+    name: Cattle & Hay
+    blurb: Auction prices, pasture condition, and the drought and rain that decide grazing and hay.
+    card_order: [cattle, pasture, drought, rain, burn_bans]
+  - id: land-water
+    name: Land, Water & Weather
+    blurb: Drought, rain and burn bans in the home districts, with pasture condition for context.
+    card_order: [drought, rain, burn_bans, pasture]
+
+# Every source: where it comes from, how often it should update, and how old its newest figure may be
+# before its section hides (max_age_days, measured from the figure's own date, not the fetch).
+sources:
+  usdm:
+    name: U.S. Drought Monitor
+    url: https://droughtmonitor.unl.edu/
+    max_age_days: 10          # weekly map, valid Tuesday; published Thursday
+  nass:
+    name: USDA NASS Quick Stats
+    url: https://quickstats.nass.usda.gov/
+    max_age_days: 10          # weekly Crop Progress, Mondays
+    # Texas weekly reports pause from about Nov. 30 until January (as late as Jan. 21 in 2024). In these
+    # months an old report means "between reports", not an outage: cards say out of season, health passes.
+    quiet_months: [12, 1]
+    # State weekly series. id becomes the var prefix (corn:planted, corn:good, ...).
+    # in_season: months (1-12) the series is expected; outside them the card says "out of season".
+    weekly:
+      - { id: corn,    commodity: CORN,        stat: PROGRESS,  in_season: [3, 4, 5, 6, 7, 8, 9] }
+      - { id: corn,    commodity: CORN,        stat: CONDITION, in_season: [4, 5, 6, 7, 8] }
+      - { id: sorghum, commodity: SORGHUM,     stat: PROGRESS,  in_season: [3, 4, 5, 6, 7, 8, 9, 10, 11] }
+      - { id: sorghum, commodity: SORGHUM,     stat: CONDITION, in_season: [4, 5, 6, 7, 8, 9, 10] }
+      - { id: cotton,  commodity: COTTON,      stat: PROGRESS,  in_season: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12] }
+      - { id: cotton,  commodity: COTTON,      stat: CONDITION, in_season: [5, 6, 7, 8, 9, 10] }
+      - { id: wheat,   commodity: WHEAT,       stat: PROGRESS,  in_season: [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12] }
+      - { id: wheat,   commodity: WHEAT,       stat: CONDITION, in_season: [1, 2, 3, 4, 5, 6, 10, 11, 12] }
+      - { id: pasture, commodity: PASTURELAND, stat: CONDITION, in_season: [3, 4, 5, 6, 7, 8, 9, 10] }
+  ams:
+    name: USDA AMS Market News
+    url: https://mymarketnews.ams.usda.gov/
+    max_age_days: 14
+    reports:
+      - { slug: 1955, name: Texas Weekly Cattle Auction Summary, kind: cattle, scope: statewide }
+      - { slug: 3724, name: Giddings Livestock Auction, kind: cattle, district: south-central }
+      - { slug: 2015, name: Producers Livestock Auction (San Angelo), kind: cattle, district: edwards-plateau }
+  burn_bans:
+    name: Texas A&M Forest Service
+    url: https://texasforestservice.tamu.edu/
+    kmz: http://tfsfrp.tamu.edu/WILDFIRES/Burn_Ban.kmz
+    max_age_days: 2
+    # KML style ids: #PolyStyle02 is filled red (ban), #PolyStyle00 is transparent (no ban). Confirmed
+    # 2026-11-20 against TFS's own BURNBAN.txt list (89 = 89, same counties). See docs/decisions/0003.
+    ban_style: "#PolyStyle02"
+    no_ban_style: "#PolyStyle00"
+  # Observed weather: county-average high, low and rain (decisions 0013, 0014). NCEI's preliminary month runs
+  # about a week behind, so this allows for that plus a slow update.
+  nclimgrid:
+    name: NOAA NCEI nClimGrid-Daily
+    url: https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily
+    license: Public domain (NOAA)
+    ncei_state_code: "41"      # NCEI's code for Texas (not FIPS); us-state-codes_ncei-to-fips.csv
+    max_age_days: 14
+  # 7-day forecast at home-district county centers. max_age is from the forecast's first day (today).
+  nws:
+    name: National Weather Service forecast
+    url: https://www.weather.gov/documentation/services-web-api
+    license: Public domain (NOAA)
+    max_age_days: 2
+  # Provisional daily rain per county for the days nClimGrid hasn't reached (decision 0017). Shown as an
+  # estimate; never used for vs-normal figures.
+  stage4:
+    name: NWS/NCEP Stage IV multi-sensor precipitation
+    url: https://water.noaa.gov/resources/downloads/precip/stageIV/
+    license: Public domain (NOAA)
+    max_age_days: 4
+
+  # Annual sources run when due, from any regular run (docs/decisions/0011): due = no successful fetch
+  # within refresh_days. max_age_days is measured from the figure's year (Jan 1), so it allows for release lag.
+  census:
+    name: USDA NASS Census of Agriculture
+    url: https://www.nass.usda.gov/AgCensus/
+    refresh_days: 90           # every 5 years (2022, next 2027); a cheap check
+    max_age_days: 2600         # 2022 figures stay current until the 2027 census is out (~2029)
+  nass_county:
+    name: USDA NASS county estimates
+    url: https://quickstats.nass.usda.gov/
+    refresh_days: 30           # crop county estimates come out February–April; cattle with them
+    max_age_days: 900          # newest year can trail by about two years
+  cdl:
+    name: USDA NASS Cropland Data Layer
+    url: https://croplandcros.scinet.usda.gov/
+    refresh_days: 30           # a year's map is released early the next year
+    max_age_days: 900
+    first_year: 2021           # five years: enough for "how the mix shifted"; ~13 s per county-year (0016)
+  rap:
+    name: Rangeland Analysis Platform, USDA ARS
+    url: https://rangelands.app/
+    refresh_days: 16           # 16-day production periods; annual cover rides along
+    max_age_days: 760
+  normals:
+    name: Climate normals 1991–2020 (NOAA nClimGrid-Daily)
+    url: https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily
+    license: Public domain (NOAA)
+    refresh_days: 3650         # 1991–2020 normals are fixed until the 2001–2030 set (~2031)
+    max_age_days: 4400         # measured from 2020-12-31, the end of the normals period

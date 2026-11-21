@@ -1,0 +1,21 @@
+---
+// The plain-language "this week" summary from kad/headline.py. Each sentence came from one source; the
+// line under it names them with their dates.
+import type { Headline, Source, SourceKey } from "../lib/types";
+import { day } from "../lib/format";
+
+interface Props { headline?: Headline; sources: Record<SourceKey, Source>; asof: string; topics?: string[] }
+const { headline, sources, asof, topics } = Astro.props;
+// With `topics` (a persona's card_order), keep only the sentences about those sections, in that order.
+const items = topics && headline?.items
+  ? topics.flatMap((t) => headline.items!.filter((i) => i.topic === t))
+  : (headline?.items ?? (headline?.sentences ?? []).map((text) => ({ text, source: null, topic: "" })));
+const keys = topics && headline?.items ? [...new Set(items.map((i) => i.source))] : (headline?.sources ?? []);
+const used = keys.map((k) => k && sources[k as SourceKey]).filter((s): s is Source => !!s);
+---
+{items.length > 0 && (
+  <div class="headline">
+    <p class="lede">{items.map((i) => i.text).join(" ")}</p>
+    <p class="asof">{"Based on " + used.map((s) => `${s.name} (${day(s.as_of, asof)})`).join(", ") + "."}</p>
+  </div>
+)}

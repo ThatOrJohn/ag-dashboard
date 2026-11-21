@@ -1,0 +1,12 @@
+---
+// "Source · date" under every figure (CLAUDE.md: every figure shows its source and as-of date).
+import type { Source } from "../lib/types";
+import { day } from "../lib/format";
+
+interface Props { source: Source; label?: string; date?: string | null; note?: string }
+const { source, label = "As of", date, note } = Astro.props;
+---
+<p class="asof">
+  {source.url ? <a href={source.url}>{source.name}</a> : source.name}
+  {` · ${label} ${day(date ?? source.as_of)}`}{note ? ` · ${note}` : ""}
+</p>

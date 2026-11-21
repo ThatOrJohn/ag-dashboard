@@ -1,0 +1,158 @@
+name: Update Texas ag data
+
+on:
+  schedule:
+    # Twice a day: burn bans change daily; NASS Crop Progress lands Monday afternoon (ET) and the Drought
+    # Monitor Thursday morning, so a midday and an evening run pick both up the same day.
+    - cron: "17 13,23 * * *"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "run (normal update) or backfill (first-time history: 2 years of drought, 60 weeks of auctions)"
+        default: run
+        type: choice
+        options: [run, backfill]
+  push:                      # a code change on main deploys right away (same job as the schedule)
+    branches: [main]
+    paths-ignore: ["docs/**", "*.md"]   # docs-only commits don't need a rebuild
+  pull_request:              # build + test only; never touches data or deploys
+
+permissions:
+  contents: write            # push the data branch
+
+concurrency:
+  group: update-ag-data-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+env:
+  REGION: tx
+  KAD_DATA_DIR: ${{ github.workspace }}/store
+  # NASS_QUICK_STATS_API_KEY and AMS_MMN_API_KEY (repo secrets) are passed only to the steps that call
+  # those APIs, so dependency installs and tests never see them. Pull requests from forks get no secrets
+  # and never reach those steps.
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      healthy: ${{ steps.health.outputs.healthy }}
+      message: ${{ steps.health.outputs.message }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the data store (data branch)
+        run: |
+          git config user.name "ag-dashboard bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git fetch --depth 1 origin data; then
+            git worktree add store FETCH_HEAD
+          else
+            git worktree add --orphan -b data store
+          fi
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements-dev.txt
+      - name: Pipeline tests
+        run: python -m pytest -q
+
+      - uses: actions/setup-node@v4
+        with: { node-version-file: web/.nvmrc, check-latest: true, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+        working-directory: web
+
+      - name: Backfill history
+        if: github.event.inputs.task == 'backfill'
+        env:
+          NASS_QUICK_STATS_API_KEY: ${{ secrets.NASS_QUICK_STATS_API_KEY }}
+          AMS_MMN_API_KEY: ${{ secrets.AMS_MMN_API_KEY }}
+        run: |
+          python -m kad backfill --region "$REGION"
+          python -m kad annual --region "$REGION" --force --budget 1200
+
+      - name: Ingest, annual sources (when due) and build data
+        env:
+          NASS_QUICK_STATS_API_KEY: ${{ secrets.NASS_QUICK_STATS_API_KEY }}
+          AMS_MMN_API_KEY: ${{ secrets.AMS_MMN_API_KEY }}
+        run: python -m kad run --region "$REGION"
+
+      - name: Health check
+        id: health
+        continue-on-error: true
+        run: python -m kad check --region "$REGION"
+
+      - name: Build site
+        working-directory: web
+        run: npm run build
+
+      - name: Browser and accessibility tests
+        working-directory: web
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: playwright-report, path: web/playwright-report, retention-days: 7 }
+
+      - name: Save data store (single squashed commit on the data branch)
+        if: github.event_name != 'pull_request'
+        run: |
+          cd store
+          git checkout --orphan snapshot
+          git add -A
+          git commit -q -m "data snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f origin HEAD:data
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with: { path: web/dist }
+
+  # Publishes the site to GitHub Pages, from main only.
+  deploy:
+    needs: update
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      actions: write         # the keepalive below
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - id: pages
+        uses: actions/deploy-pages@v4
+      # GitHub disables scheduled workflows in a public repo after 60 days without repo activity, and the
+      # pipeline's force-pushes to the data branch may not count. Re-enabling the workflow resets that clock.
+      - name: Keep the schedule alive
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/update.yml/enable"
+
+  # Fails the run (and GitHub emails you) when core weekly data has stopped updating.
+  # The page still deploys and hides the stale sections.
+  health:
+    needs: [update, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Data freshness
+        env:
+          HEALTHY: ${{ needs.update.outputs.healthy }}
+          MESSAGE: ${{ needs.update.outputs.message }}
+          UPDATE_RESULT: ${{ needs.update.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+        run: |
+          # One line at the top of the run page; the update job's summary has the per-source table.
+          {
+            echo "## Health"
+            if [ "$UPDATE_RESULT" != "success" ]; then echo "❌ The update job failed (result: $UPDATE_RESULT). Open it and read the first red step."; fi
+            if [ "$DEPLOY_RESULT" != "success" ] && [ "$DEPLOY_RESULT" != "skipped" ]; then echo "❌ Deploy did not succeed (result: $DEPLOY_RESULT): the site still shows the previous build."; fi
+            if [ "$HEALTHY" = "true" ]; then echo "✅ Core weekly data is current: $MESSAGE"; else echo "❌ Core weekly data is stale: ${MESSAGE:-no health result}"; fi
+            echo "Per-source details: see **Data sources this run** in the update job's summary."
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$UPDATE_RESULT" = "success" ] || echo "::error title=Update job failed::Result: $UPDATE_RESULT"
+          case "$DEPLOY_RESULT" in success|skipped) ;; *) echo "::error title=Deploy failed::The site still shows the previous build." ;; esac
+          [ "$HEALTHY" = "true" ] || echo "::error title=Core data stale::${MESSAGE:-no health result}"
+          test "$HEALTHY" = "true" && test "$UPDATE_RESULT" = "success" && case "$DEPLOY_RESULT" in success|skipped) true ;; *) false ;; esac

@@ -1,0 +1,29 @@
+# Roadmap
+
+## Done
+- Idea, decisions and personas: `docs/seed.md` (2026-11-20).
+- Feasibility probe of every candidate source: `docs/feasibility.md`, `scripts/probe_sources.py`.
+- Pipeline, the weekly sources, Texas / district / county views, tests, CI workflow.
+- Annual sources: NASS county estimates, Census of Agriculture, Cropland Data Layer via CroplandCROS
+  ([0016](decisions/0016-cdl-via-croplandcros.md)), Rangeland Analysis Platform.
+- County labels, headlines, dark drought scale, phone layout, persona pages, share images, district
+  weather strip ([0012](decisions/0012-district-weather-strip.md)), 1991–2020 normals and rain vs normal
+  from NOAA nClimGrid-Daily ([0013](decisions/0013-normals-from-noaa-nclimgrid.md)), NOAA observed + NWS
+  forecast instead of Open-Meteo ([0014](decisions/0014-drop-open-meteo.md)), rain since Jan. 1
+  ([0015](decisions/0015-rain-since-jan-1.md)), Stage IV rain estimates for the days NOAA hasn't published
+  ([0017](decisions/0017-stage4-rain-estimates.md)).
+- Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
+
+## Next
+- Full district view for every Texas district, not just the five featured ones.
+- Satellite layers per county: CDL crop mix and RAP cover on the county cards.
+- Sheep and goats for Edwards Plateau (San Angelo 2014 / 2013) on Cattle & Hay.
+- Data view (tables, methods, CSV / Parquet downloads).
+
+## Later / maybe
+- National context on the US map (drought, where Texas ranks per commodity).
+- Weekly digest (RSS / social) like ms-sound-check.
+- More districts' auctions if AMS adds Blacklands or East Texas markets. Hay prices (Texas Direct Hay 2707).
+
+## Exit plan
+If pipelines rot and value is near zero: leave the site up with a notice saying what stopped and when.

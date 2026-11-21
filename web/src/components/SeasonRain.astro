@@ -1,0 +1,201 @@
+---
+// Rain since Jan. 1 (decision 0015): this year's running total against the 1991–2020 normal and the typical
+// range (10th to 90th percentile of the 30 years' running totals), Jan. 1 to Dec. 31. One y axis, inches.
+// Static SVG drawn at build time (decision 0005); a small script adds a hover/tap readout that snaps to the
+// nearest day, and a table of month ends carries the same values without it. Identity never rests on color:
+// a legend names the line, the normal and the range, and both lines are labeled at their ends.
+import type { SeasonRain } from "../lib/types";
+import { day } from "../lib/format";
+
+interface Props { season: SeasonRain; name: string; asof: string }
+const { season, name, asof } = Astro.props;
+const { actual, normal, low, high } = season;
+const n = normal.length;                       // days in the year
+const last = actual.length - 1;
+
+const W = 640, L = 40, R = 14, T = 16, PH = 220, H = T + PH + 30;
+const x = (i: number) => L + (i / (n - 1)) * (W - L - R);
+const top = Math.max(high[n - 1], ...actual, normal[n - 1]);
+const yStep = top > 40 ? 10 : 5;
+const yMax = Math.ceil(top / yStep) * yStep;
+const y = (v: number) => T + PH - (v / yMax) * PH;
+const yTicks = Array.from({ length: yMax / yStep + 1 }, (_, k) => k * yStep);
+
+const line = (vals: number[]) => "M" + vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("L");
+const band = line(high) + "L" + low.map((_, k) => { const i = n - 1 - k; return `${x(i).toFixed(1)},${y(low[i]).toFixed(1)}`; }).join("L") + "Z";
+
+// Month starts for ticks (Jan. 1 = day 0 of season.start's year).
+const year = season.year;
+const MONTHS = ["Jan.", "Feb.", "March", "April", "May", "June", "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec."];
+const SHORT = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+const dayIndex = (m: number, d: number) => Math.round((Date.UTC(year, m, d) - Date.UTC(year, 0, 1)) / 864e5);
+const monthStarts = MONTHS.map((_, m) => dayIndex(m, 1));
+const monthEnds = MONTHS.map((_, m) => dayIndex(m + 1, 0));
+
+// Plain-language summary (also the chart's accessible name).
+const through = day(season.through, asof);
+const rank = (() => {
+  const k = season.drier_years, N = season.years, [a, b] = season.range_years;
+  if (k <= 3) return `Only ${k} of the ${N} years from ${a} to ${b} had less rain by this date.`;
+  if (k >= N - 3) return `Only ${N - k} of the ${N} years from ${a} to ${b} had more rain by this date.`;
+  return `By this date, ${k} of the ${N} years from ${a} to ${b} had less rain and ${N - k} had more.`;
+})();
+const in1 = (v: number) => `${v.toFixed(1)} in`;
+const summary = `Since Jan. 1, the district has had about ${in1(season.to_date_in)} of rain through ${through}: `
+  + `${season.pct != null ? `${season.pct}% of` : "against"} the normal ${in1(season.normal_to_date_in)} for this point in the year. `
+  + `${rank} A normal year brings about ${season.normal_year_in.toFixed(1)} in.`;
+
+// Month-end table rows (the current month ends at NOAA's newest day).
+const rows = monthEnds.map((e, m) => {
+  const i = Math.min(e, n - 1);
+  const mine = monthStarts[m] <= last ? actual[Math.min(i, last)] : null;
+  const label = monthStarts[m] <= last && i > last ? `${MONTHS[m]} (to ${through})` : MONTHS[m];
+  return { label, mine, normal: normal[i], low: low[i], high: high[i] };
+});
+const id = `sr-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+const data = JSON.stringify({ x0: L, x1: W - R, n, last, year, actual, normal, low, high });
+---
+<figure class="sr" id={id}>
+  <p>{summary}</p>
+  <ul class="dlegend sr-legend" aria-label="Chart key">
+    <li><span class="sr-key sr-key-actual" aria-hidden="true" />{`${year}, through ${through}`}</li>
+    <li><span class="sr-key sr-key-normal" aria-hidden="true" />{`Normal, ${season.range_years[0]}–${season.range_years[1]}`}</li>
+    <li><span class="sw sr-sw-range" aria-hidden="true" />Typical range (middle 80% of years)</li>
+  </ul>
+  <div class="sr-plot">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Rain since Jan. 1 in ${name}, in inches. ${summary}`}>
+      <g aria-hidden="true">
+        {yTicks.map((t) => (
+          <>
+            <line class={t === 0 ? "sr-base" : "sr-grid"} x1={L} x2={W - R} y1={y(t)} y2={y(t)} />
+            <text class="sr-tick" x={L - 6} y={y(t)} text-anchor="end" dominant-baseline="middle">{t}</text>
+          </>
+        ))}
+        {monthStarts.map((i, m) => (
+          <text class={`sr-tick sr-month${m % 2 ? " sr-odd" : ""}`} x={x(i) + 2} y={H - 8}>
+            <tspan class="sr-long">{MONTHS[m]}</tspan><tspan class="sr-short">{SHORT[m]}</tspan>
+          </text>
+        ))}
+        <path class="sr-range" d={band} />
+        <path class="sr-normal" d={line(normal)} />
+        <path class="sr-actual" d={line(actual)} />
+        <circle class="sr-dot" cx={x(last)} cy={y(actual[last])} r="4.5" />
+        <text class="sr-label" x={x(last) + (last > n * 0.8 ? -8 : 8)} y={y(actual[last]) - 10}
+          text-anchor={last > n * 0.8 ? "end" : "start"}>{in1(actual[last])}</text>
+        <text class="sr-label sr-label-2" x={W - R - 2} y={y(normal[n - 1]) - 8} text-anchor="end">{`normal year ${normal[n - 1].toFixed(1)} in`}</text>
+      </g>
+      <line class="sr-cursor" x1="0" x2="0" y1={T} y2={T + PH} />
+      <rect class="sr-hit" x={L} y={T} width={W - L - R} height={PH} />
+    </svg>
+    <div class="sr-tip" hidden></div>
+    <script type="application/json" class="sr-data" set:html={data} />
+  </div>
+  <figcaption class="asof">
+    NOAA <a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">nClimGrid-Daily</a> county
+    averages, my area-weighted average for the district, through {through} (NOAA publishes about a week late).
+    Normal and range: the same NOAA data for {season.range_years[0]}–{season.range_years[1]}; the range runs from
+    the 10th to the 90th percentile of the years' running totals, built from their monthly totals. Not an official
+    record.
+  </figcaption>
+  <details class="sr-table">
+    <summary>Month by month</summary>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Rain since Jan. 1, month by month">
+      <table>
+        <caption class="sr-only">Rain since Jan. 1 in {name}, inches, at each month's end</caption>
+        <thead><tr><th scope="col">By the end of</th><th class="n" scope="col">{year}</th><th class="n" scope="col">Normal</th><th class="n" scope="col">Typical range</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr><th scope="row">{r.label}</th><td class="n">{r.mine != null ? r.mine.toFixed(2) : "–"}</td>
+              <td class="n">{r.normal.toFixed(2)}</td><td class="n">{`${r.low.toFixed(1)}–${r.high.toFixed(1)}`}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<script>
+  // Hover or tap anywhere on the plot: the readout snaps to the nearest day. Values set with textContent.
+  const MONTHS = ["Jan.", "Feb.", "March", "April", "May", "June", "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec."];
+  for (const fig of document.querySelectorAll<HTMLElement>("figure.sr")) {
+    const svg = fig.querySelector("svg")!;
+    const tip = fig.querySelector<HTMLElement>(".sr-tip")!;
+    const cursor = svg.querySelector<SVGLineElement>(".sr-cursor")!;
+    const plot = fig.querySelector<HTMLElement>(".sr-plot")!;
+    const d = JSON.parse(fig.querySelector(".sr-data")!.textContent || "{}");
+    const vb = svg.viewBox.baseVal;
+    const move = (e: PointerEvent) => {
+      const box = svg.getBoundingClientRect();
+      const ux = ((e.clientX - box.left) / box.width) * vb.width;
+      const i = Math.max(0, Math.min(d.n - 1, Math.round(((ux - d.x0) / (d.x1 - d.x0)) * (d.n - 1))));
+      const cx = d.x0 + (i / (d.n - 1)) * (d.x1 - d.x0);
+      cursor.setAttribute("x1", String(cx));
+      cursor.setAttribute("x2", String(cx));
+      cursor.classList.add("on");
+      const dt = new Date(Date.UTC(d.year, 0, 1) + i * 864e5);
+      tip.replaceChildren();
+      const head = document.createElement("div");
+      head.className = "sr-tip-d";
+      head.textContent = `By ${MONTHS[dt.getUTCMonth()]} ${dt.getUTCDate()}`;
+      tip.append(head);
+      const rows: [string, string][] = [];
+      if (i <= d.last) rows.push([`${d.actual[i].toFixed(2)} in`, `${d.year}`]);
+      rows.push([`${d.normal[i].toFixed(2)} in`, "normal"], [`${d.low[i].toFixed(1)}–${d.high[i].toFixed(1)} in`, "typical range"]);
+      for (const [v, k] of rows) {
+        const row = document.createElement("div");
+        const b = document.createElement("strong");
+        b.textContent = v;
+        row.append(b, ` ${k}`);
+        tip.append(row);
+      }
+      tip.hidden = false;
+      const px = cx * (box.width / vb.width), w = tip.offsetWidth, pw = plot.clientWidth;
+      tip.style.left = `${Math.max(0, Math.min(pw - w, px + (px + w + 12 > pw ? -w - 12 : 12)))}px`;
+    };
+    svg.addEventListener("pointermove", move);
+    svg.addEventListener("pointerdown", move);
+    svg.addEventListener("pointerleave", () => { tip.hidden = true; cursor.classList.remove("on"); });
+  }
+</script>
+
+<style>
+  .sr { margin: 0; }
+  .sr > p { max-width: 62ch; }
+  .sr-plot { position: relative; }
+  .sr svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .sr text { font-family: var(--font-sans); font-size: 11px; fill: var(--ink-2); }
+  .sr .sr-tick { font-family: var(--font-mono); font-variant-numeric: tabular-nums; fill: var(--ink-3); font-size: 10.5px; }
+  .sr .sr-short { display: none; }
+  .sr .sr-label { font-family: var(--font-mono); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; }
+  .sr .sr-label-2 { font-family: var(--font-sans); font-weight: 400; fill: var(--ink-2); }
+  .sr-grid { stroke: var(--rule-2); stroke-width: 1; }
+  .sr-base { stroke: var(--rule); stroke-width: 1; }
+  .sr-range { fill: var(--ink); opacity: .1; }
+  .sr-normal { fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .sr-actual { fill: none; stroke: var(--green); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .sr-dot { fill: var(--green); stroke: var(--paper); stroke-width: 2; }
+  .sr-cursor { stroke: var(--ink); stroke-width: 1; opacity: 0; pointer-events: none; }
+  .sr-cursor.on { opacity: .5; }
+  .sr-hit { fill: transparent; }
+  .sr-legend { margin: .25rem 0 .5rem; }
+  .sr-key { display: inline-block; width: 16px; height: 0; border-top: 2.5px solid; border-radius: 2px; }
+  .sr-key-actual { border-color: var(--green); }
+  .sr-key-normal { border-color: var(--ink-3); border-top-width: 2px; }
+  .sr-sw-range { background: color-mix(in oklch, var(--ink) 10%, var(--paper)); }
+  .sr-tip { position: absolute; top: 8px; z-index: 1; pointer-events: none; background: var(--paper); color: var(--ink-2);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 6px 10px; font-size: .85rem; line-height: 1.35; white-space: nowrap;
+    box-shadow: 0 2px 8px oklch(0 0 0 / .12); }
+  .sr-tip :global(strong) { color: var(--ink); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .sr-tip :global(.sr-tip-d) { color: var(--ink); font-weight: 600; margin-bottom: 2px; }
+  .sr-table { margin-top: .5rem; }
+  .sr-table summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ink-2); }
+  .sr-table table { max-width: 32rem; }
+  @media (max-width: 640px) {
+    .sr text { font-size: 16px; }
+    .sr .sr-tick { font-size: 14px; }
+    .sr .sr-long { display: none; }
+    .sr .sr-short { display: inline; }
+    .sr-tip { top: 0; left: 0 !important; right: 0; white-space: normal; font-size: .75rem; padding: 4px 8px; }
+    .sr-tip :global(div) { display: inline; margin-right: .6em; }
+  }
+</style>

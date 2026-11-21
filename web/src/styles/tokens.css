@@ -1,0 +1,68 @@
+/* Color tokens. Light on :root; dark when .dark is on <html>. All OKLCH.
+   Surfaces are a cool neutral gray; the one accent is a muted blue for links, focus and "you are here".
+   Orange, green, amber and danger are data colors (temperature, rain, drought scale, warnings).
+   Pairs are tuned for WCAG AA: *-ink text on *-tint, and --ink / --ink-2 / --ink-3 on any --paper.
+   Don't add new shades; mix from these. */
+:root {
+  color-scheme: light;
+  --paper:          oklch(0.975 0.004 250);
+  --paper-2:        oklch(0.935 0.005 250);
+  --paper-3:        oklch(0.885 0.006 250);
+  --ink:            oklch(0.18 0.010 255);
+  --ink-2:          oklch(0.38 0.010 255);
+  --ink-3:          oklch(0.50 0.010 255);
+  --rule:           oklch(0.84 0.007 250);
+  --rule-2:         oklch(0.88 0.006 250);
+
+  --accent:         oklch(0.50 0.12 250);
+  --accent-tint:    oklch(0.93 0.03 250);
+  --accent-ink:     oklch(0.38 0.11 255);
+
+  --orange:         oklch(0.55 0.14 48);
+  --orange-tint:    oklch(0.93 0.04 45);
+  --orange-ink:     oklch(0.32 0.13 45);
+
+  --green:          oklch(0.45 0.09 145);
+  --green-tint:     oklch(0.91 0.04 145);
+  --green-ink:      oklch(0.30 0.08 148);
+
+  --amber:          oklch(0.54 0.13 80);
+  --amber-tint:     oklch(0.93 0.05 75);
+  --amber-ink:      oklch(0.35 0.11 80);
+
+  --danger:         oklch(0.48 0.18 28);
+  --danger-tint:    oklch(0.94 0.06 28);
+  --danger-ink:     oklch(0.30 0.14 28);
+}
+
+.dark {
+  color-scheme: dark;
+  --paper:          oklch(0.2 0.008 255);
+  --paper-2:        oklch(0.24 0.009 255);
+  --paper-3:        oklch(0.28 0.010 255);
+  --ink:            oklch(0.95 0.005 250);
+  --ink-2:          oklch(0.78 0.008 250);
+  --ink-3:          oklch(0.64 0.009 250);
+  --rule:           oklch(0.36 0.010 255);
+  --rule-2:         oklch(0.32 0.009 255);
+
+  --accent:         oklch(0.72 0.11 250);
+  --accent-tint:    oklch(0.31 0.05 250);
+  --accent-ink:     oklch(0.84 0.08 250);
+
+  --orange:         oklch(0.68 0.14 48);
+  --orange-tint:    oklch(0.32 0.07 45);
+  --orange-ink:     oklch(0.82 0.11 45);
+
+  --green:          oklch(0.68 0.09 145);
+  --green-tint:     oklch(0.3 0.05 145);
+  --green-ink:      oklch(0.82 0.08 148);
+
+  --amber:          oklch(0.78 0.13 80);
+  --amber-tint:     oklch(0.32 0.07 75);
+  --amber-ink:      oklch(0.86 0.11 80);
+
+  --danger:         oklch(0.66 0.18 28);
+  --danger-tint:    oklch(0.3 0.09 28);
+  --danger-ink:     oklch(0.82 0.14 28);
+}

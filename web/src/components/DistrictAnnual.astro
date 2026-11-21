@@ -1,0 +1,84 @@
+---
+// District "The land and its farms": Census totals, published NASS crop acres (a lower bound, labeled with
+// how many counties NASS published), and rangeland forage vs normal.
+import type { DistrictAnnual, Source, SourceKey } from "../lib/types";
+import { CROPS, cdlName, day, num, usdBig } from "../lib/format";
+
+interface Props { annual?: DistrictAnnual; sources: Record<SourceKey, Source>; asof: string; name: string }
+const { annual: a, sources: S, asof, name } = Astro.props;
+const crops = (["corn", "sorghum", "cotton", "wheat"] as const).filter((k) => a?.crops_published?.[k]);
+const cs = a?.census;
+const forage = a?.forage_pct_of_normal;
+const mix = a?.crop_mix;
+const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${num(Math.abs(v))} ac`;
+const change = cs && cs.farms_prev ? Math.round(100 * (cs.farms - cs.farms_prev) / cs.farms_prev) : null;
+---
+{a && (cs || crops.length > 0 || forage || mix) && (
+  <section aria-labelledby="land-h">
+    <h2 id="land-h">The land and its farms</h2>
+    <div class="grid">
+      {cs && (
+        <article class="card">
+          <h3>{`Farms and ranches, ${cs.year}`}</h3>
+          <p class="big">{num(cs.farms)}</p>
+          <p>{`farms and ranches in the ${cs.counties} counties` + (change != null ? `, ${change === 0 ? "about the same as" : `${Math.abs(change)}% ${change > 0 ? "more than" : "fewer than"}`} in ${cs.prev_year}.` : ".")}</p>
+          <dl class="kv">
+            <dt>Land in farms</dt><dd>{`${num(cs.land_in_farms_acres)} ac`}</dd>
+            <dt>Sales of all products</dt><dd>{usdBig(cs.sales_usd)}</dd>
+            <dt>Cattle</dt><dd>{num(cs.cattle)}</dd>
+          </dl>
+          <p class="asof">{`${S.census.name}, ${cs.year} · my sum of county figures; a few withheld values make it slightly low`}</p>
+        </article>
+      )}
+      {crops.length > 0 && (
+        <article class="card">
+          <h3>Planted acres, published counties</h3>
+          <div class="table-wrap">
+            <table>
+              <caption class="sr-only">{`Planted acres in ${name}, counties NASS publishes`}</caption>
+              <thead><tr><th scope="col">Crop</th><th class="n" scope="col">Year</th><th class="n" scope="col">At least</th><th class="n" scope="col">Counties</th></tr></thead>
+              <tbody>
+                {crops.map((k) => {
+                  const c = a!.crops_published![k]!;
+                  return <tr><th scope="row">{CROPS[k]}</th><td class="n">{c.year}</td><td class="n">{`${num(c.planted_acres)} ac`}</td><td class="n">{`${c.published_counties} of ${a!.counties}`}</td></tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p class="asof">{`${S.nass_county.name} · a lower bound: NASS publishes only some counties, so the true district total is higher`}</p>
+        </article>
+      )}
+      {mix && (
+        <article class="card mix-card">
+          <h3>{`What covers the land, ${mix.year}`}</h3>
+          <div class="table-wrap" tabindex="0" role="region" aria-label={`Land cover in ${name}`}>
+            <table>
+              <caption class="sr-only">{`Land cover in ${name}, ${mix.year}, from the Cropland Data Layer`}</caption>
+              <thead><tr><th scope="col">Cover</th><th class="n" scope="col">Acres</th><th class="n" scope="col">Share</th>
+                {mix.since && <th class="n" scope="col">{`Since ${mix.since}`}</th>}</tr></thead>
+              <tbody>
+                {mix.classes.map((c) => (
+                  <tr><th scope="row">{cdlName(c.id)}</th><td class="n">{num(c.acres)}</td><td class="n">{`${c.pct}%`}</td>
+                    {mix.since && <td class="n">{c.change_acres != null ? signed(c.change_acres) : <span class="muted">not compared</span>}</td>}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="asof">{`${S.cdl.name}, ${mix.year}${mix.since ? ` vs ${mix.since}` : ""} · satellite-classified, so a field can be misread and small year-to-year changes can be noise; changes are shown for crops only, since NASS reworks the non-crop cover (grass, forest, towns) between years · my sum of ${mix.counties} counties; shares are of land`}</p>
+        </article>
+      )}
+      {forage && (
+        <article class="card">
+          <h3>Forage on rangeland</h3>
+          <p class="big">{`${forage.pct}%`}</p>
+          <p>{`of the 10-year normal so far this year, through ${day(forage.through, asof)}. Below 100% means less grass than usual for the date.`}</p>
+          <p class="asof">Rangeland Analysis Platform, USDA ARS · my land-area average of county figures</p>
+        </article>
+      )}
+    </div>
+  </section>
+)}
+
+<style>
+  @media (min-width: 720px) { .mix-card { grid-column: span 2; } }
+</style>

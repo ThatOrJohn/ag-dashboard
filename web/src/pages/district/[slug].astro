@@ -1,0 +1,163 @@
+---
+// District: the main working view. Counties are a map stop with a card, not pages of their own (docs/seed.md).
+import Base from "../../layouts/Base.astro";
+import AsOf from "../../components/AsOf.astro";
+import CountyAnnual from "../../components/CountyAnnual.astro";
+import CropCard from "../../components/CropCard.astro";
+import DistrictAnnual from "../../components/DistrictAnnual.astro";
+import DroughtBar from "../../components/DroughtBar.astro";
+import DroughtMap from "../../components/DroughtMap.astro";
+import Headline from "../../components/Headline.astro";
+import MarketCard from "../../components/MarketCard.astro";
+import WeatherStrip from "../../components/WeatherStrip.astro";
+import SeasonRain from "../../components/SeasonRain.astro";
+import { loadDistrict, loadLatest } from "../../lib/data";
+import { category, categoryName, change, day, href, inches, pct } from "../../lib/format";
+
+export function getStaticPaths() {
+  return loadLatest().districts.filter((d) => d.home).map((d) => ({ params: { slug: d.slug } }));
+}
+
+const { slug } = Astro.params as { slug: string };
+const L = loadLatest();
+const D = loadDistrict(slug);
+const S = L.sources;
+const sum = D.summary;
+const keep = D.counties.map((c) => c.fips);
+const crops = slug === "edwards-plateau" || slug === "east-texas-north" ? (["wheat"] as const) : (["wheat", "cotton", "corn", "sorghum"] as const);
+---
+<Base title={`${D.name} district, Texas: this week · Texas Ag Dashboard`} description={`Drought, rain, burn bans and cattle prices for the ${D.name} district of Texas, county by county, from public data.`} current={slug}>
+  <span class="eyebrow"><a href={href()}>Texas</a> · NASS district · featured district · week of {day(L.asof)}</span>
+  <h1>{D.name}</h1>
+  <Headline headline={sum.headline} sources={S} asof={L.asof} />
+  <p class="muted">{`${sum.counties} counties. Pick a county on the map for its card.`}</p>
+
+  <section aria-labelledby="dr-h">
+    <h2 id="dr-h">Drought and rain</h2>
+    <div class="map-wrap">
+      <div>
+        {!S.usdm.stale && <DroughtMap counties={L.counties} keep={keep} title={`${D.name} counties by drought category`} link={(f) => `#c-${f}`} countyNames />}
+      </div>
+      <div>
+        {sum.drought && (
+          <>
+            <p class="big">{pct(sum.drought.now.d1)}</p>
+            <p>{`of the district is in drought (D1 or worse)`}{sum.drought.week_ago ? `, ${change(sum.drought.now.d1, sum.drought.week_ago.d1)} from last week` : ""}{sum.drought.year_ago ? `. A year ago: ${pct(sum.drought.year_ago.d1)}` : ""}.</p>
+            <DroughtBar levels={sum.drought.now} label={`Share of ${D.name} by drought category`} />
+            <AsOf source={S.usdm} label="Map of" date={sum.drought.map_date} note="my area-weighted total of county figures" />
+          </>
+        )}
+        {!S.nclimgrid.stale && sum.rain_7d_in != null && (
+          <>
+            <h3 style="margin-top:1.5rem">{`Rain through ${day(sum.rain_through, L.asof)}`}</h3>
+            <dl class="kv">
+              <dt>7 days</dt><dd>{inches(sum.rain_7d_in)}</dd>
+              <dt>30 days</dt><dd>{inches(sum.rain_30d_in)}</dd>
+              {sum.rain_vs_normal?.pct != null && (<><dt>30 days vs normal</dt><dd>{`${sum.rain_vs_normal.pct}% (normal ${inches(sum.rain_vs_normal.normal_in)})`}</dd></>)}
+            </dl>
+            <AsOf source={S.nclimgrid} label="Through" date={sum.rain_through} note="NOAA county averages, published about a week late; normal is 1991–2020; my district total" />
+            {S.stage4 && !S.stage4.stale && sum.rain_estimate && (
+              <>
+                <dl class="kv">
+                  <dt>{`Since then, ${day(sum.rain_estimate.from, L.asof)} to ${day(sum.rain_estimate.through, L.asof)}`}</dt>
+                  <dd>{`about ${inches(sum.rain_estimate.in)} (estimate)`}</dd>
+                </dl>
+                <AsOf source={S.stage4} label="Through" date={sum.rain_estimate.through} note="radar adjusted to rain gauges; often a little wetter than NOAA's county averages, which replace it; my district average" />
+              </>
+            )}
+          </>
+        )}
+        {S.nws && !S.nws.stale && sum.rain_next_7d_in != null && (
+          <>
+            <h3 style="margin-top:1.5rem">Forecast</h3>
+            <dl class="kv"><dt>Rain, next 7 days</dt><dd>{inches(sum.rain_next_7d_in)}</dd></dl>
+            <AsOf source={S.nws} label="Issued" note="at each county's center; my district average" />
+          </>
+        )}
+        {sum.burn_bans != null && (
+          <>
+            <h3 style="margin-top:1.5rem">Burn bans</h3>
+            <p>{`${sum.burn_bans} of ${sum.counties} counties have a burn ban.`}</p>
+            <AsOf source={S.burn_bans} label="Updated" />
+          </>
+        )}
+      </div>
+    </div>
+  </section>
+
+  {!S.nclimgrid.stale && D.weather && D.weather.days.length > 0 && (
+    <section aria-labelledby="wx-h">
+      <h2 id="wx-h">Temperature and rain</h2>
+      <WeatherStrip weather={D.weather} name={D.name} asof={L.asof} vsNormal={sum.rain_vs_normal} />
+    </section>
+  )}
+
+  {!S.nclimgrid.stale && D.season_rain && (
+    <section aria-labelledby="sr-h">
+      <h2 id="sr-h">Rain since Jan. 1</h2>
+      <SeasonRain season={D.season_rain} name={D.name} asof={L.asof} />
+    </section>
+  )}
+
+  <section aria-labelledby="co-h">
+    <h2 id="co-h">Counties</h2>
+    <p class="muted">Open a county for rain, the year-ago comparison, and its farms, crops and rangeland over the years. Category is the most severe one covering at least half the county.</p>
+    <div class="grid county-grid">
+      {D.counties.map((c) => {
+        const cat = category(c.drought);
+        const short = cat < 0 ? "No drought" : `D${cat}`;
+        return (
+          <details class="card county-card" id={`c-${c.fips}`}>
+            <summary>
+              <span class="cn">{c.name}</span>
+              {c.drought && <span class="cs"><span class={`sw f-${cat < 0 ? "none" : `d${cat}`}`} aria-hidden="true" />{`${short} · ${pct(c.drought.d1)} in drought`}</span>}
+              {c.burn_ban && <span class="tag ban">Burn ban</span>}
+            </summary>
+            {c.burn_ban === false && <p><span class="tag ok">No burn ban</span></p>}
+            <dl class="kv">
+              {c.drought && (<><dt>Drought</dt><dd>{categoryName(cat)}</dd><dt>In drought (D1+)</dt><dd>{pct(c.drought.d1)}</dd></>)}
+              {c.drought_year_ago && (<><dt>A year ago</dt><dd>{pct(c.drought_year_ago.d1)}</dd></>)}
+              {c.last_7d_in != null && (<><dt>{`Rain, 7 days to ${day(c.through, L.asof)}`}</dt><dd>{inches(c.last_7d_in)}</dd></>)}
+              {c.last_30d_in != null && (<><dt>{`Rain, 30 days to ${day(c.through, L.asof)}`}</dt><dd>{inches(c.last_30d_in)}{c.rain_vs_normal?.pct != null ? `, ${c.rain_vs_normal.pct}% of normal` : ""}</dd></>)}
+              {S.stage4 && !S.stage4.stale && c.rain_estimate && (<><dt>{`Rain since, to ${day(c.rain_estimate.through, L.asof)}`}</dt><dd>{`about ${inches(c.rain_estimate.in)} (estimate)`}</dd></>)}
+              {c.next_7d_in != null && (<><dt>Rain forecast, next 7 days</dt><dd>{inches(c.next_7d_in)}</dd></>)}
+            </dl>
+            <CountyAnnual annual={c.annual} sources={S} asof={L.asof} />
+          </details>
+        );
+      })}
+    </div>
+    <script is:inline>
+      // A map click (#c-<fips>) opens that county's card. Without JS the summary line still shows.
+      (function () {
+        function open() {
+          var el = location.hash && document.getElementById(location.hash.slice(1));
+          if (el && el.tagName === "DETAILS") { el.open = true; }
+        }
+        window.addEventListener("hashchange", open);
+        open();
+      })();
+    </script>
+    <p class="asof">Drought: {S.usdm.name}, map of {day(S.usdm.as_of)}. Rain: NOAA nClimGrid-Daily county averages through {day(S.nclimgrid.as_of)}{S.stage4 && !S.stage4.stale ? `, then NWS Stage IV radar-and-gauge estimates through ${day(S.stage4.as_of)}` : ""}; forecast: National Weather Service, at the county's center. Burn bans: Texas A&amp;M Forest Service, {day(S.burn_bans.as_of)}.</p>
+  </section>
+
+  <DistrictAnnual annual={D.annual} sources={S} asof={L.asof} name={D.name} />
+
+  <section aria-labelledby="mk-h">
+    <h2 id="mk-h">Cattle markets</h2>
+    <div class="grid">
+      {D.markets.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}
+    </div>
+  </section>
+
+  {!S.nass.stale && (
+    <section aria-labelledby="cr-h">
+      <h2 id="cr-h">Crops, statewide</h2>
+      <p class="muted">NASS reports weekly crop progress and condition for Texas as a whole, not by district.</p>
+      <div class="grid">
+        {crops.map((c) => <CropCard crop={c} progress={L.texas.crops[c].progress} condition={L.texas.crops[c].condition} source={S.nass} asof={L.asof} />)}
+        <CropCard crop="pasture" title="Pasture and range" condition={L.texas.pasture} source={S.nass} asof={L.asof} />
+      </div>
+    </section>
+  )}
+</Base>

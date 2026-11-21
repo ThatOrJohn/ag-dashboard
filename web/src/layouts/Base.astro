@@ -1,0 +1,123 @@
+---
+import "../styles/global.css";
+import { href, day, pulled } from "../lib/format";
+import { loadLatest } from "../lib/data";
+import { OG_H, OG_W } from "../lib/og";
+import { AUTHOR, REPO_URL, SITE_NAME, markSvg } from "../lib/site";
+
+interface Props {
+  title: string;
+  description: string;
+  current?: "texas" | "about" | string;
+}
+const { title, description, current } = Astro.props;
+const latest = loadLatest();
+const canonical = new URL(Astro.url.pathname, Astro.site);
+// When the pipeline last fetched anything: the newest source pull, not the build time.
+const lastPull = Object.values(latest.sources).map((s) => s.fetched_at).filter((t): t is string => !!t).sort().at(-1);
+const homes = latest.districts.filter((d) => d.home);
+// Share image per page (src/pages/og/[name].png.ts). The build stamp in the query keeps share caches honest.
+const ogName = current === "about" ? "about" : current?.startsWith("for-") ? current
+  : homes.some((d) => d.slug === current) ? `district-${current}` : "index";
+const ogUrl = `${new URL(href(`og/${ogName}.png`), Astro.site)}?v=${latest.generated_at.replace(/\D/g, "").slice(0, 12)}`;
+// Theme rule: no stored value follows the system; a stored "light" or "dark" overrides it.
+const THEME_INIT =
+  "(function(){var t=null;try{t=localStorage.getItem('theme')}catch(e){}" +
+  "if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches))" +
+  "{document.documentElement.classList.add('dark')}})()";
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href={href("icon.svg")} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={href("apple-icon.png")} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content={String(OG_W)} />
+    <meta property="og:image:height" content={String(OG_H)} />
+    <meta property="og:image:alt" content={`${title}. ${description}`} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script is:inline set:html={THEME_INIT} />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="masthead">
+      <div class="wide masthead-row">
+        <a class="brand" href={href()}>
+          <span class="mark" aria-hidden="true" set:html={markSvg("var(--ink)", "var(--paper)")} />
+          <span class="wm">Ag Dashboard</span><span class="section">Texas</span>
+        </a>
+        <nav class="nav" aria-label="Site">
+          <a href={href()} aria-current={current === "texas" ? "page" : undefined}>Texas</a>
+          {homes.map((d) => (
+            <a class="nav-district" href={href(`district/${d.slug}/`)} aria-current={current === d.slug ? "page" : undefined}>{d.name}</a>
+          ))}
+          {/* Phones: the districts fold into one menu so the header stays one row. */}
+          <details class="nav-menu">
+            <summary>Districts</summary>
+            <div class="nav-menu-list">
+              {homes.map((d) => (
+                <a href={href(`district/${d.slug}/`)} aria-current={current === d.slug ? "page" : undefined}>{d.name}</a>
+              ))}
+            </div>
+          </details>
+          <a href={href("about/")} aria-current={current === "about" ? "page" : undefined}>About the data</a>
+          <button type="button" id="theme-toggle" aria-label="Switch color theme">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5" /><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" /></svg>
+          </button>
+        </nav>
+      </div>
+    </header>
+    <main id="main" class="wide">
+      <slot />
+    </main>
+    <footer class="wide foot">
+      <div class="foot-grid">
+        <div>
+          <span class="eyebrow">Sources</span>
+          <p>USDA National Agricultural Statistics Service, the U.S. Drought Monitor, USDA AMS Market News, Texas A&amp;M
+            Forest Service, the Rangeland Analysis Platform (USDA ARS), NOAA NCEI (nClimGrid-Daily) and the National Weather Service (forecasts and Stage IV rain estimates).
+            Every figure shows its source and date.
+            Free to use, built from public data.
+            <a href={href("about/")}>About the data</a>.</p>
+          <p class="nass">{latest.nass_notice}</p>
+        </div>
+        <div>
+          <span class="eyebrow">Not an official source</span>
+          <p>A free, plain-language read on public data. Where I differ from USDA, NOAA or the State of Texas, they are
+            right. District figures are my own totals of county data, not USDA estimates.</p>
+          <p class="muted">Data as of {day(latest.asof)}.{lastPull && <> Last updated <time datetime={lastPull}>{pulled(lastPull, latest.asof)}</time>.</>}</p>
+        </div>
+        <div>
+          <span class="eyebrow">About this site</span>
+          <p>{`A personal project by ${AUTHOR}. No ads, no sign-up, nothing for sale.`}
+            The code and data pipeline are <a href={REPO_URL}>on GitHub</a>.</p>
+        </div>
+      </div>
+    </footer>
+    <script is:inline>
+      (function () {
+        var b = document.getElementById("theme-toggle");
+        if (!b) return;
+        b.addEventListener("click", function () {
+          var sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var target = document.documentElement.classList.contains("dark") ? "light" : "dark";
+          document.documentElement.classList.toggle("dark", target === "dark");
+          try {
+            if ((target === "dark") === sysDark) localStorage.removeItem("theme");
+            else localStorage.setItem("theme", target);
+          } catch (e) {}
+        });
+      })();
+    </script>
+  </body>
+</html>

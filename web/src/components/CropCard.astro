@@ -1,0 +1,45 @@
+---
+// One crop's state-level weekly picture. Out of season says so with the last report date and no numbers;
+// a stale series in season hides its numbers too (CLAUDE.md).
+import type { ConditionCard, ProgressCard, Source } from "../lib/types";
+import { CROPS, STAGES, change, day, pct } from "../lib/format";
+import AsOf from "./AsOf.astro";
+
+interface Props { crop: string; progress?: ProgressCard; condition: ConditionCard; source: Source; asof: string; title?: string }
+const { crop, progress, condition, source, asof, title } = Astro.props;
+const name = title ?? CROPS[crop] ?? crop;
+---
+<article class="card">
+  <h3>{name}</h3>
+  {progress && progress.status === "fresh" && progress.stages && (
+    <div class="table-wrap">
+      <table>
+        <caption class="sr-only">{`${name} progress, Texas, week ending ${day(progress.week_ending, asof)}`}</caption>
+        <thead><tr><th scope="col">Stage</th><th class="n" scope="col">Now</th><th class="n" scope="col">Last week</th><th class="n" scope="col">Last year</th><th class="n" scope="col">5-yr avg</th></tr></thead>
+        <tbody>
+          {progress.stages.map((s) => (
+            <tr><th scope="row">{STAGES[s.stage] ?? s.stage}</th><td class="n">{pct(s.pct)}</td><td class="n">{pct(s.last_week)}</td><td class="n">{pct(s.last_year)}</td><td class="n">{pct(s.avg_5yr)}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+  {progress && progress.status === "out_of_season" && (
+    <p class="muted">{`Progress reports are done for the season. Last report: ${day(progress.last_report, asof)}.`}</p>
+  )}
+  {progress && progress.status === "stale" && (
+    <p class="muted">Progress figures are hidden: the newest report is older than I expect. Check NASS directly.</p>
+  )}
+  {condition.status === "fresh" && (
+    <p>{`Condition: ${pct(condition.good_excellent)} good to excellent` +
+      (condition.last_week != null ? `, ${change(condition.good_excellent, condition.last_week)} from last week` : "") +
+      (condition.last_year != null ? ` (${pct(condition.last_year)} a year ago)` : "") + "."}</p>
+  )}
+  {condition.status === "out_of_season" && condition.last_report && (
+    <p class="muted">{`Condition ratings ended for the season on ${day(condition.last_report, asof)}.`}</p>
+  )}
+  {condition.status === "stale" && (
+    <p class="muted">{`${name} condition is hidden: the newest rating is older than I expect.`}</p>
+  )}
+  <AsOf source={source} label="Week ending" date={(progress?.week_ending ?? condition.week_ending ?? progress?.last_report ?? condition.last_report) || null} />
+</article>

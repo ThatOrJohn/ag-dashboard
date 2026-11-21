@@ -1,0 +1,339 @@
+---
+// District weather strip: daily high-to-low bars and daily rain (its own panel, same dates: never two y scales
+// on one chart). Runs of days (decisions 0014, 0017): observed (NOAA nClimGrid county averages, about a week
+// behind), estimated (days since then with a Stage IV radar-and-gauge rain estimate: outlined rain bars, and
+// the temperature panel still textured as pending), pending (no numbers yet: a labeled, textured gap), and
+// forecast (NWS, hatched bars on a shaded band). None of them relies on color alone. Static SVG drawn at build time
+// (decision 0005); a small script adds a hover/tap readout, each day keeps a native tooltip without it, and
+// the table carries every value. With normals (1991–2020, decision 0013), a soft band behind the bars shows
+// the normal high to low for every date, pending days included.
+import type { RainVsNormal, WeatherStrip } from "../lib/types";
+import { day, inches } from "../lib/format";
+
+interface Props { weather: WeatherStrip; name: string; asof: string; vsNormal?: RainVsNormal | null }
+const { weather, name, asof, vsNormal = null } = Astro.props;
+const days = weather.days;
+const n = days.length;
+
+// Geometry (user units; the SVG scales to its box).
+const W = 640, L = 40, R = 10;
+const T0 = 34, TH = 176;              // temperature panel top and height
+const P0 = T0 + TH + 34, PH = 64;     // rain panel top and height
+const H = P0 + PH + 30;
+const slot = (W - L - R) / n;
+const bw = Math.min(10, slot * 0.6);
+const cx = (i: number) => L + slot * i + slot / 2;
+
+// Temperature scale: whole tens around the data; 32°F comes into view when lows get near it.
+const his = days.map((d) => d.hi_f).filter((v): v is number => v != null);
+const los = days.map((d) => d.lo_f).filter((v): v is number => v != null);
+const minLo = Math.min(...los), maxHi = Math.max(...his);
+const nIdx = days.map((_, i) => i).filter((i) => days[i].normal_hi_f != null && days[i].normal_lo_f != null);
+const hasNormals = nIdx.length > 1;
+const scaleLo = Math.min(minLo, ...nIdx.map((i) => days[i].normal_lo_f!));
+const scaleHi = Math.max(maxHi, ...nIdx.map((i) => days[i].normal_hi_f!));
+const showFreeze = scaleLo <= 40;
+const tMin = Math.floor((Math.min(scaleLo, showFreeze ? 32 : scaleLo) - 2) / 10) * 10;
+const tMax = Math.ceil((scaleHi + 2) / 10) * 10;
+const step = tMax - tMin > 60 ? 20 : 10;
+const tTicks = Array.from({ length: Math.floor((tMax - tMin) / step) + 1 }, (_, k) => tMin + k * step);
+const ty = (v: number) => T0 + TH - ((v - tMin) / (tMax - tMin)) * TH;
+
+// Rain scale: at least half an inch, so a dry spell doesn't blow a trace up into a tall column.
+const rains = days.map((d) => d.rain_in ?? 0);
+const maxRain = Math.max(...rains);
+const rMax = maxRain <= 0.5 ? 0.5 : maxRain <= 1 ? 1 : Math.ceil(maxRain);
+const ry = (v: number) => P0 + PH - (v / rMax) * PH;
+const rTicks = [0, rMax / 2, rMax];
+const rFmt = (v: number) => (v === 0 ? "0" : Number.isInteger(v) ? `${v}` : v.toFixed(2).replace(/0$/, ""));
+
+// A column with a rounded top and a square base.
+function col(x: number, top: number, base: number, w: number) {
+  const r = Math.min(w / 2, 3, Math.max(0, base - top));
+  const x0 = x - w / 2, x1 = x + w / 2;
+  return `M${x0},${base}V${top + r}Q${x0},${top} ${x0 + r},${top}H${x1 - r}Q${x1},${top} ${x1},${top + r}V${base}Z`;
+}
+
+// Normal band: through each day's center, squared off at the outer edges of the first and last days.
+const normalBand = (() => {
+  if (!hasNormals) return "";
+  const top = nIdx.map((i) => [cx(i), ty(days[i].normal_hi_f!)] as const);
+  const bot = nIdx.map((i) => [cx(i), ty(days[i].normal_lo_f!)] as const).reverse();
+  const e0 = cx(nIdx[0]) - slot / 2, e1 = cx(nIdx[nIdx.length - 1]) + slot / 2;
+  const pts = [[e0, top[0][1]], ...top, [e1, top[top.length - 1][1]], [e1, bot[0][1]], ...bot, [e0, bot[bot.length - 1][1]]];
+  return "M" + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join("L") + "Z";
+})();
+
+const fStart = days.findIndex((d) => d.kind === "forecast");
+const hasFc = fStart >= 0;
+const bandX = hasFc ? L + slot * fStart : W - R;
+// The gap after NOAA's newest day: temperatures pending on every gap day; rain pending only where there's no estimate.
+const gIdx = days.map((_, i) => i).filter((i) => days[i].kind === "pending" || days[i].kind === "estimated");
+const hasGap = gIdx.length > 0;
+const gapX0 = hasGap ? L + slot * gIdx[0] : 0, gapX1 = hasGap ? L + slot * (gIdx[gIdx.length - 1] + 1) : 0;
+const pIdx = gIdx.filter((i) => days[i].kind === "pending");
+const hasPending = pIdx.length > 0;
+const pendX0 = hasPending ? L + slot * pIdx[0] : 0, pendX1 = hasPending ? L + slot * (pIdx[pIdx.length - 1] + 1) : 0;
+const est = days.filter((d) => d.kind === "estimated");
+const hasEst = est.length > 0;
+
+// Direct labels: only the warmest high and the coldest low, plus the wettest day.
+const iHi = days.findIndex((d) => d.hi_f === maxHi);
+const iLo = days.findIndex((d) => d.lo_f === minLo);
+const iRain = maxRain >= 0.01 ? rains.indexOf(maxRain) : -1;
+
+// The freeze label goes at whichever end is clear of the coldest-low label.
+const freezeAtLeft = iLo < 0 || cx(iLo) > L + 150;
+
+// Date ticks every 7 days, counted back from the first forecast day (today) or the last day.
+const anchor = hasFc ? fStart : n - 1;
+const xTicks = days.map((_, i) => i).filter((i) => (anchor - i) % 7 === 0);
+
+// Plain-language summary (also the chart's accessible name).
+const past = days.filter((d) => d.kind === "observed"), next = days.filter((d) => d.kind === "forecast");
+const through = day(weather.through, asof);
+const rng = (xs: (number | null)[]) => {
+  const v = xs.filter((x): x is number => x != null);
+  return v.length ? (Math.min(...v) === Math.max(...v) ? `${v[0]}°F` : `${Math.min(...v)}–${Math.max(...v)}°F`) : "n/a";
+};
+const total = (xs: typeof days) => xs.reduce((a, d) => a + (d.rain_in ?? 0), 0);
+const rainWords = (v: number) => (v < 0.05 ? "almost no rain" : `about ${inches(v)} of rain`);
+const freeze = next.find((d) => d.lo_f != null && d.lo_f <= 32);
+// The past week against normal: mean of (high − normal high) and (low − normal low), in plain words.
+const lastWeek = past.slice(-7).filter((d) => d.hi_f != null && d.lo_f != null && d.normal_hi_f != null && d.normal_lo_f != null);
+const tempVsNormal = (() => {
+  if (lastWeek.length < 5) return "";
+  const diff = lastWeek.reduce((a, d) => a + (d.hi_f! - d.normal_hi_f! + d.lo_f! - d.normal_lo_f!) / 2, 0) / lastWeek.length;
+  const r = Math.round(diff);
+  return Math.abs(r) < 2 ? `The week through ${through} was near normal for the time of year.` : `The week through ${through} ran about ${Math.abs(r)}°F ${r > 0 ? "warmer" : "cooler"} than normal.`;
+})();
+const rainVsNormal = vsNormal?.pct == null ? ""
+  : `Rain over the ${vsNormal.days} days through ${day(vsNormal.through, asof)} was ${vsNormal.pct >= 90 && vsNormal.pct <= 110 ? "about normal" : `about ${vsNormal.pct}% of normal`}.`;
+const summary = [
+  `The ${past.length} days through ${through}: highs ${rng(past.map((d) => d.hi_f))}, lows ${rng(past.map((d) => d.lo_f))}, ${rainWords(total(past))} in all.`,
+  tempVsNormal,
+  rainVsNormal,
+  hasEst ? `Since then, through ${day(est[est.length - 1].date, asof)}, radar and rain gauges suggest ${rainWords(total(est))} (an estimate until NOAA publishes).` : "",
+  next.length ? `Forecast for the next ${next.length} days: highs ${rng(next.map((d) => d.hi_f))}, lows ${rng(next.map((d) => d.lo_f))}, ${total(next) < 0.05 ? "little or no rain in the forecast" : `${rainWords(total(next))} in the forecast`}${freeze ? `, and a low at or below freezing on ${day(freeze.date, asof)}` : ""}.` : "",
+].filter(Boolean).join(" ");
+const id = `wx-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+const tip = (d: (typeof days)[number]) =>
+  d.kind === "pending" ? `${day(d.date, asof)}: not yet reported${normalText(d) ? `; normal ${normalText(d)}` : ""}`
+    : d.kind === "estimated" ? `${day(d.date, asof)}: rain estimate ${inches(d.rain_in)}; high and low not yet reported${normalText(d) ? `; normal ${normalText(d)}` : ""}`
+    : `${day(d.date, asof)}${d.kind === "forecast" ? " (forecast)" : ""}: high ${d.hi_f ?? "n/a"}°F, low ${d.lo_f ?? "n/a"}°F, rain ${inches(d.rain_in)}${normalText(d) ? `; normal ${normalText(d)}` : ""}`;
+const KIND_NOTE: Record<string, string> = { observed: "", estimated: " (rain estimate)", pending: " (not yet reported)", forecast: " (forecast)" };
+function normalText(d: (typeof days)[number]) {
+  return d.normal_hi_f != null && d.normal_lo_f != null ? `${d.normal_hi_f}° / ${d.normal_lo_f}°F` : "";
+}
+---
+<figure class="wx" id={id}>
+  <p>{summary}</p>
+  <ul class="dlegend wx-legend" aria-label="Chart key">
+    <li><span class="sw wx-sw-temp" aria-hidden="true" />Daily high to low</li>
+    {hasNormals && <li><span class="sw wx-sw-normal" aria-hidden="true" />Normal high to low, 1991–2020</li>}
+    {hasGap && <li><span class="sw wx-sw-pend" aria-hidden="true" />Not yet reported (NOAA runs about a week behind)</li>}
+    {hasEst && <li><span class="sw wx-sw-est" aria-hidden="true" />Rain estimate (outlined)</li>}
+    {hasFc && <li><span class="sw wx-sw-fc" aria-hidden="true" />Forecast (hatched)</li>}
+    <li><span class="sw wx-sw-rain" aria-hidden="true" />Rain</li>
+  </ul>
+  <div class="wx-plot">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Daily high and low temperature and rain in ${name}. ${summary}`}>
+      <defs>
+        <pattern id={`${id}-ht`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect class="wx-hatch-bg-t" width="4" height="4" /><line class="wx-hatch-t" x1="0" y1="0" x2="0" y2="4" />
+        </pattern>
+        <pattern id={`${id}-pend`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+          <line class="wx-pend-line" x1="0" y1="0" x2="0" y2="8" />
+        </pattern>
+        <pattern id={`${id}-hr`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect class="wx-hatch-bg-r" width="4" height="4" /><line class="wx-hatch-r" x1="0" y1="0" x2="0" y2="4" />
+        </pattern>
+      </defs>
+
+      {hasGap && (
+        <g aria-hidden="true">
+          <rect class="wx-pend" x={gapX0} y={T0 - 20} width={gapX1 - gapX0} height={TH + 20} fill={`url(#${id}-pend)`} />
+          {hasPending && <rect class="wx-pend" x={pendX0} y={P0} width={pendX1 - pendX0} height={PH} fill={`url(#${id}-pend)`} />}
+          <text class="wx-band-label" x={(gapX0 + gapX1) / 2} y={T0 - 16} text-anchor="middle">Pending</text>
+        </g>
+      )}
+      {hasFc && (
+        <g aria-hidden="true">
+          <rect class="wx-band" x={bandX} y={T0 - 20} width={W - R - bandX} height={P0 + PH - T0 + 20} />
+          <text class="wx-band-label" x={bandX + 6} y={T0 - 16}>Forecast</text>
+        </g>
+      )}
+
+      <g aria-hidden="true">
+        <text class="wx-panel" x={L} y={T0 - 16}>High and low, °F</text>
+        {tTicks.map((t) => (
+          <>
+            <line class="wx-grid" x1={L} x2={W - R} y1={ty(t)} y2={ty(t)} />
+            <text class="wx-tick" x={L - 6} y={ty(t)} text-anchor="end" dominant-baseline="middle">{t}</text>
+          </>
+        ))}
+        {hasNormals && <path class="wx-normal" d={normalBand} />}
+        {showFreeze && (
+          <>
+            <line class="wx-freeze" x1={L} x2={W - R} y1={ty(32)} y2={ty(32)} />
+            <text class="wx-note" x={freezeAtLeft ? L + 4 : (hasFc ? bandX : W - R) - 6} y={ty(32) - 5}
+              text-anchor={freezeAtLeft ? "start" : "end"}>Freezing, 32°F</text>
+          </>
+        )}
+        {days.map((d, i) => d.hi_f != null && d.lo_f != null && (
+          <rect class={d.kind === "forecast" ? "wx-temp-f" : "wx-temp"} fill={d.kind === "forecast" ? `url(#${id}-ht)` : undefined}
+            x={cx(i) - bw / 2} y={ty(d.hi_f)} width={bw} height={Math.max(2, ty(d.lo_f) - ty(d.hi_f))} rx={Math.min(bw / 2, 4)} />
+        ))}
+        {iHi >= 0 && <text class="wx-label" x={cx(iHi)} y={ty(maxHi) - 6} text-anchor="middle">{`${maxHi}°`}</text>}
+        {iLo >= 0 && <text class="wx-label" x={cx(iLo)} y={ty(minLo) + 15} text-anchor="middle">{`${minLo}°`}</text>}
+
+        <text class="wx-panel" x={L} y={P0 - 9}>Rain, inches</text>
+        {rTicks.map((t) => (
+          <>
+            <line class={t === 0 ? "wx-base" : "wx-grid"} x1={L} x2={W - R} y1={ry(t)} y2={ry(t)} />
+            <text class="wx-tick" x={L - 6} y={ry(t)} text-anchor="end" dominant-baseline="middle">{rFmt(t)}</text>
+          </>
+        ))}
+        {days.map((d, i) => (d.rain_in ?? 0) >= 0.01 && (
+          <path class={d.kind === "forecast" ? "wx-rain-f" : d.kind === "estimated" ? "wx-rain-e" : "wx-rain"} fill={d.kind === "forecast" ? `url(#${id}-hr)` : undefined}
+            d={col(cx(i), Math.min(ry(d.rain_in!), P0 + PH - 2), P0 + PH, bw)} />
+        ))}
+        {iRain >= 0 && <text class="wx-label" x={cx(iRain)} y={ry(maxRain) - 6} text-anchor="middle">{`${inches(maxRain)}${days[iRain].kind === "estimated" ? " (est.)" : ""}`}</text>}
+
+        {xTicks.map((i) => (
+          <text class="wx-tick" x={cx(i)} y={H - 8} text-anchor="middle">{day(days[i].date, asof)}</text>
+        ))}
+      </g>
+
+      <line class="wx-cursor" x1="0" x2="0" y1={T0} y2={P0 + PH} />
+      {days.map((d, i) => (
+        <rect class="wx-hit" x={L + slot * i} y={T0 - 20} width={slot} height={P0 + PH - T0 + 20}
+          data-i={i} data-x={cx(i)} data-d={`${day(d.date, asof)}${d.kind === "forecast" ? " · forecast" : d.kind === "pending" ? " · not yet reported" : d.kind === "estimated" ? " · high and low not yet reported" : ""}`}
+          data-k={d.kind} data-hi={d.hi_f ?? ""} data-lo={d.lo_f ?? ""} data-r={d.kind === "pending" ? "" : inches(d.rain_in)} data-n={normalText(d)}><title>{tip(d)}</title></rect>
+      ))}
+    </svg>
+    <div class="wx-tip" hidden></div>
+  </div>
+  <figcaption class="asof">
+    Observed: NOAA <a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">nClimGrid-Daily</a>
+    county averages through {through}, my area-weighted average for the district. NOAA publishes about a week
+    late, so the days since are marked as not yet reported.
+    {hasEst && <>Rain for those days: the National Weather Service's <a href="https://water.noaa.gov/resources/downloads/precip/stageIV/">Stage IV</a>
+    radar-and-gauge estimate, my county and district averages; it often runs a little wetter than NOAA's
+    county averages, which replace it when they come out. </>}
+    {hasFc && <>Forecast: <a href="https://www.weather.gov/">National Weather Service</a>, at each county's center. </>}
+    {hasNormals && <>Normals: the same NOAA data for 1991–2020, smoothed over a month. </>}Not an official
+    record: for that, see the National Weather Service.
+  </figcaption>
+  <details class="wx-table">
+    <summary>Daily numbers</summary>
+    <table>
+      <caption class="sr-only">Daily high, low and rain in {name}</caption>
+      <thead><tr><th scope="col">Day</th><th class="n" scope="col">High</th><th class="n" scope="col">Low</th><th class="n" scope="col">Rain</th>{hasNormals && <th class="n" scope="col">Normal high / low</th>}</tr></thead>
+      <tbody>
+        {days.map((d) => (
+          <tr><th scope="row">{day(d.date, asof)}{KIND_NOTE[d.kind]}</th>
+            {d.kind === "pending"
+              ? <td class="n" colspan="3">not yet reported</td>
+              : d.kind === "estimated"
+              ? <><td class="n" colspan="2">not yet reported</td><td class="n">{`${inches(d.rain_in)} (est.)`}</td></>
+              : <><td class="n">{d.hi_f != null ? `${d.hi_f}°F` : "n/a"}</td><td class="n">{d.lo_f != null ? `${d.lo_f}°F` : "n/a"}</td><td class="n">{inches(d.rain_in)}</td></>}{hasNormals && <td class="n">{normalText(d) || "n/a"}</td>}</tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+</figure>
+
+<script>
+  // Hover or tap a day for its readout. Values come from data attributes and are set with textContent.
+  for (const fig of document.querySelectorAll<HTMLElement>("figure.wx")) {
+    const svg = fig.querySelector("svg")!;
+    const tip = fig.querySelector<HTMLElement>(".wx-tip")!;
+    const cursor = svg.querySelector<SVGLineElement>(".wx-cursor")!;
+    const plot = fig.querySelector<HTMLElement>(".wx-plot")!;
+    const show = (hit: SVGRectElement) => {
+      const x = Number(hit.dataset.x);
+      cursor.setAttribute("x1", String(x));
+      cursor.setAttribute("x2", String(x));
+      cursor.classList.add("on");
+      tip.replaceChildren();
+      const head = document.createElement("div");
+      head.className = "wx-tip-d";
+      head.textContent = hit.dataset.d ?? "";
+      tip.append(head);
+      const rows = hit.dataset.k === "estimated" ? [["Rain (estimate)", hit.dataset.r ?? ""]]
+        : hit.dataset.r ? [["High", hit.dataset.hi ? `${hit.dataset.hi}°F` : "n/a"], ["Low", hit.dataset.lo ? `${hit.dataset.lo}°F` : "n/a"], ["Rain", hit.dataset.r]] : [];
+      if (hit.dataset.n) rows.push(["Normal high / low", hit.dataset.n]);
+      for (const [k, v] of rows) {
+        const row = document.createElement("div");
+        const b = document.createElement("strong");
+        b.textContent = v;
+        row.append(b, ` ${k.charAt(0).toLowerCase()}${k.slice(1)}`);
+        tip.append(row);
+      }
+      tip.hidden = false;
+      const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+      const px = x * scale, w = tip.offsetWidth, pw = plot.clientWidth;
+      tip.style.left = `${Math.max(0, Math.min(pw - w, px + (px + w + 12 > pw ? -w - 12 : 12)))}px`;
+    };
+    const hide = () => { tip.hidden = true; cursor.classList.remove("on"); };
+    svg.addEventListener("pointermove", (e) => {
+      const hit = (e.target as Element).closest<SVGRectElement>(".wx-hit");
+      if (hit) show(hit);
+    });
+    svg.addEventListener("pointerleave", hide);
+    // Native <title> tooltips would double up with the readout once the script runs.
+    svg.querySelectorAll(".wx-hit title").forEach((t) => t.remove());
+  }
+</script>
+
+<style>
+  .wx { margin: 0; }
+  .wx > p { max-width: 62ch; }
+  .wx-plot { position: relative; }
+  .wx svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .wx text { font-family: var(--font-sans); font-size: 11px; fill: var(--ink-2); }
+  .wx .wx-tick { font-family: var(--font-mono); font-variant-numeric: tabular-nums; fill: var(--ink-3); font-size: 10.5px; }
+  .wx .wx-panel { font-weight: 600; fill: var(--ink); }
+  .wx .wx-label { font-family: var(--font-mono); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; }
+  .wx .wx-band-label { font-weight: 600; fill: var(--ink-2); paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
+  .wx .wx-note { fill: var(--ink-2); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; }
+  .wx-band { fill: var(--paper-2); }
+  .wx-pend-line { stroke: var(--rule); stroke-width: 1.5; }
+  .wx-sw-pend { background: repeating-linear-gradient(-45deg, var(--rule) 0 1.5px, var(--paper) 1.5px 5px); }
+  .wx-grid { stroke: var(--rule-2); stroke-width: 1; }
+  .wx-base { stroke: var(--rule); stroke-width: 1; }
+  .wx-freeze { stroke: var(--ink-3); stroke-width: 1; }
+  .wx-temp { fill: var(--orange); }
+  .wx-normal { fill: var(--ink); opacity: .1; }
+  .wx-legend { margin: .25rem 0 .5rem; }
+  .wx-sw-temp { background: var(--orange); border-color: var(--orange); width: 8px; border-radius: 4px; }
+  .wx-sw-normal { background: color-mix(in oklch, var(--ink) 10%, var(--paper)); }
+  .wx-sw-fc { background: repeating-linear-gradient(45deg, var(--orange) 0 2px, var(--orange-tint) 2px 4px); }
+  .wx-sw-rain { background: var(--green); border-color: var(--green); }
+  .wx-rain { fill: var(--green); }
+  .wx-rain-e { fill: var(--paper); stroke: var(--green); stroke-width: 2; }
+  .wx-sw-est { background: var(--paper); border: 2px solid var(--green); }
+  .wx-hatch-bg-t { fill: var(--orange-tint); }
+  .wx-hatch-t { stroke: var(--orange); stroke-width: 2; }
+  .wx-hatch-bg-r { fill: var(--green-tint); }
+  .wx-hatch-r { stroke: var(--green); stroke-width: 2; }
+  .wx-cursor { stroke: var(--ink); stroke-width: 1; opacity: 0; pointer-events: none; }
+  .wx-cursor.on { opacity: .5; }
+  .wx-hit { fill: transparent; }
+  .wx-tip { position: absolute; top: 28px; z-index: 1; pointer-events: none; background: var(--paper); color: var(--ink-2);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 6px 10px; font-size: .85rem; line-height: 1.35; white-space: nowrap;
+    box-shadow: 0 2px 8px oklch(0 0 0 / .12); }
+  .wx-tip :global(strong) { color: var(--ink); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .wx-tip :global(.wx-tip-d) { color: var(--ink); font-weight: 600; margin-bottom: 2px; }
+  .wx-table { margin-top: .5rem; }
+  .wx-table summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ink-2); }
+  .wx-table table { max-width: 28rem; }
+  @media (max-width: 640px) {
+    .wx text { font-size: 16px; }
+    .wx .wx-tick { font-size: 14px; }
+    /* A compact one-line readout at the top, so it doesn't cover the day being read. */
+    .wx-tip { top: 0; left: 0 !important; right: 0; white-space: normal; font-size: .75rem; padding: 4px 8px; }
+    .wx-tip :global(div) { display: inline; margin-right: .6em; }
+  }
+</style>
