@@ -93,6 +93,25 @@ p { margin: 0 0 .8em; }
 
 main { padding-top: 2rem; padding-bottom: 3rem; }
 
+.overview {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
+  gap: clamp(1rem, 4vw, 3.5rem);
+  align-items: start;
+}
+.overview > div { padding-top: .35rem; }
+.overview-link { margin: 1rem 0 0; }
+.condition-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  column-gap: clamp(1rem, 4vw, 3.5rem);
+  row-gap: 1.25rem;
+}
+@media (max-width: 800px) {
+  .overview { grid-template-columns: 1fr; gap: 1.25rem; }
+  .overview > div { padding-top: 0; }
+}
+
 /* Notices */
 .notice { border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper-2); padding: 12px 16px; margin: 1rem 0; color: var(--ink-2); }
 .notice.warn { background: var(--amber-tint); color: var(--amber-ink); border-color: transparent; }
@@ -145,11 +164,6 @@ td.n, th.n { text-align: right; font-family: var(--font-mono); font-variant-nume
 /* County names on district maps: sans (narrower than mono), bigger on phones where the SVG scales down. */
 .map .county-name { font-family: var(--font-sans); font-size: calc(12px * var(--fit-d, 1)); font-weight: 600; letter-spacing: 0; }
 @media (max-width: 640px) { .map .county-name { font-size: calc(17px * var(--fit-p, 1)); } }
-.map-wrap { display: grid; gap: 24px; grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr); align-items: start; }
-@media (max-width: 800px) { .map-wrap { grid-template-columns: 1fr; } }
-.locator { max-width: 220px; }
-.locator .state { fill: var(--paper-3); stroke: var(--paper); stroke-width: .5; }
-.locator .state.tx { fill: var(--accent); }
 
 /* County cards on a district page: collapsible rows; the map links to #c-<fips>, which opens and outlines one. */
 .county-grid { align-items: start; gap: 8px 16px; }

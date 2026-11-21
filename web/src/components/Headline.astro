@@ -4,13 +4,14 @@
 import type { Headline, Source, SourceKey } from "../lib/types";
 import { day } from "../lib/format";
 
-interface Props { headline?: Headline; sources: Record<SourceKey, Source>; asof: string; topics?: string[] }
-const { headline, sources, asof, topics } = Astro.props;
+interface Props { headline?: Headline; sources: Record<SourceKey, Source>; asof: string; topics?: string[]; limit?: number }
+const { headline, sources, asof, topics, limit } = Astro.props;
 // With `topics` (a persona's card_order), keep only the sentences about those sections, in that order.
-const items = topics && headline?.items
+const selected = topics && headline?.items
   ? topics.flatMap((t) => headline.items!.filter((i) => i.topic === t))
   : (headline?.items ?? (headline?.sentences ?? []).map((text) => ({ text, source: null, topic: "" })));
-const keys = topics && headline?.items ? [...new Set(items.map((i) => i.source))] : (headline?.sources ?? []);
+const items = selected.slice(0, limit);
+const keys = (topics || limit != null) && headline?.items ? [...new Set(items.map((i) => i.source))] : (headline?.sources ?? []);
 const used = keys.map((k) => k && sources[k as SourceKey]).filter((s): s is Source => !!s);
 ---
 {items.length > 0 && (

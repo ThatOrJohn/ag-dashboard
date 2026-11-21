@@ -3,10 +3,10 @@
 import Base from "../layouts/Base.astro";
 import AsOf from "../components/AsOf.astro";
 import CropCard from "../components/CropCard.astro";
+import Conditions from "../components/Conditions.astro";
 import DroughtBar from "../components/DroughtBar.astro";
 import DroughtMap from "../components/DroughtMap.astro";
 import Headline from "../components/Headline.astro";
-import Locator from "../components/Locator.astro";
 import MarketCard from "../components/MarketCard.astro";
 import ScrewwormCard from "../components/ScrewwormCard.astro";
 import { loadLatest } from "../lib/data";
@@ -20,48 +20,73 @@ const others = L.districts.filter((d) => !d.home);
 const fipsOf = (slug: string) => Object.entries(L.counties).filter(([, c]) => c.district === slug).map(([f]) => f);
 const statewide = L.markets.filter((m) => m.scope === "statewide");
 const anyStale = Object.entries(S).some(([key, source]) => !["screwworm", "boll_weevil"].includes(key) && source.stale);
+const drought = S.usdm.stale ? null : tx.drought;
+const burnBans = S.burn_bans.stale ? null : tx.burn_bans;
+const otherTopics = tx.headline?.items?.filter(({ topic }) => topic !== "drought" && topic !== "burn_bans").map(({ topic }) => topic);
+const screwworm = tx.screwworm && S.screwworm && !S.screwworm.stale && !S.screwworm.delayed ? tx.screwworm : null;
+const bollWeevil = tx.boll_weevil && S.boll_weevil && !S.boll_weevil.stale && S.boll_weevil.as_of && tx.boll_weevil.zones.length > 0;
+const pests = [
+  ...(screwworm ? [{
+    label: "Livestock screwworm",
+    detail: `${screwworm.active_animals} active animal ${screwworm.active_animals === 1 ? "case" : "cases"}`,
+    href: "#screwworm-h",
+    validUntil: screwworm.stale_at,
+  }] : []),
+  ...(bollWeevil ? [{
+    label: "Cotton boll weevil",
+    detail: `Report for ${day(S.boll_weevil.as_of, L.asof)}`,
+    href: href("for/cotton/#boll-weevil"),
+  }] : []),
+];
 ---
 <Base title="Texas agriculture this week · Texas Ag Dashboard" description="Drought, crop progress, cattle prices and burn bans for Texas, in plain language, from public data. Updated weekly." current="texas">
-  <div class="map-wrap">
+  <div class="overview">
     <div>
-      <span class="eyebrow">Texas agriculture · week of {day(L.asof)}</span>
-      <h1>What this week looks like for Texas farms and ranches</h1>
-      <Headline headline={tx.headline} sources={S} asof={L.asof} />
-      <nav class="personas" aria-label="Views by what you raise">
-        <span class="eyebrow">See it for</span>
-        <ul>{L.personas.map((p) => <li><a href={href(`for/${p.id}/`)}>{p.name}</a></li>)}</ul>
-      </nav>
-      {anyStale && <p class="notice warn">Some sources haven't updated recently, so their sections are hidden. See <a href={href("about/")}>About the data</a>.</p>}
+      <span class="eyebrow">Week of {day(L.asof)}</span>
+      <h1>Texas agriculture this week</h1>
+      <Headline headline={tx.headline} sources={S} asof={L.asof} topics={otherTopics?.length ? otherTopics : undefined} limit={1} />
+      <Conditions asof={L.asof} drought={drought} burnBans={burnBans} pests={pests} />
+      <details class="district-picker">
+        <summary>Choose a district</summary>
+        <nav aria-label="All Texas districts">
+          <ul>{L.districts.map((d) => <li><a href={href(`district/${d.slug}/`)}>{d.name}</a></li>)}</ul>
+        </nav>
+      </details>
     </div>
-    <div><Locator /></div>
+    <DroughtMap counties={L.counties} showDrought={!S.usdm.stale} title="Texas counties" link={(f) => {
+      const d = L.counties[f]?.district;
+      return d ? href(`district/${d}/#c-${f}`) : null;
+    }} labels={L.districts.map((d) => ({ text: d.name, fips: fipsOf(d.slug) }))} />
   </div>
 
-  {tx.drought && (
-    <section aria-labelledby="drought-h">
-      <h2 id="drought-h">Drought</h2>
-      <div class="map-wrap">
-        <div>
-          <DroughtMap counties={L.counties} title="Texas counties by drought category" link={(f) => {
-            const d = L.counties[f]?.district;
-            return d ? href(`district/${d}/#c-${f}`) : null;
-          }} labels={L.districts.map((d) => ({ text: d.name, fips: fipsOf(d.slug) }))} />
-        </div>
-        <div>
-          <p class="big">{pct(tx.drought.now.d1)}</p>
-          <p>{`of Texas is in drought (D1 or worse)`}{tx.drought.week_ago ? `, ${change(tx.drought.now.d1, tx.drought.week_ago.d1)} from last week` : ""}{tx.drought.year_ago ? ` and ${pct(tx.drought.year_ago.d1)} a year ago` : ""}.</p>
-          <DroughtBar levels={tx.drought.now} label="Share of Texas by drought category" />
-          <AsOf source={S.usdm} label="Map of" date={tx.drought.map_date} note="official statewide figure" />
-          {tx.burn_bans && (
-            <>
-              <h3 style="margin-top:1.5rem">Burn bans</h3>
-              <p>{`${tx.burn_bans.count} of ${tx.burn_bans.of} counties have a burn ban.`}</p>
-              <AsOf source={S.burn_bans} label="Updated" note="county judges set bans; check yours before burning" />
-            </>
-          )}
-        </div>
-      </div>
-    </section>
-  )}
+  <section aria-labelledby="weekly-h">
+    <h2 id="weekly-h">Weekly roundup</h2>
+    <Headline headline={tx.headline} sources={S} asof={L.asof} />
+    <nav class="personas" aria-label="Views by what you raise">
+      <span class="eyebrow">See it for</span>
+      <ul>{L.personas.map((p) => <li><a href={href(`for/${p.id}/`)}>{p.name}</a></li>)}</ul>
+    </nav>
+    {anyStale && <p class="notice warn">Some sources haven't updated recently, so their sections are hidden. See <a href={href("about/")}>About the data</a>.</p>}
+  </section>
+
+  <div class="condition-details">
+    {drought && (
+      <section aria-labelledby="drought-h">
+        <h2 id="drought-h">Drought</h2>
+        <p class="big">{pct(drought.now.d1)}</p>
+        <p>{`of Texas is in drought (D1 or worse)`}{drought.week_ago ? `, ${change(drought.now.d1, drought.week_ago.d1)} from last week` : ""}{drought.year_ago ? ` and ${pct(drought.year_ago.d1)} a year ago` : ""}.</p>
+        <DroughtBar levels={drought.now} label="Share of Texas by drought category" />
+        <AsOf source={S.usdm} label="Map of" date={drought.map_date} note="official statewide figure" />
+      </section>
+    )}
+    {burnBans && (
+      <section aria-labelledby="burn-bans-h">
+        <h2 id="burn-bans-h">Burn bans</h2>
+        <p>{`${burnBans.count} of ${burnBans.of} counties have a burn ban.`}</p>
+        <AsOf source={S.burn_bans} label="Updated" note="county judges set bans; check yours before burning" />
+      </section>
+    )}
+  </div>
 
   <section aria-labelledby="districts-h">
     <h2 id="districts-h">Featured districts</h2>
@@ -128,3 +153,37 @@ const anyStale = Object.entries(S).some(([key, source]) => !["screwworm", "boll_
     <p class="asof">Drought: {S.usdm.name}, map of {day(S.usdm.as_of)}. Rain: NOAA nClimGrid-Daily county averages through {day(S.nclimgrid.as_of)} (NOAA publishes about a week late); normal is 1991–2020. Our county-to-district totals.</p>
   </section>
 </Base>
+
+<style>
+  .district-picker { position: relative; width: fit-content; margin-top: 1.25rem; }
+  .district-picker summary {
+    min-height: 44px;
+    padding: .6rem .8rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .district-picker summary:hover { background: var(--paper-2); }
+  .district-picker ul {
+    position: absolute;
+    z-index: 2;
+    width: max-content;
+    max-height: min(20rem, 45svh);
+    overflow-y: auto;
+    margin: .25rem 0 0;
+    padding: .25rem;
+    list-style: none;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--paper);
+  }
+  .district-picker a {
+    display: block;
+    min-height: 44px;
+    padding: .6rem .75rem;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .district-picker a:hover, .district-picker a:focus-visible { background: var(--paper-2); }
+</style>

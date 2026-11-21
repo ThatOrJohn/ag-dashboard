@@ -52,7 +52,7 @@ const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
   <Headline headline={tx.headline_all} sources={S} asof={L.asof} topics={persona.card_order} />
 
   {blocks.map((b, i) => (
-    <section aria-labelledby={`s${i}`}>
+    <section id={b.kind === "section" && b.id === "boll_weevil" ? "boll-weevil" : undefined} aria-labelledby={`s${i}`}>
       <h2 id={`s${i}`}>{title(b)}</h2>
       {notReady(b) && <p class="notice">This section is hidden: its source hasn't updated recently. See <a href={href("about/")}>About the data</a>.</p>}
       {b.kind === "cards" && (

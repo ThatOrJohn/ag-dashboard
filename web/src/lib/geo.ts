@@ -1,5 +1,5 @@
 // County and state shapes from us-atlas (Census cartographic boundaries, 1:10m), projected at build time.
-import { geoAlbersUsa, geoConicEqualArea, geoPath } from "d3-geo";
+import { geoConicEqualArea, geoPath } from "d3-geo";
 import { feature, mesh } from "topojson-client";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { GeometryCollection, Topology } from "topojson-specification";
@@ -7,7 +7,6 @@ import us from "us-atlas/counties-10m.json";
 
 const topo = us as unknown as Topology<{ counties: GeometryCollection; states: GeometryCollection; nation: GeometryCollection }>;
 const counties = feature(topo, topo.objects.counties) as FeatureCollection<Geometry>;
-const states = feature(topo, topo.objects.states) as FeatureCollection<Geometry>;
 
 export const TX = "48";
 
@@ -36,12 +35,6 @@ export function countyPaths(keep: Set<string> | null, width: number, height: num
     }),
     borders,
   };
-}
-
-/** Small US locator: every state, Texas picked out by the caller. */
-export function usStates(width: number, height: number) {
-  const path = geoPath(geoAlbersUsa().fitSize([width, height], states));
-  return states.features.map((f) => ({ id: String(f.id), d: path(f) ?? "" }));
 }
 
 /** Greedy label placement at build time: biggest county first, each label tries full size then smaller,

@@ -75,6 +75,37 @@ test("Texas map links a featured-district county to its card", async ({ page }) 
   await expect(page.locator("#c-48491")).toContainText("Rain, 7 days to");
 });
 
+test("the county map and conditions share the first desktop view", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "The mobile layout stacks the conditions and map");
+  await page.setViewportSize({ width: 1366, height: 768 });
+  for (const path of ["", "district/south-central/"]) {
+    await page.goto(path);
+    await page.evaluate(() => document.fonts.ready);
+    const overview = page.locator(".overview");
+    const map = overview.getByRole("region", { name: /County (drought )?map/ });
+    const heading = overview.getByRole("heading", { level: 1 });
+    await expect(map).toBeVisible();
+    const mapBox = (await map.boundingBox())!;
+    const titleBox = (await heading.boundingBox())!;
+    expect(mapBox.x).toBeGreaterThan(titleBox.x);
+    expect(mapBox.y + mapBox.height).toBeLessThanOrEqual(768);
+    const drought = path ? loadDistrict("south-central").summary.drought : loadLatest().texas.drought;
+    if (drought && !loadLatest().sources.usdm.stale) {
+      await overview.getByRole("link", { name: /^Drought/ }).click();
+      await expect(page).toHaveURL(/#drought-h$/);
+    }
+  }
+});
+
+test("the homepage district picker opens any district", async ({ page }) => {
+  await page.goto("");
+  await page.getByText("Choose a district", { exact: true }).click();
+  const picker = page.getByRole("navigation", { name: "All Texas districts" });
+  await expect(picker.getByRole("link")).toHaveCount(DISTRICTS.length);
+  await picker.getByRole("link", { name: "Trans-Pecos" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trans-Pecos");
+});
+
 test("every district has a page, and the Texas map links counties outside the featured districts", async ({ page }) => {
   expect(DISTRICTS).toHaveLength(15);
   await page.goto("");

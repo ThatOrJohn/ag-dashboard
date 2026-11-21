@@ -1,0 +1,121 @@
+---
+import { change, day, inches, pct } from "../lib/format";
+import type { DroughtSummary } from "../lib/types";
+
+interface Pest {
+  label: string;
+  detail: string;
+  href: string;
+  validUntil?: string;
+}
+
+interface Props {
+  asof: string;
+  drought?: DroughtSummary | null;
+  burnBans?: { count: number; of: number } | null;
+  forecast?: number | null;
+  pests?: Pest[];
+}
+
+const { asof, drought, burnBans, forecast, pests = [] } = Astro.props;
+const icons = {
+  drought: "M4 16h16M6 20h12M7 12a5 5 0 1 1 10 0M12 1v2M4.2 4.2l1.4 1.4m12.8 0 1.4-1.4M2 11h2m16 0h2",
+  burn: "M12 22a7 7 0 0 0 7-7c0-3-2-5-4-7 0 2-1 3-2 4 0-4-2-7-4-9 1 5-4 7-4 12a7 7 0 0 0 7 7Z",
+  rain: "M5 14a4 4 0 0 1 1-7.9 6 6 0 0 1 11.6 1.1A3.5 3.5 0 0 1 18 14M8 15l-2 4m7-4-2 4m7-4-2 4",
+  pest: "M8 8V6a4 4 0 0 1 8 0v2M4 8l3 3m13-3-3 3M3 14h4m10 0h4M4 20l4-4m12 4-4-4M12 9v11m-5-9a5 5 0 0 1 10 0v4a5 5 0 0 1-10 0Z",
+};
+
+type Row = Pest & { icon: keyof typeof icons; note?: string };
+const rows: Row[] = [];
+if (drought) {
+  rows.push({
+    label: "Drought",
+    detail: `${pct(drought.now.d1)} of land in drought`,
+    note: drought.week_ago
+      ? `${change(drought.now.d1, drought.week_ago.d1)} from last week`
+      : `Map of ${day(drought.map_date, asof)}`,
+    href: "#drought-h",
+    icon: "drought",
+  });
+}
+if (burnBans) {
+  rows.push({ label: "Burn bans", detail: `${burnBans.count} of ${burnBans.of} counties`, href: "#burn-bans-h", icon: "burn" });
+}
+if (forecast != null) {
+  rows.push({ label: "Rain forecast", detail: `${inches(forecast)} over 7 days`, href: "#forecast-h", icon: "rain" });
+}
+rows.push(...pests.map((pest): Row => ({ ...pest, icon: "pest" })));
+---
+{rows.length > 0 && (
+  <section class="conditions" aria-labelledby="conditions-h">
+    <h2 id="conditions-h">Conditions at a glance</h2>
+    <ul>
+      {rows.map((row) => (
+        <li data-valid-until={row.validUntil}>
+          <a href={row.href}>
+            <svg class={row.icon} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d={icons[row.icon]} />
+            </svg>
+            <span class="label">{row.label}</span>
+            <span class="reading">
+              {row.detail}
+              {row.note && <small>{row.note}</small>}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
+
+<script>
+  const expiringRows = Array.from(document.querySelectorAll<HTMLElement>(".conditions [data-valid-until]"));
+  if (expiringRows.length) {
+    let timer: number;
+    const update = () => {
+      window.clearTimeout(timer);
+      const now = Date.now();
+      let next = Infinity;
+      for (const row of expiringRows) {
+        const until = Date.parse(row.dataset.validUntil ?? "");
+        row.hidden = now >= until;
+        if (!row.hidden) next = Math.min(next, until);
+      }
+      const conditions = expiringRows[0].closest<HTMLElement>(".conditions");
+      if (conditions) conditions.hidden = !conditions.querySelector("li:not([hidden])");
+      if (Number.isFinite(next)) timer = window.setTimeout(update, next - now);
+    };
+    update();
+    window.addEventListener("pageshow", update);
+  }
+</script>
+
+<style>
+  .conditions { margin-top: 1.5rem; }
+  h2 { margin: 0 0 .55rem; font-size: 1.15rem; }
+  ul { padding: 0; margin: 0; list-style: none; border-block: 1px solid var(--rule); }
+  li:not([hidden]) ~ li:not([hidden]) { border-top: 1px solid var(--rule-2); }
+  li a {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) minmax(0, auto);
+    align-items: center;
+    gap: .65rem;
+    min-height: 48px;
+    padding-block: .5rem;
+    font-size: .95rem;
+    line-height: 1.25;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  li a:hover .label, li a:focus-visible .label { text-decoration: underline; }
+  .label { font-weight: 650; }
+  .reading { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  small { display: block; margin-top: .2rem; font-size: .8rem; color: var(--ink-3); }
+  svg { color: var(--ink-3); }
+  .drought, .burn { color: var(--amber-ink); }
+  .rain { color: var(--accent-ink); }
+  @media (max-width: 360px) {
+    li a { grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr); }
+  }
+</style>

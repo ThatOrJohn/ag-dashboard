@@ -15,8 +15,9 @@ interface Props {
   width?: number;
   height?: number;
   title: string;
+  showDrought: boolean;
 }
-const { counties, keep = null, link, labels = [], countyNames = false, width = 640, height = 600, title } = Astro.props;
+const { counties, keep = null, link, labels = [], countyNames = false, width = 640, height = 600, title, showDrought } = Astro.props;
 const { counties: shapes, borders } = countyPaths(keep ? new Set(keep) : null, width, height,
   (f) => counties[f]?.district ?? "");
 const cls = (c: number) => (c < 0 ? "f-none" : `f-d${c}`);
@@ -29,8 +30,13 @@ const named = shapes.map((s) => ({ ...s, text: counties[s.fips]?.name ?? "" }));
 const fitD = countyNames ? placeLabels(named, 12) : new Map();
 const fitP = countyNames ? placeLabels(named, 17) : new Map();
 const id = `m-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}`;
+const hasDrought = showDrought && shapes.some((s) => counties[s.fips]?.drought);
+const hasMissing = hasDrought && shapes.some((s) => !counties[s.fips]?.drought);
 ---
-<svg class="map" viewBox={`0 0 ${width} ${height}`} role="group" aria-label={title}>
+<section class="county-map" aria-labelledby="county-map-h">
+<h2 id="county-map-h">{hasDrought ? "County drought map" : "County map"}</h2>
+<p class="map-guide muted">Select a county for its details.</p>
+<svg class="map" viewBox={`0 0 ${width} ${height}`} role="group" aria-label={hasDrought ? `${title} by drought category` : title}>
   <defs>
     <pattern id={`${id}-h3`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
       <line class="hatch-line" x1="0" y1="0" x2="0" y2="6" />
@@ -42,12 +48,15 @@ const id = `m-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}`;
   </defs>
   {shapes.map((s) => {
     const c = counties[s.fips];
-    const cat = category(c?.drought);
-    const t = `${c?.name ?? s.fips} County: ${c?.drought ? categoryName(cat) : "no drought data"}${c?.burn_ban ? ", burn ban" : ""}`;
+    const drought = hasDrought ? c?.drought : undefined;
+    const cat = category(drought);
+    const name = `${c?.name ?? s.fips} County`;
+    const conditions = [drought ? categoryName(cat) : hasDrought ? "no drought data" : "", c?.burn_ban ? "burn ban" : ""].filter(Boolean);
+    const t = conditions.length ? `${name}: ${conditions.join(", ")}` : name;
     const url = link(s.fips);
     const body = (
       <>
-        <path class={`county ${cls(cat)}`} d={s.d}><title>{t}</title></path>
+        <path class={`county ${drought ? cls(cat) : "f-unavailable"}`} d={s.d}><title>{t}</title></path>
         {cat >= 3 && <path class="hatch" d={s.d} fill={`url(#${id}-h${cat})`} />}
       </>
     );
@@ -68,8 +77,30 @@ const id = `m-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}`;
       : <text class="label" x={l.x} y={l.y} text-anchor="middle">{l.text}</text>;
   })}
 </svg>
-<ul class="dlegend" aria-label="Map key">
-  <li><span class="sw f-none" aria-hidden="true" />No drought</li>
-  {["D0", "D1", "D2", "D3 (hatched)", "D4 (cross-hatched)"].map((n, i) => <li><span class={`sw f-d${i}`} aria-hidden="true" />{n}</li>)}
-</ul>
-<p class="asof">Each county shows the most severe category covering at least half of it. Thick lines are district borders.</p>
+{hasDrought ? (
+  <>
+    <ul class="dlegend" aria-label="Map key">
+      <li><span class="sw f-none" aria-hidden="true" />No drought</li>
+      {["D0", "D1", "D2", "D3 (hatched)", "D4 (cross-hatched)"].map((n, i) => <li><span class={`sw f-d${i}`} aria-hidden="true" />{n}</li>)}
+      {hasMissing && <li><span class="sw f-unavailable" aria-hidden="true" />No data</li>}
+    </ul>
+    <p class="asof">Each county shows the most severe category covering at least half of it.{!keep && " Thick lines mark district borders."}</p>
+  </>
+) : <p class="asof">Drought data is currently unavailable.</p>}
+</section>
+
+<style>
+  .county-map {
+    min-width: 0;
+    padding: clamp(.75rem, 2vw, 1.35rem);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+  h2 { margin: 0 0 .2rem; font-size: 1.2rem; }
+  .map-guide { margin: 0; font-size: .9rem; }
+  .map { width: min(100%, 35rem); margin: .5rem auto .65rem; }
+  .f-unavailable { fill: var(--paper-3); background: var(--paper-3); }
+  @media (min-width: 801px) {
+    .map { width: min(100%, clamp(20rem, 100svh - 16.5rem, 35rem)); }
+  }
+</style>
