@@ -10,8 +10,6 @@
   river       each configured stream gauge's monthly mean flow.
   cattle      the statewide weekly auction's feeder steer prices and head counts.
   census      farms and land in farms by county for each Census of Agriculture year in the store.
-  rain        this year's daily county rain as a one-character class per county, with the statewide average
-              and the wettest county each day.
 
 A stale source leaves its story out (null), like any other section.
 """
@@ -71,8 +69,6 @@ def cotton_seasons(nass: pd.DataFrame, region: Region) -> dict | None:
 
 
 RESERVOIRS_FROM = 1950
-# Daily rain classes, inches: the upper bound of each class ("0" is dry, under a hundredth).
-RAIN_CLASSES = (0.01, 0.25, 0.5, 1.0, 2.0)
 
 
 def reservoir_months(res: pd.DataFrame, site: str = "statewide") -> dict | None:
@@ -149,30 +145,6 @@ def census_counties(census: pd.DataFrame, region: Region) -> dict | None:
     return {"years": [int(y) for y in years], "counties": counties}
 
 
-def rain_class(inches: float) -> str:
-    return str(sum(inches >= b for b in RAIN_CLASSES))
-
-
-def rain_days(nc: pd.DataFrame, region: Region, area: dict[str, float]) -> dict | None:
-    rain = nc[nc["var"] == "rain_mm"] if not nc.empty else nc
-    if rain.empty:
-        return None
-    year = rain["date"].max().year
-    rain = rain[rain["date"].dt.year == year]
-    fips = [c.fips for c in region.counties]
-    wide = rain.pivot_table(index="date", columns="geo", values="value").sort_index() / 25.4
-    weights = pd.Series(area).reindex(wide.columns).fillna(0)
-    days = []
-    for d, row in wide.iterrows():
-        have = row.dropna()
-        mean = (have * weights[have.index]).sum() / weights[have.index].sum() if not have.empty else None
-        top = have.idxmax() if not have.empty else None
-        days.append({"date": _iso(d),
-                     "map": "".join(rain_class(row[f]) if f in row.index and not pd.isna(row[f]) else "?" for f in fips),
-                     "mean_in": None if mean is None else round(float(mean), 2),
-                     "max": None if top is None else {"fips": top, "in": round(float(have[top]), 2)}})
-    return {"counties": fips, "classes": list(RAIN_CLASSES), "days": days}
-
 
 def site_data(region: Region, w: pd.DataFrame, nass: pd.DataFrame, *, drought_ok: bool, nass_ok: bool,
               fresh=None, frames: dict | None = None) -> dict:
@@ -181,7 +153,6 @@ def site_data(region: Region, w: pd.DataFrame, nass: pd.DataFrame, *, drought_ok
     ok = (lambda key: fresh is not None and key in fresh.sources and not fresh.sources[key]["stale"])
     empty = pd.DataFrame(columns=["geo", "var", "date", "value"])
     get = (lambda key: f.get(key) if f.get(key) is not None else empty)
-    area = {c.fips: c.land_sqmi for c in region.counties}
     statewide_ams = next((r["slug"] for r in region.source("ams").get("reports", []) if r.get("scope") == "statewide"), "1955")
     return {
         "drought": drought_weeks(w, region) if drought_ok else None,
@@ -193,5 +164,4 @@ def site_data(region: Region, w: pd.DataFrame, nass: pd.DataFrame, *, drought_ok
         if ok("usgs_streamflow") else None,
         "cattle": cattle_weeks(get("ams"), str(statewide_ams)) if ok("ams") else None,
         "census": census_counties(get("census"), region) if ok("census") else None,
-        "rain": rain_days(get("nclimgrid"), region, area) if ok("nclimgrid") else None,
     }

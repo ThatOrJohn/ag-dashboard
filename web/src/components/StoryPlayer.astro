@@ -10,7 +10,6 @@ import CensusDots from "./story/CensusDots.astro";
 import DroughtFlipbook from "./story/DroughtFlipbook.astro";
 import HarvestRace from "./story/HarvestRace.astro";
 import RainGauges from "./story/RainGauges.astro";
-import RainMap from "./story/RainMap.astro";
 import Reservoir from "./story/Reservoir.astro";
 import RiverFlow from "./story/RiverFlow.astro";
 import StoryTimeline from "./story/StoryTimeline.astro";
@@ -33,11 +32,11 @@ const config = {
 };
 const first = { ...frames[0], caption: captions[frames[0].c] };
 const tableRows = (story.tableFrames ?? frames.map((_, i) => i)).map((i) => frames[i]);
-const layout = ["drought", "rainmap", "census"].includes(story.visual.kind) ? "layout-map" : "layout-wide";
+const layout = ["drought", "census"].includes(story.visual.kind) ? "layout-map" : "layout-wide";
 const source = latest.sources[story.source];
 const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name }] : []);
 ---
-<div class={`story-stage ${layout} kind-${story.visual.kind}`} id="story-player" data-story={JSON.stringify(config)}>
+<div class={`story-stage ${layout} kind-${story.visual.kind}${story.timeline || story.visual.kind === "drought" ? " has-timeline" : ""}`} id="story-player" data-story={JSON.stringify(config)}>
   {story.visual.kind === "drought" && <DroughtFlipbook story={story} latest={latest} />}
   {story.visual.kind === "rain" && <RainGauges story={story} />}
   {story.visual.kind === "harvest" && <HarvestRace story={story} />}
@@ -46,7 +45,6 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   {story.visual.kind === "river" && <RiverFlow story={story} />}
   {story.visual.kind === "cattle" && <CattleMarket story={story} />}
   {story.visual.kind === "census" && <CensusDots story={story} latest={latest} />}
-  {story.visual.kind === "rainmap" && <RainMap story={story} latest={latest} />}
   {story.timeline && <StoryTimeline story={story} timeline={story.timeline} />}
   <section class="story-panel" aria-labelledby="story-metric">
     <time class="story-date" data-story-date datetime={first.date} hidden={!first.date}>{first.date && first.label}</time>
@@ -268,6 +266,40 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   .story-table table { margin-bottom: .75rem; }
   .story-table th.n { font-family: inherit; }
   .story-table td, .story-table th { padding-inline: clamp(.25rem, 1.25vw, .5rem); }
+  /* Desktop: the visual (and its timeline) on the left; date, caption, readout and controls in a column on the
+     right, so the player fits on one screen. Visuals cap their height with --vis-max. */
+  @media (min-width: 1000px) {
+    .story-stage { --vis-max: max(14rem, calc(100svh - 22rem)); }
+    .story-stage.has-timeline { --vis-max: max(12rem, calc(100svh - 30rem)); }
+    .story-stage.layout-wide { grid-template-columns: minmax(0, 1.75fr) minmax(19rem, 1fr); }
+    .story-stage.layout-map { grid-template-columns: minmax(0, 1fr) minmax(22rem, 1fr); }
+    .story-stage.layout-map {
+      grid-template-rows: auto auto 1fr auto;
+      grid-template-areas: "map panel" "map readout" "map controls" "timeline controls";
+    }
+    .story-stage.layout-wide {
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas: "visual panel" "visual controls" "timeline controls";
+    }
+    .story-stage.layout-wide > :first-child { align-self: center; }
+    .story-panel { padding: 1rem 1.5rem .4rem; border-left: 1px solid var(--rule); }
+    .story-date { font-size: 1.1rem; }
+    .story-panel h2 { font-size: 1.3rem; margin-bottom: .4rem; }
+    .story-stage.layout-map .story-panel { border-left: 0; }
+    .story-caption { min-height: 4lh; font-size: .95rem; }
+    .story-stage.layout-map .story-caption { min-height: 3lh; }
+    .story-controls:not([hidden]) {
+      align-content: end;
+      gap: .6rem;
+      padding: .75rem 1.5rem 1rem;
+      border-left: 1px solid var(--rule);
+    }
+    .story-stage.layout-wide .story-controls:not([hidden]) { border-top: 0; }
+    .story-stage.layout-map .story-controls:not([hidden]) { border-left: 0; }
+    .timeline { gap: .75rem; }
+    .chapters { gap: .35rem; }
+    .story-controls button { padding: .4rem .65rem; font-size: .85rem; }
+  }
   @media (max-width: 760px) {
     .story-stage.layout-map {
       grid-template-columns: minmax(0, 1fr);

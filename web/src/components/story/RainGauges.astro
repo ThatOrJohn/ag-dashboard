@@ -94,7 +94,7 @@ const level = (v: number | null) => Math.min(100, ((v ?? 0) / scaleMax) * 100).t
     position: absolute; top: 0; width: 3px; height: 11px; border-radius: 0 0 2px 2px;
     background: var(--green); opacity: 0; animation-name: fall; animation-timing-function: cubic-bezier(.5, 0, 1, 1);
   }
-  .gauge { --tube-h: clamp(12rem, 34vw, 17rem); }
+  .gauge { --tube-h: min(clamp(12rem, 34vw, 17rem), calc(var(--vis-max, 100vh) - 9rem)); }
   .tube-wrap { position: relative; height: var(--tube-h); width: 3.75rem; margin-left: 1.6rem; }
   .scale { position: absolute; inset: 0 auto 0 -1.9rem; width: 1.6rem; margin: 0; padding: 0; list-style: none; }
   .scale li { position: absolute; right: 0; transform: translateY(50%); font-family: var(--font-mono); font-size: .7rem; color: var(--ink-3); }

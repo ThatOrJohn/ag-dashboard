@@ -53,7 +53,7 @@ const ticks = [25, 50, 75, 100];
 
 <style>
   .res { grid-area: visual; position: relative; padding: .5rem clamp(1rem, 3vw, 2rem) 1rem; background: linear-gradient(var(--paper), var(--paper-2)); }
-  .res svg { display: block; width: 100%; height: auto; }
+  .res svg { display: block; width: 100%; height: auto; max-height: var(--vis-max, none); }
   .land { fill: var(--paper-3); }
   .water { fill: color-mix(in oklab, var(--green) 70%, var(--paper)); }
   .surface { stroke: var(--green); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 14 6; animation: lap 2.4s linear infinite; }

@@ -26,7 +26,7 @@ labeled with the period it covers.
   the story and the map agree.
 
 - Each series is downsampled to what its animation needs: reservoir storage and river flow to monthly means,
-  wells to one winter median a year (summer pumping swings would hide the trend), daily rain to six classes.
+  wells to one winter median a year (summer pumping swings would hide the trend).
 - Reservoirs start in 1950. Earlier statewide percentages mostly reflect reservoirs being built and filled,
   which would read as drought. The 1950s drought of record is still included.
 - The Census has two years, so its story steps through one comparison instead of inventing years in between.

@@ -50,7 +50,7 @@ def test_cotton_seasons_keep_fall_reports_only():
 
 def test_stale_sources_leave_their_story_out():
     out = stories.site_data(TX, pd.DataFrame(), pd.DataFrame(), drought_ok=False, nass_ok=False)
-    assert set(out) == {"drought", "cotton", "reservoirs", "wells", "river", "cattle", "census", "rain"}
+    assert set(out) == {"drought", "cotton", "reservoirs", "wells", "river", "cattle", "census"}
     assert all(v is None for v in out.values())
 
 
@@ -79,7 +79,3 @@ def test_river_drops_a_partial_first_month_and_flags_provisional_flow():
     out = stories.river_months(flow, [{"id": "g", "name": "Gauge"}])[0]
     assert [m["month"] for m in out["months"]] == ["1991-01", "1991-02"]
     assert out["provisional_from"] == "1991-02-01"
-
-
-def test_rain_classes():
-    assert [stories.rain_class(x) for x in (0, 0.009, 0.01, 0.3, 0.75, 1.5, 4.3)] == ["0", "0", "1", "2", "3", "4", "5"]

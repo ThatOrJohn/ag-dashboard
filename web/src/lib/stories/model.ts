@@ -30,9 +30,7 @@ export type StoryVisual =
   | { kind: "cattle" }
   /** A dot per county sized by farms. Each frame shows one census year and may highlight losses or gains. */
   | { kind: "census"; fips: readonly string[]; farms: readonly (readonly [number | null, number | null])[]; years: readonly [number, number];
-      steps: readonly { year: 0 | 1; highlight: "none" | "loss" | "gain" }[] }
-  /** Every county's rain class on each frame's day, one character per county. */
-  | { kind: "rainmap"; fips: readonly string[]; maps: readonly string[]; classes: readonly number[]; tops: readonly (string | null)[] };
+      steps: readonly { year: 0 | 1; highlight: "none" | "loss" | "gain" }[] };
 
 /** A strip chart under the visual with a cursor on the current frame; tap it to jump. */
 export interface StoryTimeline {

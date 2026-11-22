@@ -24,9 +24,9 @@
   ([0022](decisions/0022-crop-pest-monitoring.md)).
 - Texas cotton harvest outlook with an estimate for the next USDA report and a public accuracy history
   ([0023](decisions/0023-texas-cotton-harvest-outlook.md)).
-- Stories: animated replays of two years of county drought maps, daily county rain this year, the cotton
-  harvest race, reservoirs since 1950, Ogallala wells, the Brazos at Richmond, a year of calf prices,
-  Census farms by county, and five weeks of district rain ([0024](decisions/0024-animated-stories.md)).
+- Stories: animated replays of two years of county drought maps, the cotton harvest race, reservoirs since 1950, Ogallala wells, the Brazos at Richmond, a year of calf prices,
+  Census farms by county, and five weeks of district rain ([0024](decisions/0024-animated-stories.md)), each
+  fitting one desktop screen ([0025](decisions/0025-stories-fit-one-screen.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next

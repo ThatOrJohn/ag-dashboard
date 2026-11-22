@@ -70,7 +70,7 @@ The build writes a region-wide file and one file per district under `web/public/
 | --- | --- |
 | `latest.json` | Build date, source metadata and freshness, failed source keys, Texas indicators and headlines, statewide reservoir storage, persona settings, district summaries, markets, and county conditions keyed by FIPS. |
 | `districts/<slug>.json` | District summary and drought history, weather strip, year-to-date rain, local water indicators where configured, county cards with annual details, district annual rollups, and relevant markets. |
-| `stories.json` | History the animated stories replay, each downsampled for its story: county Drought Monitor categories for 104 weekly maps (one character per county), cotton harvest reports by season, monthly statewide reservoir storage since 1950, winter well depths, monthly river flow, weekly feeder steer prices and head counts, county farms for two census years, and this year's daily county rain classes. A stale source's entry is `null`. [Story data](../kad/stories.py) |
+| `stories.json` | History the animated stories replay, each downsampled for its story: county Drought Monitor categories for 104 weekly maps (one character per county), cotton harvest reports by season, monthly statewide reservoir storage since 1950, winter well depths, monthly river flow, weekly feeder steer prices and head counts, and county farms for two census years. A stale source's entry is `null`. [Story data](../kad/stories.py) |
 
 ## From JSON to pages
 
@@ -92,7 +92,6 @@ Stories are registered in one list. Each entry has a stable slug, a builder that
 
 - **Drought replay** recolors every county on each of the 104 weekly maps beside a statewide timeline that scrubs the story. Its chapters come from the data on each build: the start, the least and most drought, the fastest six-week spread, turning points of 25 points or more, and the latest map. [Drought story](../web/src/lib/stories/drought.ts) · [Flipbook](../web/src/components/story/DroughtFlipbook.astro)
 - **Cotton harvest race** gives each season a field lane, with a harvester at that season's newest report on or before the same calendar day. Lanes holding at an older report say so, and long gaps in a past season's reports get their own chapter. The story is featured, with an ahead or behind title, when a fresh in-season report is 20–95% harvested and at least five points from the five-year average. [Cotton story](../web/src/lib/stories/cotton.ts) · [Race](../web/src/components/story/HarvestRace.astro)
-- **Rain day by day** shades every county by each day's NOAA rain this year, beside a strip of statewide daily averages. Chapters mark the wettest statewide day, the biggest single-county day and the longest dry spell. [Rain map story](../web/src/lib/stories/rainmap.ts)
 - **Reservoirs since 1950** fills and drains a lake cross-section month by month. The valley is a V, so depth is drawn as the square root of percent full to keep the water's area proportional. Turning points of 25 points or more become chapters. [Reservoir story](../web/src/lib/stories/reservoirs.ts)
 - **Ogallala wells** sinks the water in each monitoring well, one winter (January–March median) at a time, on a shared depth scale. Each well joins when its record starts. [Wells story](../web/src/lib/stories/wells.ts)
 - **Brazos at Richmond** widens and narrows a river with the log of each month's flow, against the median for that calendar month. [River story](../web/src/lib/stories/river.ts)
@@ -101,6 +100,8 @@ Stories are registered in one list. Each entry has a stable slug, a builder that
 - **Five weeks of rain** is archived. It keeps the daily district averages from the Nov. 21, 2026 build with its captions, so it stays the same as the weather strip rolls forward. Rain gauges fill to the running totals, with falling drops scaled to each day's rain. [Rain story](../web/src/lib/stories/rain.ts) · [Gauges](../web/src/components/story/RainGauges.astro)
 
 Long stories set `tableFrames` (each January, or the first of each month, plus every chapter) so the table stays readable, and the player sends each distinct caption once. A shared strip chart under most visuals tracks the current frame and jumps on tap. [Timeline](../web/src/components/story/StoryTimeline.astro)
+
+On screens 1000 px and wider the player is two columns: the visual and its timeline on the left; the date, caption, readout and controls on the right. Visuals cap their height with `--vis-max`, set from the viewport height, so the controls stay on screen at 1280×800 and larger. [Decision 0025](decisions/0025-stories-fit-one-screen.md)
 
 Astro renders the first frame, the takeaway and the table, so a story reads without JavaScript. Decorative motion stops under reduced motion. [Decision 0024](decisions/0024-animated-stories.md)
 

@@ -7,7 +7,6 @@ import type { Story, StoryEntry, StoryFallback } from "./model";
 import { cattleStory } from "./cattle";
 import { censusStory } from "./census";
 import { rainStory } from "./rain";
-import { rainMapStory } from "./rainmap";
 import { reservoirStory } from "./reservoirs";
 import { riverStory } from "./river";
 import { wellsStory } from "./wells";
@@ -18,7 +17,7 @@ export { droughtStorySlug, droughtStoryTitle } from "./drought";
 export { rainStorySlug } from "./rain";
 
 export const storyEntries: readonly StoryEntry[] = [
-  droughtStory, rainMapStory, cottonStory, reservoirStory, wellsStory, riverStory, cattleStory, censusStory, rainStory,
+  droughtStory, cottonStory, reservoirStory, wellsStory, riverStory, cattleStory, censusStory, rainStory,
 ];
 export const storiesDescription = "Animated replays of Texas drought, rain, water, harvests, cattle prices and farms, built from public data.";
 

@@ -15,9 +15,11 @@ const title = story?.title ?? fallback.title;
 ---
 <Base title={title + " · Stories · Texas Ag Dashboard"} description={story?.description ?? fallback.description} current="stories" shareImage={"story-" + Astro.params.slug}>
   <article>
-    <a class="story-back" href={href("stories/")}>All stories</a>
     <header class="story-heading">
-      <span class="eyebrow">{story ? story.topic + " · " + story.period : fallback.topic}</span>
+      <p class="story-crumbs">
+        <a class="story-back" href={href("stories/")}>All stories</a>
+        <span class="eyebrow">{story ? story.topic + " · " + story.period : fallback.topic}</span>
+      </p>
       <h1>{title}</h1>
       {story && <p class="lede">{story.description}</p>}
     </header>
@@ -28,6 +30,15 @@ const title = story?.title ?? fallback.title;
 </Base>
 
 <style>
-  .story-back { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: .75rem; }
+  .story-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0 1rem; margin: 0 0 .25rem; }
+  .story-crumbs .eyebrow { margin: 0; }
+  .story-back { display: inline-flex; min-height: 44px; align-items: center; }
   .story-heading { margin-bottom: 1.5rem; }
+  /* Desktop: a compact heading so the whole player, controls included, fits on one screen. */
+  @media (min-width: 1000px) {
+    :global(main:has(#story-player)) { padding-top: .5rem; }
+    .story-heading { margin-bottom: 1rem; }
+    .story-heading h1 { font-size: clamp(1.75rem, 2.4vw, 2.25rem); margin-bottom: .2em; }
+    .story-heading .lede { font-size: 1.05rem; max-width: 115ch; margin: 0; }
+  }
 </style>

@@ -97,7 +97,7 @@ const ticks = Array.from({ length: Math.floor(maxDepth / 100) + 1 }, (_, k) => k
 
 <style>
   .wells { grid-area: visual; padding: .5rem clamp(1rem, 3vw, 2rem) 1rem; }
-  .wells svg { display: block; width: 100%; height: auto; }
+  .wells svg { display: block; width: 100%; height: auto; max-height: calc(var(--vis-max, 100vh) - 6rem); }
   .ground { fill: color-mix(in oklab, var(--amber-tint) 70%, var(--paper-3)); }
   .surface-line { stroke: var(--ink-3); stroke-width: 2; }
   .tick { stroke: var(--rule); }

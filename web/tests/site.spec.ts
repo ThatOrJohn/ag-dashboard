@@ -216,6 +216,18 @@ for (const { slug, story } of buildStories()) {
   });
 }
 
+test("on a laptop screen every story's player and controls fit without scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  for (const { slug, story } of buildStories()) {
+    if (!story) continue;
+    await page.goto(`stories/${slug}/`);
+    const controls = page.locator("[data-story-controls]");
+    await expect(controls).toBeVisible();
+    const box = (await controls.boundingBox())!;
+    expect(box.y + box.height, slug).toBeLessThanOrEqual(800);
+  }
+});
+
 test("every story builder keeps its captions and table rows in range", () => {
   for (const { story } of buildStories()) {
     if (!story) continue;
@@ -292,6 +304,14 @@ test("on wide screens the header lists featured districts and a menu of the rest
   await page.locator(".nav-menu summary").click();
   const menu = page.locator(".nav-menu-list");
   await expect(menu.getByRole("link", { name: "Blacklands" })).toBeHidden();
+  // A click outside the menu or Escape closes it; Escape returns focus to the toggle.
+  await page.getByRole("heading", { level: 1 }).click();
+  await expect(menu).toBeHidden();
+  await page.locator(".nav-menu summary").click();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(page.locator(".nav-menu summary")).toBeFocused();
+  await page.locator(".nav-menu summary").click();
   await menu.getByRole("link", { name: "Northern High Plains" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Northern High Plains");
 });

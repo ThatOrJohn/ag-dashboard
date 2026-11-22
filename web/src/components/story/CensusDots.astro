@@ -67,7 +67,7 @@ const top = (sign: 1 | -1) => change.filter((x) => x.d * sign > 0).sort((a, b) =
 
 <style>
   .cd-map { grid-area: map; margin: 0; padding: clamp(.75rem, 2.5vw, 1.75rem); background: var(--paper-2); display: grid; align-content: center; }
-  .cd-map svg { display: block; width: 100%; max-width: 34rem; height: auto; margin-inline: auto; }
+  .cd-map svg { display: block; width: 100%; max-width: 34rem; height: auto; max-height: var(--vis-max, none); margin-inline: auto; }
   .cd-state { fill: var(--paper); }
   .cd-borders { fill: none; stroke: var(--rule); stroke-width: .8; }
   .cd-ghosts circle { fill: none; stroke: var(--ink-3); stroke-width: .8; stroke-dasharray: 2 2; opacity: 0; transition: opacity .4s; }
@@ -89,4 +89,13 @@ const top = (sign: 1 | -1) => change.filter((x) => x.d * sign > 0).sort((a, b) =
   .k { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; color: var(--paper); font-weight: 700; font-size: .8rem; }
   .k.loss { background: var(--orange); } .k.gain { background: var(--green); }
   .cd-readout[data-highlight="loss"] .cd-lists > div:last-child, .cd-readout[data-highlight="gain"] .cd-lists > div:first-child { opacity: .45; }
+  @media (min-width: 1000px) {
+    .cd-readout { padding: 0 1.5rem .75rem; }
+    .cd-big .num { font-size: 3rem; }
+  }
+  /* Short desktop screens: a smaller readout and the top three changes (the table has them all) keep the controls on screen. */
+  @media (min-width: 1000px) and (max-height: 860px) {
+    .cd-big .num { font-size: 2.5rem; }
+    .cd-lists li:nth-child(n+4) { display: none; }
+  }
 </style>

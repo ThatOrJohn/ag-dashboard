@@ -59,7 +59,7 @@ const [q0, t0] = story.frames[0].values as [number, number];
 
 <style>
   .river { grid-area: visual; padding: .5rem clamp(1rem, 3vw, 2rem) 1rem; }
-  .river svg { display: block; width: 100%; height: auto; border-radius: var(--radius); }
+  .river svg { display: block; width: 100%; height: auto; max-height: var(--vis-max, none); border-radius: var(--radius); }
   .plain { fill: color-mix(in oklab, var(--green-tint) 60%, var(--paper-2)); }
   .tree circle { fill: color-mix(in oklab, var(--green) 45%, var(--paper-2)); }
   .channel, .typical, .current { fill: none; stroke-linecap: round; }

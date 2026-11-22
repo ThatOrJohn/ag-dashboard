@@ -5,7 +5,6 @@ User-visible changes, newest first.
 ## Unreleased
 - New Stories section with animated replays, each with chapters, a table of every figure and its sources:
   - Two years of weekly Drought Monitor maps recoloring every Texas county.
-  - Every day of this year's rain, county by county.
   - Every Texas cotton harvest since 2021, raced side by side with a harvester in each season's lane.
   - Texas reservoirs month by month since 1950, as a lake that fills and drains.
   - Three Ogallala monitoring wells, one winter at a time.
@@ -13,6 +12,11 @@ User-visible changes, newest first.
   - A year of feeder steer prices, with price tags and a pen of cattle sold each week.
   - Texas farms by county, 2017 to 2022 Census of Agriculture.
   - Five weeks of fall rain filling three district rain gauges.
+- On desktop, each story's animation, caption and controls fit on one screen: the visual sits on the left,
+  with the date, caption, readout and playback controls beside it.
+- The Stories page shows featured stories two across and the rest as a compact grid of cards.
+- The header's Stories link stands out as my own take on the data, and the More districts menu closes when
+  you click outside it or press Escape.
 - Fixed dark-mode drought colors: abnormally dry and moderate drought showed as green and exceptional
   drought as purple. The scale now runs from amber through orange to red as intended.
 - About the data explains how to identify published figures, dashboard summaries, and dashboard forecasts.

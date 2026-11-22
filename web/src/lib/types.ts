@@ -248,6 +248,4 @@ export interface StoryData {
   cattle?: { report: string; weeks: { date: string; s500: number | null; s700: number | null; h500: number | null; h700: number | null }[] } | null;
   /** counties: FIPS → [farms year 1, farms year 2, land in farms year 1, land in farms year 2] */
   census?: { years: [number, number]; counties: Record<string, (number | null)[]> } | null;
-  rain?: { counties: string[]; classes: number[];
-           days: { date: string; map: string; mean_in: number | null; max: { fips: string; in: number } | null }[] } | null;
 }
