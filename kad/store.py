@@ -10,7 +10,9 @@ figures we aggregate ourselves. `date` is the figure's own date (week ending, ma
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import pandas as pd
@@ -18,6 +20,19 @@ import pandas as pd
 from .config import Region
 
 OBS_COLS = ["geo", "var", "date", "value", "source"]
+
+
+@contextmanager
+def atomic_write(path: Path):
+    """Publish a checkpoint only after the replacement file is complete."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(prefix=".kad-tmp-", suffix=path.suffix, dir=path.parent, delete=False) as tmp:
+        pending = Path(tmp.name)
+    try:
+        yield pending
+        pending.replace(path)
+    finally:
+        pending.unlink(missing_ok=True)
 
 
 def _obs_path(region: Region, source: str):
@@ -43,23 +58,15 @@ def upsert_obs(region: Region, source: str, new: pd.DataFrame) -> int:
     old = read_obs(region, source)
     df = pd.concat([old, new], ignore_index=True) if not old.empty else new
     df = df.drop_duplicates(["geo", "var", "date"], keep="last").sort_values(["geo", "var", "date"])
-    p = _obs_path(region, source)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(p, index=False)
+    with atomic_write(_obs_path(region, source)) as pending:
+        df.to_parquet(pending, index=False)
     return len(new)
 
 
 def write_snapshot(region: Region, name: str, obj) -> None:
     p = region.data_dir / "snapshots" / f"{name}.json"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with NamedTemporaryFile(mode="w", dir=p.parent, delete=False) as tmp:
-        pending = p.parent / tmp.name
-        try:
-            tmp.write(json.dumps(obj, indent=1, default=str))
-            tmp.close()
-            pending.replace(p)
-        finally:
-            pending.unlink(missing_ok=True)
+    with atomic_write(p) as pending:
+        pending.write_text(json.dumps(obj, indent=1, default=str))
 
 
 def read_snapshot(region: Region, name: str):
@@ -71,8 +78,8 @@ def log_fetch(region: Region, source: str) -> None:
     p = region.data_dir / "fetch_log.json"
     log = json.loads(p.read_text()) if p.exists() else {}
     log[source] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(log, indent=1, sort_keys=True))
+    with atomic_write(p) as pending:
+        pending.write_text(json.dumps(log, indent=1, sort_keys=True))
 
 
 def read_fetch_log(region: Region) -> dict:

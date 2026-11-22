@@ -13,8 +13,8 @@ Pixel counts become acres by share, not pixel size (the mosaic is Web Mercator, 
 on latitude): each class's share of the county's land pixels (everything but background and water) times the
 county's Census land area. Water classes get acres on the same scale.
 
-Home-district counties, `first_year` to last year. Incremental: only county-years missing from the store are
-fetched, four jobs at a time; a run stops at its deadline and the next continues. Public domain (USDA NASS).
+All counties, `first_year` to last year. Only missing county-years are fetched, four jobs at a time.
+The annual runner checkpoints completed jobs so the next run can continue. Public domain (USDA NASS).
 """
 from __future__ import annotations
 
@@ -116,8 +116,8 @@ def county_year(http, fips: str, year: int, geom: dict, names: dict[int, str], l
     return acres_from_counts(fips, year, hist[0]["counts"], names, land_acres)
 
 
-def fetch(region: Region, *, deadline: float | None = None):
-    """Returns (rows, complete, problems)."""
+def fetch(region: Region, *, deadline: float | None = None, checkpoint=None):
+    """Returns (remaining rows, complete, problems), checkpointing batches when given a writer."""
     first = region.source("cdl").get("first_year", 2021)
     last = date.today().year - 1            # a year's CDL comes out early the next year; it may not exist yet
     have = store.read_obs(region, SOURCE)
@@ -131,6 +131,8 @@ def fetch(region: Region, *, deadline: float | None = None):
     geoms = shapes(region)
     rows: list[dict] = []
     failed: list[tuple[int, str]] = []
+    completed_years = {year for _, year in have_keys}
+    processed = 0
 
     def one(item):
         c, y = item
@@ -146,17 +148,22 @@ def fetch(region: Region, *, deadline: float | None = None):
                 stopped = True
                 break
             for y, part, err in pool.map(one, todo[i:i + WORKERS]):
-                rows += part
                 if err:
                     failed.append((y, err))
-            if len(failed) >= 3 * WORKERS and not rows:
+                else:
+                    rows.extend(part)
+                    completed_years.add(y)
+                    processed += 1
+            if checkpoint is not None and rows:
+                checkpoint(pd.DataFrame(rows))
+                rows.clear()
+            if len(failed) >= 3 * WORKERS and not processed:
                 raise RuntimeError(f"CroplandCROS looks down: {failed[0][1]}")
     # The newest year failing everywhere just means it isn't released yet.
-    newest_missing = bool(failed) and all(y == last for y, _ in failed) and not any(r["date"].year == last for r in rows)
+    newest_missing = bool(failed) and all(y == last for y, _ in failed) and last not in completed_years
     real = [e for y, e in failed if not (newest_missing and y == last)]
     complete = not stopped and not real
     problems = [f"{len(real)} of {len(todo)} county-years failed, e.g. {real[0]}"] if real else []
     if stopped:
-        done = len({(r["geo"], r["date"]) for r in rows})
-        problems.append(f"{done} county-years this run, {len(todo) - done} to go; continues next run")
+        problems.append(f"{processed} county-years this run, {len(todo) - processed} to go; continues next run")
     return pd.DataFrame(rows), complete, problems

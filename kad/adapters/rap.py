@@ -6,14 +6,14 @@ POST a GeoJSON Feature (county outline from regions/tx-counties.geojson, `mask: 
   production16dayV3  herbaceous production per 16-day period, lb/acre: AFG, PFG, HER (= AFG + PFG)
 -99 marks missing (future periods, early gaps) and is dropped. Credit: "Rangeland Analysis Platform, USDA ARS".
 
-Home-district counties only. Incremental: each county is refetched when its last fetch is older than
-`refresh_days` (production updates every 16 days); a run stops at its deadline and the next continues.
+Each county is refetched when its last fetch is older than `refresh_days` (production updates every 16 days).
+The annual runner checkpoints completed counties so the next run can continue.
 """
 from __future__ import annotations
 
 import json
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -68,8 +68,8 @@ def parse_production(fips: str, table: list[list]) -> list[dict]:
     return out
 
 
-def fetch(region: Region, *, deadline: float | None = None):
-    """Returns (rows, complete, problems). Per-county fetch times live in the `rap_fetched` snapshot."""
+def fetch(region: Region, *, deadline: float | None = None, checkpoint=None):
+    """Returns (remaining rows, complete, problems). Fetch times follow the corresponding saved rows."""
     days = region.source("rap").get("refresh_days", 16)
     fetched: dict = store.read_snapshot(region, "rap_fetched") or {}
     now = datetime.now(timezone.utc)
@@ -79,7 +79,13 @@ def fetch(region: Region, *, deadline: float | None = None):
     http = session()
     rows: list[dict] = []
     problems: list[str] = []
-    done: set[str] = set()
+    processed = saved = 0
+
+    def save():
+        # If interrupted between writes, the next run can safely upsert these counties again.
+        checkpoint(pd.DataFrame(rows))
+        store.write_snapshot(region, "rap_fetched", fetched)
+        rows.clear()
 
     def one(fips: str):
         return parse_cover(fips, _post(http, "coverV3", geoms[fips])) + \
@@ -94,13 +100,19 @@ def fetch(region: Region, *, deadline: float | None = None):
                 try:
                     rows += fut.result()
                     fetched[fips] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                    done.add(fips)
+                    processed += 1
                 except Exception as e:  # one county failing doesn't lose the others
                     problems.append(f"{fips}: {plain_error(e)}")
-            if len(problems) >= 3 and not done:
+            if checkpoint is not None and processed - saved >= 16:
+                save()
+                saved = processed
+            if len(problems) >= 3 and not processed:
                 raise RuntimeError(f"RAP looks down: {problems[0]}")
-    store.write_snapshot(region, "rap_fetched", fetched)
-    complete = len(done) == len(todo)
+    if checkpoint is None:
+        store.write_snapshot(region, "rap_fetched", fetched)
+    elif processed > saved:
+        save()
+    complete = processed == len(todo)
     if problems:
         problems = [f"{len(problems)} of {len(todo)} counties failed, e.g. {problems[0]}"]
     return pd.DataFrame(rows), complete, problems

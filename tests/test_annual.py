@@ -1,5 +1,6 @@
 """Annual sources: due logic, parsers, rollups. No network."""
 import json
+import subprocess
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
@@ -30,8 +31,8 @@ def test_failed_or_partial_source_is_not_marked_done(tmp_path, monkeypatch):
     fake = {
         "census": lambda region, deadline: (pd.DataFrame(), True, []),
         "nass_county": lambda region, deadline: (_ for _ in ()).throw(RuntimeError("down")),
-        "cdl": lambda region, deadline: (pd.DataFrame(), False, ["stopped at the time budget"]),
-        "rap": lambda region, deadline: calls.append("rap") or (pd.DataFrame(), True, []),
+        "cdl": lambda region, deadline, checkpoint: (pd.DataFrame(), False, ["stopped at the time budget"]),
+        "rap": lambda region, deadline, checkpoint: calls.append("rap") or (pd.DataFrame(), True, []),
     }
     monkeypatch.setattr(annual, "_adapters", lambda: fake)
 
@@ -45,6 +46,95 @@ def test_failed_or_partial_source_is_not_marked_done(tmp_path, monkeypatch):
     log = store.read_fetch_log(r)
     assert "census" in log and "rap" in log and "nass_county" not in log and "cdl" not in log
     assert annual.due(r, "nass_county") and annual.due(r, "cdl")     # retried next run
+
+
+def test_timed_out_source_leaves_time_for_later_sources(tmp_path, monkeypatch):
+    r = region(tmp_path, monkeypatch)
+    monkeypatch.setattr(annual, "_adapters", lambda: dict.fromkeys(("census", "cdl", "rap")))
+    clock = 100.0
+    calls = []
+    monkeypatch.setattr(annual.time, "monotonic", lambda: clock)
+
+    def run(cmd, *, timeout, **kwargs):
+        nonlocal clock
+        source = cmd[-2]
+        calls.append((source, float(cmd[-1]), timeout))
+        if source == "cdl":
+            clock += timeout
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        clock += 10
+        return subprocess.CompletedProcess(cmd, 0, stdout='{"complete": true, "note": "complete"}')
+
+    monkeypatch.setattr(annual.subprocess, "run", run)
+    assert annual.run_due(r, budget_s=120, isolate=True) == ["census", "rap"]
+    assert calls == [("census", 140, 50), ("cdl", 165, 65), ("rap", 230, 65)]
+    assert annual.REPORT.events["cdl"]["status"] == "partial"
+    assert "saved checkpoints" in annual.REPORT.events["cdl"]["note"]
+
+
+def test_rap_checkpoints_rows_and_then_county_progress(tmp_path, monkeypatch):
+    r = region(tmp_path, monkeypatch)
+    r.counties = r.counties[:17]
+    fips = [c.fips for c in r.counties]
+    monkeypatch.setattr(rap, "shapes", lambda region: {f: f for f in fips})
+    fail_last = True
+    attempted = []
+
+    def post(http, endpoint, geo):
+        if endpoint == "coverV3":
+            attempted.append(geo)
+            if fail_last and geo == fips[-1]:
+                assert set(store.read_snapshot(r, "rap_fetched")) == set(fips[:-1])
+                assert set(store.read_obs(r, "rap")["geo"]) == set(fips[:-1])
+                raise RuntimeError("service down")
+            return [["year", "LTR"], [2025, 7.8]]
+        return [["date", "doy", "HER"], ["2026-10-31", 304, 30.0]]
+
+    monkeypatch.setattr(rap, "_post", post)
+    complete, note = annual._refresh(r, "rap", rap.fetch, float("inf"))
+    assert not complete
+    assert "service down" in note
+    assert set(store.read_obs(r, "rap")["geo"]) == set(fips[:-1])
+    assert set(store.read_snapshot(r, "rap_fetched")) == set(fips[:-1])
+    assert "rap" not in store.read_fetch_log(r)
+
+    fail_last = False
+    attempted.clear()
+    complete, _ = annual._refresh(r, "rap", rap.fetch, float("inf"))
+    assert complete and attempted == fips[-1:]
+    assert set(store.read_obs(r, "rap")["geo"]) == set(fips)
+    assert set(store.read_snapshot(r, "rap_fetched")) == set(fips)
+    assert "rap" in store.read_fetch_log(r)
+
+
+def test_cdl_checkpoints_before_starting_another_batch(tmp_path, monkeypatch):
+    r = region(tmp_path, monkeypatch)
+    r.counties = r.counties[:5]
+    fips = [c.fips for c in r.counties]
+    r.sources["cdl"]["first_year"] = date.today().year - 1
+    monkeypatch.setattr(cdl, "class_names", lambda http: {})
+    monkeypatch.setattr(cdl, "shapes", lambda region: dict.fromkeys(fips))
+    attempted = []
+    fail_last = True
+
+    def county_year(http, geo, year, geom, names, land_acres):
+        attempted.append(geo)
+        if fail_last and geo == fips[-1]:
+            assert set(store.read_obs(r, "cdl")["geo"]) == set(fips[:-1])
+            raise RuntimeError("service down")
+        return [{"geo": geo, "var": "cdl:corn", "date": pd.Timestamp(year, 1, 1),
+                 "value": 10.0, "source": "cdl"}]
+
+    monkeypatch.setattr(cdl, "county_year", county_year)
+    complete, note = annual._refresh(r, "cdl", cdl.fetch, float("inf"))
+    assert not complete and "service down" in note
+    assert "cdl" not in store.read_fetch_log(r)
+
+    fail_last = False
+    attempted.clear()
+    complete, _ = annual._refresh(r, "cdl", cdl.fetch, float("inf"))
+    assert complete and attempted == fips[-1:]
+    assert set(store.read_obs(r, "cdl")["geo"]) == set(fips)
 
 
 def test_nass_county_drops_other_counties_and_withheld():
