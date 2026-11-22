@@ -73,3 +73,4 @@ See `QUICKSTART.md` for the whole system and `docs/decisions/` before changing w
 - Never commit secrets, sample data or pipeline output.
 - When you finish a feature: update `docs/ROADMAP.md`, `CHANGELOG.md` (user-visible changes), and add a
   decision record in `docs/decisions/` for anything a future reader would ask "why?" about.
+- Follow the architecture maintenance rule in [AGENTS.md](AGENTS.md) when changing how the dashboard works.

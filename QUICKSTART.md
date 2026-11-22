@@ -1,5 +1,7 @@
 # Quickstart
 
+For a walkthrough of the pipeline, site, and deployment, see the [architecture guide](docs/ARCHITECTURE.md).
+
 ```
  Public sources                     GitHub Actions (13:17, 23:17 UTC + push)       The site
  Drought Monitor ──┐

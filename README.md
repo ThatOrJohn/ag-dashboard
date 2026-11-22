@@ -6,8 +6,10 @@ cattle prices, burn bans and rain, statewide and by NASS district.
 **Live site:** <https://thatorjohn.github.io/ag-dashboard/>
 
 A scheduled Python pipeline (`kad/`) pulls public sources twice a day and writes JSON; a static Astro site
-(`web/`) renders it and GitHub Pages serves it. See [QUICKSTART.md](QUICKSTART.md) for running it locally
-and [docs/decisions/](docs/decisions/) for why things are the way they are.
+(`web/`) renders it and GitHub Pages serves it. See the [Quickstart](QUICKSTART.md) to run it locally,
+the [architecture guide](docs/ARCHITECTURE.md) to follow the data from source to page, and the
+[decision records](docs/decisions/) for the reasoning behind design choices. The
+[development workflow](AGENTS.md) covers keeping the architecture guide current.
 
 ## Data
 Every figure on the site names its source and as-of date. Sources: USDA NASS (Quick Stats, Cropland Data
