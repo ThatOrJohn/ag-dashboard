@@ -65,6 +65,7 @@ def test_write_and_load_round_trip(tmp_path, monkeypatch):
     a = nm.on("48001", pd.to_datetime(["2026-07-04", "2024-02-29"]))
     assert np.allclose(a[0], [20, 5, 2.0]) and np.allclose(a[1], [20, 5, 2.0])
     assert nm.on("48999", pd.to_datetime(["2026-07-04"])) is None
+    assert np.isclose(nm.annual_rain_inches()["48001"], 365 * 2 / 25.4)
     mr = pd.read_parquet(tmp_path / "monthly_rain.parquet")
     assert len(mr) == 12 and mr["rain_mm"].iloc[0] == 62.0
 

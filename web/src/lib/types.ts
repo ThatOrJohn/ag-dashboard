@@ -92,6 +92,7 @@ export interface CountyCard {
   next_7d_in?: number;
   rain_vs_normal?: RainVsNormal;
   rain_estimate?: RainEstimate;
+  normal_year_in?: number;
 }
 
 // Stage IV radar-and-gauge rain for the days after NOAA's newest county-average day (decision 0017).
@@ -120,6 +121,7 @@ export interface DistrictSummary {
   rain_next_7d_in?: number | null;
   rain_through?: string | null;     // NOAA's newest day for rain_7d_in / rain_30d_in
   rain_vs_normal?: RainVsNormal | null;
+  normal_year_in?: number;
   rain_estimate?: RainEstimate | null;
   headline?: Headline;
 }
@@ -187,6 +189,7 @@ export interface Latest {
   personas: Persona[];
   texas: {
     drought: DroughtSummary | null;
+    rain_vs_normal?: RainVsNormal | null;
     burn_bans: { count: number; of: number } | null;
     crops: Record<"corn" | "sorghum" | "cotton" | "wheat", { progress: ProgressCard; condition: ConditionCard }>;
     pasture: ConditionCard;

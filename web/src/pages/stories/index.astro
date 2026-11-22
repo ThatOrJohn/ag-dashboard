@@ -1,21 +1,34 @@
 ---
 import Base from "../../layouts/Base.astro";
+import DistrictTourMap from "../../components/story/DistrictTourMap.astro";
 import { href } from "../../lib/format";
-import { buildStories, storiesDescription, type Story } from "../../lib/stories";
+import { buildStories, profileTourSlug, storiesDescription, type BuiltStory, type Story } from "../../lib/stories";
 
 const groups = new Map<string, { name: string; cards: { story: Story; path: string; featured: boolean }[] }>();
-for (const { area, story, path, featured } of buildStories()) {
-  if (!story || area.level === "district") continue;
-  const group = groups.get(area.id) ?? { name: area.name, cards: [] };
-  group.cards.push({ story, path, featured });
-  groups.set(area.id, group);
+const districtTours = new Map<string, Map<string, { name: string; id: string; profile?: BuiltStory; weekly?: BuiltStory }>>();
+for (const built of buildStories()) {
+  const { area, story, path, featured, slug } = built;
+  if (area.level !== "district") {
+    const group = groups.get(area.id) ?? { name: area.name, cards: [] };
+    if (story) group.cards.push({ story, path, featured });
+    groups.set(area.id, group);
+  } else if (story?.visual.kind === "flyover") {
+    const tours = districtTours.get(area.stateId) ?? new Map();
+    const district = tours.get(area.id) ?? { name: area.name, id: area.id };
+    if (slug === profileTourSlug) district.profile = built;
+    else district.weekly = built;
+    tours.set(area.id, district);
+    districtTours.set(area.stateId, tours);
+    if (featured) groups.get(area.stateId)?.cards.push({ story, path, featured });
+  }
 }
+for (const [id, { cards }] of groups) if (!cards.length && !districtTours.has(id)) groups.delete(id);
 const hasChoices = groups.size > 1;
 ---
 <Base title="Stories · Texas Ag Dashboard" description={storiesDescription} current="stories">
   <header class="collection-heading">
     <h1>Stories</h1>
-    <p class="lede">My own animated takes on the public data: press play to watch the numbers behind the dashboard change, one map, day or report at a time.</p>
+    <p class="lede">Explore the dashboard’s public data with map tours and animated replays.</p>
   </header>
   {hasChoices && (
     <nav class="area-nav" aria-label="Story areas">
@@ -25,6 +38,7 @@ const hasChoices = groups.size > 1;
   {[...groups].map(([id, { name, cards }]) => {
     const featured = cards.filter((card) => card.featured);
     const rest = cards.filter((card) => !card.featured);
+    const tours = [...(districtTours.get(id)?.values() ?? [])].sort((a, b) => a.name.localeCompare(b.name));
     const sections = [
       { key: "featured", title: "Featured", cards: featured },
       { key: "archive", title: featured.length > 0 ? "More stories" : "All stories", cards: rest },
@@ -55,6 +69,7 @@ const hasChoices = groups.size > 1;
             </div>
           </section>
         ))}
+        {tours.length > 0 && <DistrictTourMap region={id} name={name} tours={tours} />}
       </div>
     );
   })}

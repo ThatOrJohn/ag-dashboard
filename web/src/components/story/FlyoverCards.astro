@@ -1,0 +1,48 @@
+---
+import { day } from "../../lib/format";
+import type { FlyoverStop } from "../../lib/stories/flyover";
+import type { StoryDisplayContext } from "../../lib/stories/model";
+
+interface Props {
+  stops: readonly FlyoverStop[];
+  sources: StoryDisplayContext["sources"];
+}
+const { stops, sources } = Astro.props;
+---
+<ol class="stop-cards" role="list" aria-label="Flyover stops">
+  {stops.map(({ name, caption, tiles }) => (
+    <li data-flyover-card>
+      <h2>{name}</h2>
+      <dl class="tiles">
+        {tiles.map(({ label, value, source, date, note }) => (
+          <div>
+            <dt>{label}</dt>
+            <dd class="value">{value}</dd>
+            <dd class="credit">
+              {sources[source]?.url ? <a href={sources[source]?.url}>{sources[source]?.name}</a> : sources[source]?.name}
+              {" · "}<time datetime={date}>{date.length === 4 ? date : day(date)}</time>{note && ` · ${note}`}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p data-story-caption>{caption}</p>
+    </li>
+  ))}
+</ol>
+
+<style>
+  .stop-cards { grid-area: panel; list-style: none; margin: 0; padding: 1rem; }
+  :global(.story-stage:not([data-ready])) .stop-cards li + li {
+    margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+  }
+  h2 { font-size: clamp(1.25rem, 2.5vw, 1.7rem); margin: 0 0 .6rem; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: 0 0 .65rem; }
+  .tiles > div { background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--radius); padding: .5rem .65rem; }
+  dt { font-size: .85rem; line-height: 1.2; }
+  dd { margin: 0; }
+  .value { font: 600 clamp(1rem, 2vw, 1.35rem)/1.25 var(--font-mono); margin: .25rem 0; }
+  .credit { font-size: .75rem; line-height: 1.35; color: var(--ink-2); }
+  .credit a { line-height: inherit; align-content: center; vertical-align: middle; }
+  p { margin: 0; color: var(--ink-2); }
+  @media (min-width: 1000px) { .stop-cards { padding: 1rem 1.5rem .5rem; } }
+</style>

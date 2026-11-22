@@ -3,6 +3,7 @@
 // facts never depend on the animation.
 import { inches } from "../format";
 import type { CountyCard, ProgressCard, Source, SourceKey, StoryData } from "../types";
+import type { FlyoverStop } from "./flyover";
 
 export type StoryUnit = "percent" | "inches" | "count" | "feet" | "cfs" | "usd_cwt" | "head";
 
@@ -30,7 +31,8 @@ export type StoryVisual =
   | { kind: "cattle" }
   /** A dot per county sized by farms. Each frame shows one census year and may highlight losses or gains. */
   | { kind: "census"; fips: readonly string[]; farms: readonly (readonly [number | null, number | null])[]; years: readonly [number, number];
-      steps: readonly { year: 0 | 1; highlight: "none" | "loss" | "gain" }[] };
+      steps: readonly { year: 0 | 1; highlight: "none" | "loss" | "gain" }[] }
+  | { kind: "flyover"; stops: readonly FlyoverStop[] };
 
 /** A strip chart under the visual with a cursor on the current frame; tap it to jump. */
 export interface StoryTimeline {
@@ -57,7 +59,7 @@ export interface Story {
   /** Frames worth stopping on. Playback pauses on each so its caption can be read. */
   chapters: readonly { frame: number; label: string }[];
   takeaway: { title: string; text: string };
-  source: SourceKey;
+  source?: SourceKey;
   method: string;
   visual: StoryVisual;
   timeline?: StoryTimeline;

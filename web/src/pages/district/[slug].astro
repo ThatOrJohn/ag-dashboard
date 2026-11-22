@@ -14,7 +14,7 @@ import WeatherStrip from "../../components/WeatherStrip.astro";
 import WaterCard from "../../components/WaterCard.astro";
 import SeasonRain from "../../components/SeasonRain.astro";
 import { loadDistrict, loadLatest } from "../../lib/data";
-import { buildDistrictStories } from "../../lib/stories";
+import { buildDistrictStories, profileTourSlug } from "../../lib/stories";
 import { category, categoryName, change, day, href, inches, pct } from "../../lib/format";
 
 export function getStaticPaths() {
@@ -25,7 +25,15 @@ const { slug } = Astro.params as { slug: string };
 const L = loadLatest();
 const D = loadDistrict(slug);
 const S = L.sources;
-const stories = buildDistrictStories(L, D).flatMap(({ path, story }) => story ? [{ path, title: story.title }] : []);
+const builtStories = buildDistrictStories(L, D);
+const hasProfile = builtStories.some(({ slug, story }) => slug === profileTourSlug && story);
+const stories = builtStories.flatMap(({ path, slug, story }) => {
+  if (!story) return [];
+  const title = story.visual.kind === "flyover"
+    ? slug === profileTourSlug || !hasProfile ? "Take the tour" : "This week’s flyover"
+    : story.title;
+  return [{ path, title }];
+});
 const sum = D.summary;
 const keep = D.counties.map((c) => c.fips);
 const crops = sum.crops;

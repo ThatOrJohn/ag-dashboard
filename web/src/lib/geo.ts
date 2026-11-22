@@ -38,7 +38,7 @@ export function countyPaths(stateFips: string, keep: Set<string> | null, width: 
 
 function shape(path: ReturnType<typeof geoPath>, f: Feature<Geometry>) {
   const [cx, cy] = path.centroid(f);
-  return { fips: String(f.id), d: path(f) ?? "", cx, cy, area: path.area(f) };
+  return { fips: String(f.id), d: path(f) ?? "", cx, cy, area: path.area(f), bounds: path.bounds(f) };
 }
 
 /** National stories draw state outlines, including Alaska and Hawaii in their inset positions. */
@@ -52,10 +52,11 @@ export function statePaths(width: number, height: number) {
  *  and is dropped when it would still overlap a placed label. Returns fips → size factor (0 = no label).
  *  Width is estimated (Inter Tight semibold averages ~0.56 em per character). */
 export function placeLabels(items: { fips: string; text: string; cx: number; cy: number; area: number }[],
-                            base: number, steps = [1, 0.85, 0.72]): Map<string, number> {
+                            base: number, steps = [1, 0.85, 0.72], scale = 1): Map<string, number> {
   const placed: [number, number, number, number][] = [];
   const out = new Map<string, number>();
-  const hit = (a: number[], b: number[]) => a[0] < b[2] + 2 && a[2] + 2 > b[0] && a[1] < b[3] + 1 && a[3] + 1 > b[1];
+  const hit = (a: number[], b: number[]) =>
+    a[0] < b[2] + 2 * scale && a[2] + 2 * scale > b[0] && a[1] < b[3] + scale && a[3] + scale > b[1];
   for (const it of [...items].sort((a, b) => b.area - a.area)) {
     out.set(it.fips, 0);
     for (const k of steps) {

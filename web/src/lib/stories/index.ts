@@ -7,15 +7,17 @@ import type { DistrictFile, Latest, StoryData } from "../types";
 import { censusStory } from "./census";
 import { cottonStory } from "./cotton";
 import { droughtStory } from "./drought";
+import { districtFlyover, flyoverInfo, profileTourSlug, stateFlyover, weeklyTourSlug } from "./flyover";
 import type { Story, StoryArea, StoryContext, StoryDisplayContext, StoryEntry, StoryFallback } from "./model";
 
 export * from "./model";
 export { legacyStorySlugs };
 export { cottonHeadline, cottonStorySlug } from "./cotton";
 export { droughtStorySlug, droughtStoryTitle } from "./drought";
+export { profileTourSlug, weeklyTourSlug } from "./flyover";
 
 const templates = [droughtStory, cottonStory, censusStory];
-export const storiesDescription = "Animated replays of drought, rain, water, harvests, cattle prices and farms, built from public data.";
+export const storiesDescription = "Map tours and animated replays of drought, rain, harvests, cattle prices and farms, built from public data.";
 
 interface RegionConfig {
   id: string;
@@ -39,23 +41,35 @@ export interface BuiltStory {
 }
 
 export function buildAreaStories(context: StoryContext, supportsCotton: boolean, local: string[] = []): BuiltStory[] {
-  const { area, counties, sources } = context;
-  const scope = area.level === "district" ? [area.stateId, area.id] : [area.id];
+  const { area } = context;
   const entries: StoryEntry[] = templates.filter((entry) => entry !== cottonStory || supportsCotton);
   for (const key of local) {
     if (!Object.hasOwn(localStoryAdapters, key)) throw new Error(`Unknown story adapter "${key}" in ${area.id}`);
     entries.push(localStoryAdapters[key]);
   }
   return entries.map((entry) => {
-    const slug = area.level === "state" && area.id === "tx" ? originalSlugs[entry.slug] ?? entry.slug : entry.slug;
     const story = entry.build(context);
     const fallback = typeof entry.fallback === "function" ? entry.fallback(context) : entry.fallback;
-    const segments = [...scope, slug];
-    return {
-      slug: entry.slug, area, path: segments.join("/"), image: `story-${segments.join("-")}`,
-      story, fallback, featured: story ? entry.featured(context, story) : false, context: { area, counties, sources },
-    };
+    return builtStory(context, entry.slug, story, fallback, story ? entry.featured(context, story) : false);
   });
+}
+
+function builtStory(context: StoryContext, slug: string, story: Story | null, fallback: StoryFallback, featured: boolean): BuiltStory {
+  const { area, counties, sources } = context;
+  const scope = area.level === "district" ? [area.stateId, area.id] : [area.id];
+  const pathSlug = area.level === "state" && area.id === "tx" ? originalSlugs[slug] ?? slug : slug;
+  const segments = [...scope, pathSlug];
+  return {
+    slug, area, path: segments.join("/"), image: `story-${segments.join("-")}`,
+    story, fallback, featured: !!story && featured, context: { area, counties, sources },
+  };
+}
+
+function builtTour(context: StoryContext, story: Story | null, featured: boolean, profile = false) {
+  const { title, topic } = flyoverInfo(context, profile);
+  return builtStory(context, profile ? profileTourSlug : weeklyTourSlug, story, {
+    title, topic, description: "This tour needs more published figures to run.", related: context.overview,
+  }, featured);
 }
 
 function readConfig(region: string): RegionConfig {
@@ -101,7 +115,12 @@ function districtStories(config: RegionConfig, latest: Latest, data: StoryData, 
     level: "district", id: district.slug, name: district.name, phrase: settings?.phrase ?? `the ${district.name} district`,
     stateId: config.id, stateFips: config.state_fips,
   };
-  return buildAreaStories(storyContext(area, latest, districtStoryData(data, district)), false);
+  const context = storyContext(area, latest, districtStoryData(data, district));
+  return [
+    ...buildAreaStories(context, false),
+    builtTour(context, districtFlyover(context, district, false), false),
+    builtTour(context, districtFlyover(context, district, true), district.summary.home, true),
+  ];
 }
 
 export function buildDistrictStories(latest: Latest, district: DistrictFile): BuiltStory[] {
@@ -127,9 +146,12 @@ export function buildStories(): BuiltStory[] {
       level: "state", id: config.id, name: config.name, phrase: config.phrase ?? config.name, stateFips: config.state_fips,
     };
     const supportsCotton = config.sources?.nass?.weekly?.some(({ id }) => id === "cotton") ?? false;
+    const context = storyContext(area, latest, data);
+    const districts = latest.districts.map(({ slug }) => loadDistrict(slug, region));
     return [
-      ...buildAreaStories(storyContext(area, latest, data), supportsCotton, Object.keys(config.stories ?? {})),
-      ...latest.districts.flatMap(({ slug }) => districtStories(config, latest, data, loadDistrict(slug, region))),
+      ...buildAreaStories(context, supportsCotton, Object.keys(config.stories ?? {})),
+      builtTour(context, stateFlyover(context, latest, districts), true),
+      ...districts.flatMap((district) => districtStories(config, latest, data, district)),
     ];
   });
 }

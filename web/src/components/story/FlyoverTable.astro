@@ -1,0 +1,26 @@
+---
+import { day } from "../../lib/format";
+import type { FlyoverStop } from "../../lib/stories/flyover";
+import type { StoryDisplayContext } from "../../lib/stories/model";
+
+interface Props {
+  stops: readonly FlyoverStop[];
+  sources: StoryDisplayContext["sources"];
+}
+const { stops, sources } = Astro.props;
+---
+<div class="table-wrap">
+  <table>
+    <caption class="sr-only">All flyover figures by stop</caption>
+    <thead><tr><th scope="col">Stop</th><th scope="col">Measure</th><th scope="col">Value</th><th scope="col">Source and date</th></tr></thead>
+    <tbody>
+      {stops.flatMap(({ name, tiles }) => tiles.map(({ label, value, source, date, note }) => (
+        <tr>
+          <th scope="row">{name}</th>
+          <td>{label}</td><td>{value}</td>
+          <td>{sources[source]?.name} · <time datetime={date}>{date.length === 4 ? date : day(date)}</time>{note && ` · ${note}`}</td>
+        </tr>
+      )))}
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,75 @@
+---
+import { href } from "../../lib/format";
+import { countyPaths, placeLabels } from "../../lib/geo";
+import type { BuiltStory } from "../../lib/stories";
+
+interface Props {
+  region: string;
+  name: string;
+  tours: { name: string; id: string; profile?: BuiltStory; weekly?: BuiltStory }[];
+}
+const { region, name, tours } = Astro.props;
+const first = tours[0]?.profile ?? tours[0]?.weekly;
+const area = first?.area;
+const counties = first?.context.counties ?? {};
+const width = 600, height = 550;
+const { shapes, borders } = countyPaths(area?.level === "district" ? area.stateFips : "",
+  new Set(Object.keys(counties)), width, height, (fips) => counties[fips].district);
+const districts = new Map(tours.map((tour) => [tour.id, tour]));
+const groups = Map.groupBy(shapes, ({ fips }) => counties[fips].district);
+const areas = [...groups].map(([id, group]) => {
+  const total = group.reduce((sum, shape) => sum + shape.area, 0);
+  return {
+    id, d: group.map(({ d }) => d).join(""), area: total,
+    cx: group.reduce((sum, shape) => sum + shape.area * shape.cx, 0) / total,
+    cy: group.reduce((sum, shape) => sum + shape.area * shape.cy, 0) / total,
+    text: districts.get(id)?.name ?? "",
+  };
+});
+const sizes = placeLabels(areas.filter(({ text }) => text).map((item) => ({ ...item, fips: item.id })), 16);
+---
+<section class="district-tours" aria-labelledby={`${region}-district-tours`}>
+  <h2 id={`${region}-district-tours`}>Pick a district in {name}</h2>
+  <div class="district-picker">
+    <svg viewBox={`-10 -10 ${width + 20} ${height + 20}`} role="group" aria-label={`${name} district tours map`}>
+      {areas.map(({ id, d, cx, cy, text }) => {
+        const tour = districts.get(id);
+        const primary = tour?.profile ?? tour?.weekly;
+        const size = sizes.get(id) ?? 0;
+        return primary ? (
+          <a href={href(`stories/${primary.path}/`)} aria-label={`Take the ${tour?.name} tour`}>
+            <title>{tour?.name}</title>
+            <path d={d} />
+            {size > 0 && <text class="map-label" x={cx} y={cy} font-size={16 * size}
+              text-anchor="middle" dominant-baseline="middle">{text}</text>}
+          </a>
+        ) : <path d={d} />;
+      })}
+      <path class="borders" d={borders} />
+    </svg>
+    <ul>{tours.map(({ name, profile, weekly }) => (
+      <li>
+        {profile && <a href={href(`stories/${profile.path}/`)}>{name} profile</a>}
+        {profile && weekly && " · "}
+        {weekly && <a href={href(`stories/${weekly.path}/`)} aria-label={`${name} this week`}>{profile ? "This week" : `${name} this week`}</a>}
+      </li>
+    ))}</ul>
+  </div>
+</section>
+
+<style>
+  .district-tours { margin-top: 1.5rem; }
+  .district-tours h2 { margin-bottom: .5rem; }
+  .district-picker { display: grid; gap: 1rem; align-items: center; }
+  svg { display: block; width: min(100%, 29rem); margin-inline: auto; }
+  path { fill: var(--paper-3); vector-effect: non-scaling-stroke; }
+  a path { fill: var(--paper-2); }
+  a:is(:focus, :hover) path { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 2px; }
+  .borders { fill: none; stroke: var(--ink-2); stroke-width: .65; pointer-events: none; }
+  .map-label { fill: var(--ink); stroke: var(--paper); stroke-width: 3; paint-order: stroke; pointer-events: none; font-weight: 600; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: .32rem 0; }
+  @media (min-width: 800px) {
+    .district-picker { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; }
+  }
+</style>

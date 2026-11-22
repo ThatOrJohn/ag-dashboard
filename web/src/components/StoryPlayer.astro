@@ -7,6 +7,9 @@ import { chapterHoldMs, formatStoryValue, type Story, type StoryDisplayContext }
 import CattleMarket from "./story/CattleMarket.astro";
 import CensusDots from "./story/CensusDots.astro";
 import DroughtFlipbook from "./story/DroughtFlipbook.astro";
+import FlyoverCards from "./story/FlyoverCards.astro";
+import FlyoverMap from "./story/FlyoverMap.astro";
+import FlyoverTable from "./story/FlyoverTable.astro";
 import HarvestRace from "./story/HarvestRace.astro";
 import RainGauges from "./story/RainGauges.astro";
 import Reservoir from "./story/Reservoir.astro";
@@ -20,6 +23,7 @@ interface Props {
 }
 
 const { story, context } = Astro.props;
+const flyover = story.visual.kind === "flyover" ? story.visual : null;
 // Captions repeat across frames (each is its chapter's narration), so they travel once and frames point at them.
 const captions = [...new Set(story.frames.map(({ caption }) => caption))];
 const frames = story.frames.map(({ label, date, caption, values }) => ({
@@ -28,12 +32,13 @@ const frames = story.frames.map(({ label, date, caption, values }) => ({
 const config = {
   frames, captions, names: story.series.map(({ name }) => name), frameMs: story.frameMs, holdMs: chapterHoldMs,
   chapters: story.chapters.map(({ frame }) => frame),
+  stopSummaries: flyover?.stops.map(({ tiles }) => tiles.map(({ label, value }) => `${label} ${value}`).join(", ")),
 };
 const first = { ...frames[0], caption: captions[frames[0].c] };
 const tableRows = (story.tableFrames ?? frames.map((_, i) => i)).map((i) => frames[i]);
-const layout = ["drought", "census"].includes(story.visual.kind) ? "layout-map" : "layout-wide";
+const layout = ["drought", "census", "flyover"].includes(story.visual.kind) ? "layout-map" : "layout-wide";
 const isCattle = story.visual.kind === "cattle";
-const source = context.sources[story.source];
+const source = story.source && context.sources[story.source];
 const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name }] : []);
 ---
 <div class={`story-stage ${layout} kind-${story.visual.kind}${story.timeline || story.visual.kind === "drought" ? " has-timeline" : ""}`} id="story-player" data-story={JSON.stringify(config)}>
@@ -46,7 +51,16 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   {story.visual.kind === "cattle" && <CattleMarket story={story} />}
   {story.visual.kind === "census" && <CensusDots story={story} context={context} />}
   {story.timeline && <StoryTimeline story={story} timeline={story.timeline} />}
-  <section class="story-panel" aria-labelledby="story-metric">
+  {flyover && <>
+    <FlyoverMap stops={flyover.stops} context={context} />
+    <FlyoverCards stops={flyover.stops} sources={context.sources} />
+    <div class="route chapters" role="group" aria-label="Flyover route" data-flyover-route hidden>
+      {story.chapters.map(({ frame, label }) => (
+        <button type="button" data-story-week={frame} aria-pressed={frame === 0 ? "true" : "false"}>{label}</button>
+      ))}
+    </div>
+  </>}
+  {!flyover && <section class="story-panel" aria-labelledby="story-metric">
     <time class="story-date" data-story-date datetime={first.date} hidden={!first.date}>{first.date && first.label}</time>
     <span class="story-date" data-story-label hidden={!!first.date}>{!first.date && first.label}</span>
     <h2 id="story-metric">{story.metric}</h2>
@@ -56,8 +70,8 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
         {captions.map((text) => <p class="story-caption caption-space" aria-hidden="true">{text}</p>)}
       </div>
     ) : <p class="story-caption" data-story-caption>{first.caption}</p>}
-    <p class="sr-only" role="status" data-story-announcement></p>
-  </section>
+  </section>}
+  <p class="sr-only" role="status" data-story-announcement></p>
   <div class="story-controls" data-story-controls hidden>
     <div class="timeline">
       <button class="play" type="button" data-story-play>
@@ -69,11 +83,11 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
         <input type="range" min="0" max={frames.length - 1} step="1" value="0" aria-valuetext={first.label} data-story-slider />
       </label>
     </div>
-    <div class="chapters" role="group" aria-label="Story chapters">
+    {!flyover && <div class="chapters" role="group" aria-label="Story chapters">
       {story.chapters.map(({ frame, label }) => (
         <button type="button" data-story-week={frame} aria-pressed={frame === 0 ? "true" : "false"}>{label}</button>
       ))}
-    </div>
+    </div>}
   </div>
 </div>
 <p class="asof">{story.method} {source?.url && <>Source data from <a href={source.url}>{source.name}</a>.</>}</p>
@@ -82,7 +96,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   <p>{story.takeaway.text}</p>
   <details class="story-table">
     <summary>See all figures</summary>
-    <div class="table-wrap">
+    {flyover ? <FlyoverTable stops={flyover.stops} sources={context.sources} /> : <div class="table-wrap">
       <table>
         <caption class="sr-only">{story.metric}</caption>
         <thead><tr><th scope="col">{story.frameLabel}</th>{story.series.map(({ name }) => <th scope="col" class="n">{name}</th>)}</tr></thead>
@@ -95,7 +109,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
           ))}
         </tbody>
       </table>
-    </div>
+    </div>}
   </details>
   {districts.length > 0 && (
     <nav class="personas" aria-label="Current district conditions">
@@ -114,20 +128,23 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
     frameMs: number;
     holdMs: number;
     chapters: number[];
+    stopSummaries?: string[];
   }
 
   const player = document.getElementById("story-player")!;
-  const { frames, captions, names, frameMs, holdMs, chapters: chapterFrames }: Config = JSON.parse(player.dataset.story!);
+  const { frames, captions, names, frameMs, holdMs, chapters: chapterFrames, stopSummaries }: Config = JSON.parse(player.dataset.story!);
   const q = <T extends HTMLElement>(s: string) => player.querySelector<T>(s)!;
   const controls = q("[data-story-controls]");
   const play = q<HTMLButtonElement>("[data-story-play]");
   const playText = q("[data-story-play-text]");
   const slider = q<HTMLInputElement>("[data-story-slider]");
-  const date = q<HTMLTimeElement>("[data-story-date]");
-  const label = q("[data-story-label]");
-  const caption = q("[data-story-caption]");
+  const date = player.querySelector<HTMLTimeElement>("[data-story-date]");
+  const label = player.querySelector<HTMLElement>("[data-story-label]");
+  const caption = player.querySelector<HTMLElement>(".story-panel [data-story-caption]");
   const announcement = q("[data-story-announcement]");
   const chapters = player.querySelectorAll<HTMLButtonElement>("[data-story-week]");
+  const stopCards = player.querySelectorAll<HTMLElement>("[data-flyover-card]");
+  const route = player.querySelector<HTMLElement>("[data-flyover-route]");
   const lastFrame = frames.length - 1;
   let frame = 0;
   let timer: number | undefined;
@@ -135,14 +152,24 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   function render(index: number) {
     frame = Math.max(0, Math.min(lastFrame, index));
     const next = frames[frame];
-    date.hidden = !next.date;
-    if (next.date) {
-      date.dateTime = next.date;
-      date.textContent = next.label;
+    if (date && label && caption) {
+      date.hidden = !next.date;
+      if (next.date) {
+        date.dateTime = next.date;
+        date.textContent = next.label;
+      }
+      label.hidden = !!next.date;
+      label.textContent = next.label;
+      if (caption.textContent !== captions[next.c]) caption.textContent = captions[next.c];
     }
-    label.hidden = !!next.date;
-    label.textContent = next.label;
-    if (caption.textContent !== captions[next.c]) caption.textContent = captions[next.c];
+    stopCards.forEach((card, i) => { card.hidden = i !== frame; });
+    if (route) {
+      const button = chapters[frame].getBoundingClientRect();
+      const strip = route.getBoundingClientRect();
+      if (button.left < strip.left || button.right > strip.right) {
+        route.scrollLeft += button.left - strip.left - (route.clientWidth - button.width) / 2;
+      }
+    }
     slider.valueAsNumber = frame;
     slider.setAttribute("aria-valuetext", next.label);
     chapters.forEach((c) => c.setAttribute("aria-pressed", String(Number(c.dataset.storyWeek) === frame)));
@@ -151,8 +178,8 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
 
   function announce() {
     const current = frames[frame];
-    const summary = current.text.map((t, i) => names[i] + " " + t);
-    announcement.textContent = current.label + ". " + summary.join(", ") + ". " + captions[current.c];
+    const summary = stopSummaries?.[frame] ?? current.text.map((t, i) => names[i] + " " + t).join(", ");
+    announcement.textContent = current.label + ". " + summary + ". " + captions[current.c];
   }
 
   function setPlaying(on: boolean) {
@@ -203,6 +230,11 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   slider.addEventListener("input", () => seek(slider.valueAsNumber));
   chapters.forEach((c) => c.addEventListener("click", () => seek(Number(c.dataset.storyWeek))));
   player.addEventListener("storyseek", (e) => seek((e as CustomEvent<number>).detail));
+  if (route) {
+    stopCards.forEach((card, i) => { card.hidden = i !== 0; });
+    player.dataset.ready = "";
+    route.hidden = false;
+  }
   controls.hidden = false;
 </script>
 
@@ -241,7 +273,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   .timeline { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .9rem; align-items: center; }
   .timeline label { display: grid; color: var(--ink-2); font-size: .85rem; }
   .timeline input { width: 100%; height: 2.75rem; margin: 0; accent-color: var(--accent); }
-  .story-controls button {
+  :is(.story-controls, .route) button {
     display: inline-flex;
     align-items: center;
     gap: .45rem;
@@ -255,9 +287,9 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
     font: inherit;
     font-size: .9rem;
   }
-  .story-controls button:hover { border-color: var(--accent); }
+  :is(.story-controls, .route) button:hover { border-color: var(--accent); }
   .story-controls .play { min-width: 6.5rem; justify-content: center; font-weight: 600; }
-  .story-controls .play, .story-controls button[aria-pressed="true"] {
+  .story-controls .play, :is(.story-controls, .route) button[aria-pressed="true"] {
     border-color: var(--accent);
     background: var(--accent-tint);
     color: var(--accent-ink);
@@ -265,6 +297,14 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   .play .i-pause, .play.playing .i-play { display: none; }
   .play.playing .i-pause { display: inline; }
   .chapters { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .route { grid-area: timeline; min-width: 0; padding: .5rem .75rem; overflow-x: auto; flex-wrap: nowrap; border-top: 1px solid var(--rule); }
+  .route[hidden] { display: none; }
+  .route button { flex: 0 0 auto; }
+  .story-stage.kind-flyover {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas: "map" "timeline" "panel" "controls";
+  }
   .story-takeaway { max-width: 48rem; }
   .story-table { margin: 1.25rem 0; border-block: 1px solid var(--rule); }
   .story-table summary { padding: .7rem 0; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
@@ -291,6 +331,12 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
     .story-stage.layout-map {
       grid-template-rows: auto auto 1fr auto;
       grid-template-areas: "map panel" "map readout" "map controls" "timeline controls";
+    }
+    .story-stage.kind-flyover {
+      --vis-max: max(14rem, calc(100svh - 24rem));
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas: "map panel" "map controls" "timeline controls";
     }
     .story-stage.layout-wide {
       grid-template-rows: auto 1fr auto;

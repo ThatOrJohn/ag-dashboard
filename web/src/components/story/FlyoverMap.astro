@@ -1,0 +1,149 @@
+---
+import { countyPaths, placeLabels, stateName, statePaths } from "../../lib/geo";
+import type { FlyoverIcon, FlyoverStop } from "../../lib/stories/flyover";
+import type { StoryDisplayContext } from "../../lib/stories/model";
+
+interface Props {
+  stops: readonly FlyoverStop[];
+  context: StoryDisplayContext;
+}
+
+const { stops, context: { area, counties } } = Astro.props;
+const width = 640, height = 500;
+const { shapes, borders } = area.level === "us" ? statePaths(width, height)
+  : countyPaths(area.stateFips, new Set(Object.keys(counties).filter((fips) =>
+    area.level === "state" || counties[fips].district === area.id)), width, height, (fips) => counties[fips].district);
+const byFips = new Map(shapes.map((shape) => [shape.fips, shape]));
+const ids = new Map(stops.slice(1, -1).flatMap(({ fips }, i) => fips.map((id) => [id, i + 1])));
+const pinPaths: Record<FlyoverIcon, string> = {
+  cotton: "M12 19v3m0-3c-3 0-8-3-8-7a4 4 0 0 1 4-4 4 4 0 0 1 8 0 4 4 0 0 1 4 4c0 4-5 7-8 7Z",
+  cattle: "M4 9 1 5l6 2h10l6-2-3 4-3 2-1 7-2 3h-4l-2-3-1-7-3-2Zm5 7h6",
+  water: "M12 2C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-13Z",
+  well: "M3 10h18L12 3 3 10Zm3 0v11m12-11v11M4 21h16m-8-11v6m-3 0h6v5H9z",
+  rain: "M8 9v12h8V9M7 9h10m-9 5h4m-4 3h4M12 2l-2 4h4z",
+};
+
+type Box = [number, number, number, number];
+const whole: Box = [-16, -12.5, width * 1.05, height * 1.05];
+const scenes = stops.map(({ fips, pin }, index) => {
+  const selected = fips.map((id) => byFips.get(id)).filter((shape) => shape != null);
+  const extent = selected.reduce(([left, top, right, bottom], { bounds: [[x0, y0], [x1, y1]] }) =>
+    [Math.min(left, x0), Math.min(top, y0), Math.max(right, x1), Math.max(bottom, y1)],
+    [Infinity, Infinity, -Infinity, -Infinity]);
+  const [left, top, right, bottom] = extent;
+  const scale = selected.length ? Math.max((right - left) / width, (bottom - top) / height, .07) * 1.3 : 1.05;
+  const w = width * scale, h = height * scale;
+  const box: Box = selected.length ? [(left + right - w) / 2, (top + bottom - h) / 2, w, h] : whole;
+  const marker = pin && byFips.get(pin.fips);
+  const names = (selected.length ? selected : shapes).map((shape) => ({
+    ...shape, text: area.level === "us" ? stateName(shape.fips) : counties[shape.fips]?.name ?? "",
+  })).filter(({ fips, text }) => text && fips !== pin?.fips);
+  const size = 17 * scale;
+  const fit = placeLabels(names, size, undefined, scale);
+  return {
+    index, box,
+    labels: names.flatMap(({ fips, cx, cy, text }) => {
+      const factor = fit.get(fips);
+      return factor ? [{ cx, cy, text, size: size * factor }] : [];
+    }),
+    marker: marker && pin ? { ...pin, x: marker.cx, y: marker.cy, scale: scale * 1.5 } : null,
+  };
+});
+---
+<svg class="flyover-map" data-flyover-map data-boxes={JSON.stringify(scenes.map(({ box }) => box))}
+  viewBox={whole.join(" ")} role="img" aria-label={`Map of ${area.name}`}>
+  {shapes.map(({ fips, d }) => (
+    <path class="county" d={d} data-stop={ids.get(fips)}><title>{area.level === "us" ? stateName(fips) : counties[fips]?.name}</title></path>
+  ))}
+  <path class="border" d={borders} />
+  {scenes.map(({ index, labels, marker }) => (
+    <g class:list={["scene", { current: index === 0 }]} data-flyover-scene>
+      {labels.map(({ cx, cy, text, size }) => (
+        <text class="county-name" x={cx} y={cy} font-size={size} stroke-width={size * .22}
+          text-anchor="middle" dominant-baseline="middle">{text}</text>
+      ))}
+      {marker && (
+        <g transform={`translate(${marker.x} ${marker.y}) scale(${marker.scale})`} class={`pin pin-${marker.icon}`}>
+          <title>{marker.label}</title>
+          <circle r="16" />
+          <path d={pinPaths[marker.icon]} transform="translate(-12 -12)" />
+        </g>
+      )}
+    </g>
+  ))}
+</svg>
+
+<script>
+  const map = document.querySelector<SVGSVGElement>("[data-flyover-map]");
+  if (map) {
+    const player = map.closest("#story-player")!;
+    const boxes: number[][] = JSON.parse(map.dataset.boxes!);
+    const shapes = map.querySelectorAll<SVGPathElement>("[data-stop]");
+    const scenes = map.querySelectorAll("[data-flyover-scene]");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    let current = 0;
+    let animation = 0;
+
+    function showScene(index: number) {
+      scenes[index].classList.add("current");
+    }
+
+    reduced.addEventListener("change", ({ matches }) => {
+      if (!matches) return;
+      cancelAnimationFrame(animation);
+      map.setAttribute("viewBox", boxes[current].join(" "));
+      showScene(current);
+    });
+
+    player.addEventListener("storyframe", (event) => {
+      const { index } = (event as CustomEvent<{ index: number }>).detail;
+      if (index === current) return;
+      cancelAnimationFrame(animation);
+      scenes[current].classList.remove("current");
+      current = index;
+      shapes.forEach((shape) => shape.classList.toggle("selected", Number(shape.dataset.stop) === index));
+      const target = boxes[index];
+      const view = map.viewBox.baseVal;
+      const start = [view.x, view.y, view.width, view.height];
+      if (reduced.matches || start.every((value, i) => value === target[i])) {
+        map.setAttribute("viewBox", target.join(" "));
+        showScene(index);
+        return;
+      }
+      const began = performance.now();
+      function fly(now: number) {
+        const elapsed = Math.min(1, (now - began) / 650);
+        const ease = elapsed * elapsed * (3 - 2 * elapsed);
+        map!.setAttribute("viewBox", start.map((value, i) => value + (target[i] - value) * ease).join(" "));
+        if (elapsed < 1) animation = requestAnimationFrame(fly);
+        else showScene(index);
+      }
+      animation = requestAnimationFrame(fly);
+    });
+  }
+</script>
+
+<style>
+  .flyover-map {
+    grid-area: map;
+    display: block;
+    width: 100%;
+    height: min(78vw, var(--vis-max, 32rem));
+    background: var(--paper-2);
+  }
+  .county, .border { vector-effect: non-scaling-stroke; }
+  .county { fill: var(--paper); stroke: var(--rule); stroke-width: .55; }
+  .county.selected { fill: var(--amber-tint); stroke: var(--amber); stroke-width: .8; }
+  .border { fill: none; stroke: var(--ink-2); stroke-width: .85; pointer-events: none; }
+  .scene { display: none; }
+  .scene.current { display: block; }
+  .county-name { fill: var(--ink); stroke: var(--paper); paint-order: stroke; pointer-events: none; font-weight: 600; }
+  .pin { color: var(--ink); }
+  .pin-water, .pin-well, .pin-rain { color: var(--green-ink); }
+  .pin circle { fill: var(--paper); stroke: currentColor; stroke-width: 1.1; }
+  .pin path { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  @media (prefers-reduced-motion: no-preference) {
+    .scene.current .pin { animation: appear .18s ease-out; }
+    @keyframes appear { from { opacity: 0; } }
+  }
+</style>

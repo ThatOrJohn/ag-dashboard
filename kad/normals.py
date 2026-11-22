@@ -134,3 +134,8 @@ class Normals:
             return None
         ts = pd.DatetimeIndex(dates)
         return a[[doy(m, d) for m, d in zip(ts.month, ts.day)]]
+
+    def annual_rain_inches(self) -> dict[str, float]:
+        """Sum the daily rainfall normals on a typical 365-day calendar."""
+        return {geo: float(a[:, 2].sum() - a[doy(2, 29), 2]) / 25.4
+                for geo, a in self.arr.items() if np.isfinite(a[:, 2]).all()}

@@ -237,7 +237,7 @@ test("the cotton story races each season and is featured only when the pace diff
 });
 
 for (const { path, story } of stories) {
-  if (!story || story.visual.kind === "drought") continue;
+  if (!story || story.visual.kind === "drought" || story.visual.kind === "flyover") continue;
   test(`the ${path} story's readout follows every chapter`, async ({ page }) => {
     await page.goto(`stories/${path}/`);
     const stage = page.locator("#story-player");
@@ -259,6 +259,16 @@ test("on a laptop screen every story's player and controls fit without scrolling
     await expect(controls).toBeVisible();
     const box = (await controls.boundingBox())!;
     expect(box.y + box.height, path).toBeLessThanOrEqual(800);
+    if (story.visual.kind === "flyover") {
+      const stops = await page.getByRole("group", { name: "Flyover route" }).getByRole("button").evaluateAll((buttons) =>
+        buttons.map((button) => {
+          (button as HTMLButtonElement).click();
+          return { name: button.textContent, bottom: document.querySelector("[data-story-controls]")!.getBoundingClientRect().bottom };
+        }));
+      for (const { name, bottom } of stops) {
+        expect(bottom, `${path} · ${name}`).toBeLessThanOrEqual(800);
+      }
+    }
   }
 });
 

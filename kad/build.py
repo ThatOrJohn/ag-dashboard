@@ -549,6 +549,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     # County cards
     counties = {}
     now_rows = w[w["date"] == map_date].set_index("geo") if drought_ok else None
+    normal_year = nm.annual_rain_inches() if nm is not None else {}
     year_rows = None
     if drought_ok:
         y = _near(w, map_date - pd.Timedelta(days=364), 3)
@@ -567,6 +568,8 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
             card["next_7d_in"] = ahead[c.fips]
         if c.fips in vs_normal:
             card["rain_vs_normal"] = vs_normal[c.fips]
+        if c.fips in normal_year:
+            card["normal_year_in"] = _r(normal_year[c.fips], 2)
         if c.fips in estimate:
             card["rain_estimate"] = estimate[c.fips]
         counties[c.fips] = card
@@ -589,6 +592,9 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
             entry["rain_next_7d_in"] = _area_mean(counties, "next_7d_in", d_area)
         if vs_normal:
             entry["rain_vs_normal"] = _district_vs_normal(counties, d_area)
+        normal_in = _area_mean(counties, "normal_year_in", d_area)
+        if normal_in is not None:
+            entry["normal_year_in"] = normal_in
         if estimate:
             entry["rain_estimate"] = _district_estimate(counties, d_area)
         local = next((m for m in markets if m["kind"] == "cattle" and m["district"] == d["slug"]), None)
@@ -603,6 +609,8 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
         "crops": crops, "pasture": pasture, "screwworm": screwworm_card(region, fresh),
         "boll_weevil": boll_weevil_card(region, fresh), "water": state_water,
     }
+    if vs_normal:
+        texas["rain_vs_normal"] = _district_vs_normal(counties, area)
     statewide = next((m for m in markets if m["scope"] == "statewide"), None)
     texas["headline"] = headline.texas(texas, statewide)
     texas["headline_all"] = headline.texas(texas, statewide, all_crops=True)   # persona pages filter this

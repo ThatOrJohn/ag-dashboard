@@ -1,6 +1,6 @@
 # 0027: Flyovers are zoom-and-pan tours over the build-time map
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-22
 
 ## Context
@@ -69,3 +69,15 @@ county SVG. The camera eases between stops by animating the SVG `viewBox`. Each 
   1. The flyover visual and a Texas "this week" tour across the 15 districts.
   2. Profile tours for the five featured districts, then all 15.
   3. The US tour.
+
+## Implementation
+
+Texas has a statewide weekly route across all districts with enough current figures. Districts have a
+weekly route and an annual profile, each with up to five county stops. The Stories index features the
+statewide tour and the five featured district profiles. Its district map and link list cover available
+tours for all districts. Each district dashboard's **Take the tour** link opens its profile when available.
+
+The player uses the same build-time boundaries for each stop and places labels against the stop's own
+view. It holds for 2.6 seconds per chapter. The whole-area map, ordered stop cards and figures table
+are rendered in HTML and SVG. The national tour remains pending the national data set in 0026.
+See the [architecture guide](../ARCHITECTURE.md#from-json-to-pages) for the data inputs and freshness rules.
