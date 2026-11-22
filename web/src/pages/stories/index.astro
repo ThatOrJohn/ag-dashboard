@@ -1,51 +1,63 @@
 ---
 import Base from "../../layouts/Base.astro";
 import { href } from "../../lib/format";
-import { buildStories, storiesDescription } from "../../lib/stories";
+import { buildStories, storiesDescription, type Story } from "../../lib/stories";
 
-const built = buildStories().flatMap(({ story, featured }) => (story ? [{ story, featured }] : []));
-const featured = built.filter((b) => b.featured).map((b) => b.story);
-const rest = built.filter((b) => !b.featured).map((b) => b.story);
-const storyHref = (slug: string) => href("stories/" + slug + "/");
+const groups = new Map<string, { name: string; cards: { story: Story; path: string; featured: boolean }[] }>();
+for (const { area, story, path, featured } of buildStories()) {
+  if (!story || area.level === "district") continue;
+  const group = groups.get(area.id) ?? { name: area.name, cards: [] };
+  group.cards.push({ story, path, featured });
+  groups.set(area.id, group);
+}
+const hasChoices = groups.size > 1;
 ---
 <Base title="Stories · Texas Ag Dashboard" description={storiesDescription} current="stories">
   <header class="collection-heading">
     <h1>Stories</h1>
     <p class="lede">My own animated takes on the public data: press play to watch the numbers behind the dashboard change, one map, day or report at a time.</p>
   </header>
-  {featured.length > 0 && (
-    <section aria-labelledby="featured-heading">
-      <h2 class="group-heading" id="featured-heading">Featured</h2>
-      <div class="featured-grid">
-        {featured.map((story) => (
-          <article class="card featured">
-            <p class="eyebrow">{story.topic} · {story.period}</p>
-            <h3><a href={storyHref(story.slug)}>{story.title}</a></h3>
-            <p class="desc">{story.description}</p>
-            {story.highlights.length > 0 && (
-              <dl class="featured-data" aria-label={story.metric}>
-                {story.highlights.map(({ label, value }) => <div><dt>{label}</dt><dd class="num">{value}</dd></div>)}
-              </dl>
-            )}
-          </article>
+  {hasChoices && (
+    <nav class="area-nav" aria-label="Story areas">
+      <ul>{[...groups].map(([id, { name }]) => <li><a href={`#${id}`}>{name}</a></li>)}</ul>
+    </nav>
+  )}
+  {[...groups].map(([id, { name, cards }]) => {
+    const featured = cards.filter((card) => card.featured);
+    const rest = cards.filter((card) => !card.featured);
+    const sections = [
+      { key: "featured", title: "Featured", cards: featured },
+      { key: "archive", title: featured.length > 0 ? "More stories" : "All stories", cards: rest },
+    ];
+    return (
+      <div id={id} class="area">
+        {hasChoices && <h2>{name}</h2>}
+        {sections.filter(({ cards }) => cards.length).map(({ key, title, cards }) => (
+          <section class={key === "archive" ? "archive" : undefined} aria-labelledby={`${id}-${key}`}>
+            {hasChoices
+              ? <h3 class="group-heading" id={`${id}-${key}`}>{title}</h3>
+              : <h2 class="group-heading" id={`${id}-${key}`}>{title}</h2>}
+            <div class={key === "featured" ? "featured-grid" : "story-grid"}>
+              {cards.map(({ story, path, featured }) => (
+                <article class:list={["card", { featured }]}>
+                  <p class="eyebrow">{story.topic} · {story.period}</p>
+                  {hasChoices
+                    ? <h4><a href={href(`stories/${path}/`)}>{story.title}</a></h4>
+                    : <h3><a href={href(`stories/${path}/`)}>{story.title}</a></h3>}
+                  <p class="desc">{story.description}</p>
+                  {featured && story.highlights.length > 0 && (
+                    <dl class="featured-data" aria-label={story.metric}>
+                      {story.highlights.map(({ label, value }) => <div><dt>{label}</dt><dd class="num">{value}</dd></div>)}
+                    </dl>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
-    </section>
-  )}
-  {rest.length > 0 && (
-    <section class="archive" aria-labelledby="archive-heading">
-      <h2 class="group-heading" id="archive-heading">{featured.length > 0 ? "More stories" : "All stories"}</h2>
-      <div class="story-grid">
-        {rest.map((story) => (
-          <article class="card">
-            <p class="eyebrow">{story.topic} · {story.period}</p>
-            <h3><a href={storyHref(story.slug)}>{story.title}</a></h3>
-            <p class="desc">{story.description}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  )}
+    );
+  })}
 </Base>
 
 <style>
@@ -56,7 +68,9 @@ const storyHref = (slug: string) => href("stories/" + slug + "/");
     margin: 0 0 .6rem; font-family: var(--font-mono); font-weight: 500; font-size: .75rem; letter-spacing: .06em;
     text-transform: uppercase; color: var(--ink-3);
   }
-  .archive { margin-top: 1.5rem; }
+  .area-nav ul { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; padding-left: 0; list-style: none; }
+  .area + .area { margin-top: 2rem; }
+  section + .archive { margin-top: 1.5rem; }
   .featured-grid, .story-grid { display: grid; gap: .75rem; }
   .featured-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); }
   .story-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
@@ -68,8 +82,8 @@ const storyHref = (slug: string) => href("stories/" + slug + "/");
   .card.featured { background: var(--paper-2); }
   .card:hover, .card:focus-within { border-color: var(--accent); }
   .card .eyebrow { margin: 0 0 .35rem; }
-  .card h3 { margin: 0 0 .35rem; font-family: var(--font-serif); font-size: 1.15rem; line-height: 1.25; }
-  .card.featured h3 { font-size: clamp(1.25rem, 2vw, 1.5rem); }
+  .card :is(h3, h4) { margin: 0 0 .35rem; font-family: var(--font-serif); font-size: 1.15rem; line-height: 1.25; }
+  .card.featured :is(h3, h4) { font-size: clamp(1.25rem, 2vw, 1.5rem); }
   .card a { color: var(--ink); text-decoration: none; }
   .card a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
   .card a:focus-visible { outline: none; }

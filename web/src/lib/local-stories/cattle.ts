@@ -1,7 +1,7 @@
 // A year of feeder steer prices at the statewide weekly auction summary, with the herd on offer each week.
 import { day } from "../format";
-import { turningPoints } from "./drought";
-import { chapterCaptions, yearStarts, type Story, type StoryContext, type StoryEntry } from "./model";
+import { turningPoints } from "../stories/drought";
+import { chapterCaptions, yearStarts, type Story, type StoryContext, type StoryEntry } from "../stories/model";
 
 export const cattleStorySlug = "a-year-of-calf-prices";
 const SWING = 50;   // $/cwt between turning points worth a chapter
@@ -9,9 +9,9 @@ const usd = (v: number) => "$" + v.toFixed(2);
 /** Rough value of one 550 lb steer at a $/cwt price (a hundredweight is 100 lb). */
 export const perHead = (cwt: number) => Math.round((cwt * 5.5) / 10) * 10;
 
-export function buildCattleStory({ data, latest }: StoryContext): Story | null {
+export function buildCattleStory({ data, sources }: StoryContext): Story | null {
   const weeks = (data.cattle?.weeks ?? []).filter((w) => w.s500 != null);
-  if (weeks.length < 12 || latest.sources.ams?.stale) return null;
+  if (weeks.length < 12 || sources.ams?.stale) return null;
   const p = weeks.map((w) => w.s500!);
   const label = (i: number) => day(weeks[i].date);
   const last = weeks.length - 1;

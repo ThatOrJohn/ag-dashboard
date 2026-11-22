@@ -1,12 +1,12 @@
 // Ogallala monitoring wells, one winter reading a year. Each well joins the story when its record starts.
-import { chapterCaptions, words, type Story, type StoryContext, type StoryEntry } from "./model";
+import { chapterCaptions, words, type Story, type StoryContext, type StoryEntry } from "../stories/model";
 
 export const wellsStorySlug = "ogallala-wells";
 const ft = (v: number) => Math.round(v) + " feet";
 
-export function buildWellsStory({ data, latest }: StoryContext): Story | null {
+export function buildWellsStory({ data, sources }: StoryContext): Story | null {
   const wells = (data.wells ?? []).filter((w) => w.winters.length >= 3);
-  if (!wells.length || latest.sources.twdb_groundwater?.stale) return null;
+  if (!wells.length || sources.twdb_groundwater?.stale) return null;
   const y0 = Math.min(...wells.map((w) => w.winters[0].year));
   const y1 = Math.max(...wells.map((w) => w.winters.at(-1)!.year));
   const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i);

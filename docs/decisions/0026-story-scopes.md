@@ -1,6 +1,6 @@
 # 0026: Stories cover an area: the US, a state or a district
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-22
 
 ## Context
@@ -59,3 +59,11 @@ Every story is built for an **area**: `{ level: "us" | "state" | "district", id,
   default.
 - Revisit if the site stays Texas-only for good. The area parameter would then be overhead, but cheap
   overhead.
+
+## Implementation
+
+Texas publishes the existing statewide stories at scoped URLs and links district drought and farm census
+replays from each district dashboard when their data is available. Cotton harvest stays at the geographic
+level of the published NASS estimates. The existing Texas slugs are preserved after `/stories/tx/`.
+The Oklahoma fixture exercises all three templates. National pages and state maps are ready for a published
+national snapshot. See the [architecture guide](../ARCHITECTURE.md#from-json-to-pages) for the expected files.

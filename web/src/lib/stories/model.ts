@@ -2,7 +2,7 @@
 // through; `visual` says which animation draws them. Every frame's values also fill the story's table, so the
 // facts never depend on the animation.
 import { inches } from "../format";
-import type { Latest, SourceKey, StoryData } from "../types";
+import type { CountyCard, ProgressCard, Source, SourceKey, StoryData } from "../types";
 
 export type StoryUnit = "percent" | "inches" | "count" | "feet" | "cfs" | "usd_cwt" | "head";
 
@@ -76,12 +76,29 @@ export interface StoryFallback {
   related: { href: string; label: string };
 }
 
-export interface StoryContext { latest: Latest; data: StoryData }
+export type StoryArea = { id: string; name: string; phrase: string } & (
+  | { level: "us" }
+  | { level: "state"; stateFips: string }
+  | { level: "district"; stateId: string; stateFips: string }
+);
+
+export interface StoryContext {
+  area: StoryArea;
+  asof: string;
+  sources: Partial<Record<SourceKey, Source>>;
+  counties: Record<string, Pick<CountyCard, "name" | "district">>;
+  data: StoryData;
+  cottonProgress?: ProgressCard;
+  overview: StoryFallback["related"];
+  cottonDashboard?: StoryFallback["related"];
+}
+
+export type StoryDisplayContext = Pick<StoryContext, "area" | "sources" | "counties">;
 
 export interface StoryEntry {
   slug: string;
   /** Shown at the story's stable URL when its data is stale or out of range on this build. */
-  fallback: StoryFallback;
+  fallback: StoryFallback | ((ctx: StoryContext) => StoryFallback);
   build: (ctx: StoryContext) => Story | null;
   /** Listed first, as a large card, on the collection page. */
   featured: (ctx: StoryContext, story: Story) => boolean;

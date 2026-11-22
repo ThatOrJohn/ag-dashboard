@@ -1,7 +1,7 @@
 // An archived story: five weeks of daily rain in three districts, saved with its captions so the comparison
 // stays available after the dashboard's weather strip rolls forward.
 import { day, inches } from "../format";
-import { chapterCaptions, type Story, type StoryEntry } from "./model";
+import { chapterCaptions, type Story, type StoryEntry } from "../stories/model";
 
 export const rainStorySlug = "five-weeks-of-rain";
 const START = "2026-10-11";

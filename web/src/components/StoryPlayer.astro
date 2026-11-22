@@ -3,8 +3,7 @@
 // one of the components in ./story/, chosen by the story's visual kind; each listens for "storyframe" events.
 // Without JavaScript the first frame, the takeaway and the full table still render.
 import { href } from "../lib/format";
-import { chapterHoldMs, formatStoryValue, type Story } from "../lib/stories/model";
-import type { Latest } from "../lib/types";
+import { chapterHoldMs, formatStoryValue, type Story, type StoryDisplayContext } from "../lib/stories/model";
 import CattleMarket from "./story/CattleMarket.astro";
 import CensusDots from "./story/CensusDots.astro";
 import DroughtFlipbook from "./story/DroughtFlipbook.astro";
@@ -17,10 +16,10 @@ import Wells from "./story/Wells.astro";
 
 interface Props {
   story: Story;
-  latest: Latest;
+  context: StoryDisplayContext;
 }
 
-const { story, latest } = Astro.props;
+const { story, context } = Astro.props;
 // Captions repeat across frames (each is its chapter's narration), so they travel once and frames point at them.
 const captions = [...new Set(story.frames.map(({ caption }) => caption))];
 const frames = story.frames.map(({ label, date, caption, values }) => ({
@@ -34,18 +33,18 @@ const first = { ...frames[0], caption: captions[frames[0].c] };
 const tableRows = (story.tableFrames ?? frames.map((_, i) => i)).map((i) => frames[i]);
 const layout = ["drought", "census"].includes(story.visual.kind) ? "layout-map" : "layout-wide";
 const isCattle = story.visual.kind === "cattle";
-const source = latest.sources[story.source];
+const source = context.sources[story.source];
 const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name }] : []);
 ---
 <div class={`story-stage ${layout} kind-${story.visual.kind}${story.timeline || story.visual.kind === "drought" ? " has-timeline" : ""}`} id="story-player" data-story={JSON.stringify(config)}>
-  {story.visual.kind === "drought" && <DroughtFlipbook story={story} latest={latest} />}
+  {story.visual.kind === "drought" && <DroughtFlipbook story={story} context={context} />}
   {story.visual.kind === "rain" && <RainGauges story={story} />}
   {story.visual.kind === "harvest" && <HarvestRace story={story} />}
   {story.visual.kind === "reservoir" && <Reservoir story={story} />}
   {story.visual.kind === "wells" && <Wells story={story} />}
   {story.visual.kind === "river" && <RiverFlow story={story} />}
   {story.visual.kind === "cattle" && <CattleMarket story={story} />}
-  {story.visual.kind === "census" && <CensusDots story={story} latest={latest} />}
+  {story.visual.kind === "census" && <CensusDots story={story} context={context} />}
   {story.timeline && <StoryTimeline story={story} timeline={story.timeline} />}
   <section class="story-panel" aria-labelledby="story-metric">
     <time class="story-date" data-story-date datetime={first.date} hidden={!first.date}>{first.date && first.label}</time>
@@ -316,6 +315,10 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
     .timeline { gap: .75rem; }
     .chapters { gap: .35rem; }
     .story-controls button { padding: .4rem .65rem; font-size: .85rem; }
+  }
+  @media (min-width: 1000px) and (max-height: 860px) {
+    .kind-drought .chapters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .kind-drought .chapters button { justify-content: center; text-align: center; }
   }
   @media (max-width: 760px) {
     .story-stage.layout-map {

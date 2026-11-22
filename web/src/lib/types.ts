@@ -233,11 +233,19 @@ export interface DistrictFile {
   annual?: DistrictAnnual;
 }
 
+/** National story metadata, published beside data/us/stories.json once the national pipeline exists. */
+export interface NationalStorySnapshot {
+  asof: string;
+  sources: Partial<Record<SourceKey, Source>>;
+  cotton_progress?: ProgressCard;
+}
+
 /** stories.json (kad/stories.py): the history the animated stories replay. A stale source is null. */
 export interface StoryData {
   drought: {
-    counties: string[];               // FIPS, in the order of each week's `map` string
-    weeks: { date: string; map: string; state?: DroughtLevels }[];   // map: one char per county, "-", "0"–"4" or "?"
+    counties?: string[]; // County FIPS, in the order of each week's map
+    states?: string[];   // State FIPS, in the same map order for a national snapshot
+    weeks: { date: string; map: string; state?: Partial<DroughtLevels>; coverage?: Partial<DroughtLevels> }[];
   } | null;
   cotton: { seasons: { year: number; reports: { date: string; pct: number }[] }[] } | null;
   reservoirs?: { through: string; months: { month: string; pct: number }[] } | null;
@@ -246,6 +254,6 @@ export interface StoryData {
   river?: { id: string; name: string; url: string | null; through: string; provisional_from: string | null;
             months: { month: string; cfs: number }[] }[] | null;
   cattle?: { report: string; weeks: { date: string; s500: number | null; s700: number | null; h500: number | null; h700: number | null }[] } | null;
-  /** counties: FIPS → [farms year 1, farms year 2, land in farms year 1, land in farms year 2] */
-  census?: { years: [number, number]; counties: Record<string, (number | null)[]> } | null;
+  /** FIPS → [farms year 1, farms year 2, land in farms year 1, land in farms year 2] */
+  census?: { years: [number, number]; counties?: Record<string, (number | null)[]>; states?: Record<string, (number | null)[]> } | null;
 }

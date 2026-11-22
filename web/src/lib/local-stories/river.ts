@@ -1,7 +1,7 @@
 // The Brazos at Richmond, month by month. Each month is compared with the median for that calendar month over
 // the whole record, so a dry August is judged against other Augusts.
 import { day } from "../format";
-import { chapterCaptions, monthLabel, yearStarts, type Story, type StoryContext, type StoryEntry } from "./model";
+import { chapterCaptions, monthLabel, yearStarts, type Story, type StoryContext, type StoryEntry } from "../stories/model";
 
 export const riverStorySlug = "brazos-at-richmond";
 /** Months below this fraction of their calendar month's median count as low flow. */
@@ -13,9 +13,9 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
 };
 
-export function buildRiverStory({ data, latest }: StoryContext): Story | null {
+export function buildRiverStory({ data, sources }: StoryContext): Story | null {
   const site = data.river?.[0];
-  if (!site || site.months.length < 120 || latest.sources.usgs_streamflow?.stale) return null;
+  if (!site || site.months.length < 120 || sources.usgs_streamflow?.stale) return null;
   const months = site.months;
   const v = months.map((m) => m.cfs);
   const cal = months.map((m) => Number(m.month.slice(5, 7)));

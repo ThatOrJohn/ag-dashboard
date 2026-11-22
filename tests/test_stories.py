@@ -1,3 +1,6 @@
+from dataclasses import replace
+from types import SimpleNamespace
+
 import pandas as pd
 
 from kad import stories
@@ -56,6 +59,18 @@ def test_stale_sources_leave_their_story_out():
 
 def _obs(geo, var, values):
     return pd.DataFrame([{"geo": geo, "var": var, "date": pd.Timestamp(d), "value": v, "source": "x"} for d, v in values])
+
+
+def test_local_cattle_history_uses_the_registered_report():
+    ams = pd.concat([_obs("ams:1955", "steers:500", [("2026-11-13", 300)]),
+                     _obs("ams:9999", "steers:500", [("2026-11-13", 200)])])
+    args = dict(drought_ok=False, nass_ok=False, fresh=SimpleNamespace(sources={"ams": {"stale": False}}),
+                frames={"ams": ams})
+    assert stories.site_data(replace(TX, extras={}), pd.DataFrame(), pd.DataFrame(), **args)["cattle"] is None
+    region = replace(TX, extras={"stories": {"cattle": {"report": "9999"}}})
+    cattle = stories.site_data(region, pd.DataFrame(), pd.DataFrame(), **args)["cattle"]
+    assert cattle["report"] == "9999"
+    assert cattle["weeks"][0]["s500"] == 200
 
 
 def test_reservoirs_start_in_1950_as_monthly_means():

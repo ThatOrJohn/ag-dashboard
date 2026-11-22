@@ -1,31 +1,32 @@
 ---
-// Drought story visual: all Texas counties recolored on each weekly map, a readout, and a two-year timeline
-// of the statewide share that doubles as a scrubber. D3 and D4 counties are hatched so the worst categories
+// Drought story visual: counties or states recolored on each weekly map, a readout, and a two-year timeline
+// of the area’s share that doubles as a scrubber. D3 and D4 counties are hatched so the worst categories
 // read without color; the readout and the table carry every figure in text.
 import { DROUGHT_NAMES } from "../../lib/format";
-import { countyPaths } from "../../lib/geo";
-import { formatStoryValue, type Story } from "../../lib/stories/model";
-import type { Latest } from "../../lib/types";
+import { countyPaths, statePaths } from "../../lib/geo";
+import { formatStoryValue, type Story, type StoryDisplayContext } from "../../lib/stories/model";
 
-interface Props { story: Story; latest: Latest }
-const { story, latest } = Astro.props;
+interface Props { story: Story; context: StoryDisplayContext }
+const { story, context } = Astro.props;
 if (story.visual.kind !== "drought") throw new Error("DroughtFlipbook needs a drought story");
 const { fips, maps } = story.visual;
 
-const districtOf = (f: string) => latest.counties[f]?.district ?? "";
+const { area, counties } = context;
+const units = area.level === "us" ? "states" : "counties";
 const W = 520, H = 500;
-const { counties, borders } = countyPaths(null, W, H, districtOf);
+const { shapes, borders } = area.level === "us" ? statePaths(W, H)
+  : countyPaths(area.stateFips, new Set(fips), W, H, (f) => counties[f]?.district ?? "");
 const index = new Map(fips.map((f, i) => [f, i]));
 const cls = (c: string) => (c === "-" ? "f-none" : c === "?" ? "f-unavailable" : "f-d" + c);
 const first = maps[0];
 const firstValues = story.frames[0].values;
 
-// Timeline: statewide D1+ and D3+ share by week, 0–100%.
+// Timeline: D1+ and D3+ share by week, 0–100%.
 const TW = 720, TH = 150, PAD = { l: 34, r: 10, t: 12, b: 24 };
 const n = story.frames.length;
 const x = (i: number) => PAD.l + (i / Math.max(1, n - 1)) * (TW - PAD.l - PAD.r);
 const y = (v: number) => PAD.t + (1 - v / 100) * (TH - PAD.t - PAD.b);
-const area = (k: number) => {
+const areaPath = (k: number) => {
   const pts = story.frames.map(({ values }, i) => `${x(i).toFixed(1)},${y(values[k] ?? 0).toFixed(1)}`);
   return `M${x(0).toFixed(1)},${y(0)}L${pts.join("L")}L${x(n - 1).toFixed(1)},${y(0)}Z`;
 };
@@ -41,7 +42,7 @@ const legend = [
 <div class="dflip" data-maps={JSON.stringify(maps)} data-xs={JSON.stringify(xs)}>
   <figure class="dflip-map">
     <svg viewBox={`-4 -4 ${W + 8} ${H + 8}`} role="img" aria-labelledby="dflip-title">
-      <title id="dflip-title">Texas counties colored by drought category on the map week shown above. Every week's statewide figures are in the table below.</title>
+      <title id="dflip-title">Drought categories by {area.level === "us" ? "state" : "county"} in {area.phrase}. Weekly figures are in the table below.</title>
       <defs>
         <pattern id="dflip-h3" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line class="hatch-line" x1="0" y1="0" x2="0" y2="6" />
@@ -51,13 +52,13 @@ const legend = [
         </pattern>
       </defs>
       <g class="dflip-counties">
-        {counties.map(({ fips: f, d }) => {
+        {shapes.map(({ fips: f, d }) => {
           const i = index.get(f) ?? -1;
           return <g class={cls(i < 0 ? "?" : first[i])} data-i={i}><path id={"dfc-" + f} d={d} /></g>;
         })}
       </g>
       <g class="dflip-hatch" aria-hidden="true">
-        {counties.map(({ fips: f }) => {
+        {shapes.map(({ fips: f }) => {
           const i = index.get(f) ?? -1;
           const c = i < 0 ? "" : first[i];
           return <use href={"#dfc-" + f} data-i={i} class={c === "3" || c === "4" ? "h" + c : ""} />;
@@ -67,8 +68,8 @@ const legend = [
     </svg>
   </figure>
   <div class="dflip-readout">
-    <p class="dflip-big"><span class="num" data-dflip-d1>{formatStoryValue(firstValues[0], "percent")}</span> of Texas in moderate drought or worse</p>
-    <p class="dflip-sub"><span class="num" data-dflip-d3>{formatStoryValue(firstValues[1], "percent")}</span> in extreme or exceptional drought · <span class="num" data-dflip-n>{firstValues[2]}</span> counties mostly D3–D4</p>
+    <p class="dflip-big"><span class="num" data-dflip-d1>{formatStoryValue(firstValues[0], "percent")}</span> of {area.phrase} in moderate drought or worse</p>
+    <p class="dflip-sub"><span class="num" data-dflip-d3>{formatStoryValue(firstValues[1], "percent")}</span> in extreme or exceptional drought · <span class="num" data-dflip-n>{firstValues[2]}</span> {units} mostly D3–D4</p>
     <ul class="dlegend dflip-legend" aria-label="Map key">
       {legend.map(({ cls: c, label, hatch }) => (
         <li><svg width="14" height="14" aria-hidden="true"><rect class={c} width="14" height="14" rx="2" />{hatch ? <rect width="14" height="14" fill={`url(#dflip-h${hatch})`} /> : null}</svg>{label}</li>
@@ -83,9 +84,9 @@ const legend = [
       {years.map(({ i, year }) => (
         <g><line class="year" x1={x(i)} x2={x(i)} y1={PAD.t} y2={TH - PAD.b} /><text class="tick" x={x(i) + 4} y={TH - 8}>{year}</text></g>
       ))}
-      <path class="a-d1" d={area(0)} />
+      <path class="a-d1" d={areaPath(0)} />
       <path class="l-d1" d={line(0)} />
-      <path class="a-d3" d={area(1)} />
+      <path class="a-d3" d={areaPath(1)} />
       {story.chapters.map(({ frame }) => <circle class="chapter" cx={x(frame)} cy={y(story.frames[frame].values[0] ?? 0)} r="4" />)}
       <g class="cursor" data-dflip-cursor style={{ transform: `translateX(${xs[0] - xs[0]}px)` }}>
         <line x1={xs[0]} x2={xs[0]} y1={PAD.t - 4} y2={TH - PAD.b} />
@@ -95,7 +96,7 @@ const legend = [
     <figcaption class="dflip-key">
       <span><i class="k-d1"></i>Moderate or worse (D1–D4)</span>
       <span><i class="k-d3"></i>Extreme or worse (D3–D4)</span>
-      <span class="muted">Share of Texas, each weekly map · tap to jump</span>
+      <span class="muted">Share of {area.phrase}, each weekly map · tap to jump</span>
     </figcaption>
   </figure>
 </div>
@@ -195,8 +196,9 @@ const legend = [
     .dflip-readout { padding: 0 1.5rem .75rem; }
     .dflip-big .num { font-size: 3rem; }
   }
-  /* Short desktop screens: a smaller readout keep the controls on screen. */
+  /* Leave room for area names and wrapped chapter buttons on short desktop screens. */
   @media (min-width: 1000px) and (max-height: 860px) {
-    .dflip-big .num { font-size: 2.5rem; }
+    .dflip-map svg { max-height: max(10rem, calc(var(--vis-max) - 2rem)); }
+    .dflip-big .num { display: inline; margin-inline-end: .15em; font-size: 2rem; }
   }
 </style>

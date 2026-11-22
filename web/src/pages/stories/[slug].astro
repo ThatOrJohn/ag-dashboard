@@ -1,50 +1,21 @@
 ---
 import type { GetStaticPaths } from "astro";
-import StoryPlayer from "../../components/StoryPlayer.astro";
-import Base from "../../layouts/Base.astro";
-import { loadLatest } from "../../lib/data";
 import { href } from "../../lib/format";
-import { buildStories, type BuiltStory } from "../../lib/stories";
+import { legacyStorySlugs } from "../../lib/stories";
 
-export const getStaticPaths = (() => buildStories().map((built) => ({ params: { slug: built.slug }, props: { built } }))) satisfies GetStaticPaths;
+export const getStaticPaths = (() => legacyStorySlugs.map((slug) => ({ params: { slug } }))) satisfies GetStaticPaths;
 
-interface Props { built: BuiltStory }
-const { story, fallback } = Astro.props.built;
-const latest = loadLatest();
-const title = story?.title ?? fallback.title;
+const target = href(`stories/tx/${Astro.params.slug}/`);
 ---
-<Base title={title + " · Stories · Texas Ag Dashboard"} description={story?.description ?? fallback.description} current="stories" shareImage={"story-" + Astro.params.slug}>
-  <article>
-    <header class:list={["story-heading", { "cattle-heading": story?.visual.kind === "cattle" }]}>
-      <p class="story-crumbs">
-        <a class="story-back" href={href("stories/")}>All stories</a>
-        <span class="eyebrow">{story ? story.topic + " · " + story.period : fallback.topic}</span>
-      </p>
-      <h1>{title}</h1>
-      {story && <p class="lede">{story.description}</p>}
-    </header>
-    {story
-      ? <StoryPlayer story={story} latest={latest} />
-      : <p>{fallback.description} Follow the latest figures on the <a href={href(fallback.related.href)}>{fallback.related.label}</a>.</p>}
-  </article>
-</Base>
-
-<style>
-  .story-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0 1rem; margin: 0 0 .25rem; }
-  .story-crumbs .eyebrow { margin: 0; }
-  .story-back { display: inline-flex; min-height: 44px; align-items: center; }
-  .story-heading { margin-bottom: 1.5rem; }
-  @media (max-width: 999px) {
-    :global(main:has(.cattle-heading)) { padding-top: .5rem; }
-    .cattle-heading { margin-bottom: .65rem; }
-    .cattle-heading h1 { font-size: clamp(1.65rem, 5vw, 2.25rem); margin-bottom: .2em; }
-    .cattle-heading .lede { font-size: .95rem; margin: 0; }
-  }
-  /* Desktop: a compact heading so the whole player, controls included, fits on one screen. */
-  @media (min-width: 1000px) {
-    :global(main:has(#story-player)) { padding-top: .5rem; }
-    .story-heading { margin-bottom: 1rem; }
-    .story-heading h1 { font-size: clamp(1.75rem, 2.4vw, 2.25rem); margin-bottom: .2em; }
-    .story-heading .lede { font-size: 1.05rem; max-width: 115ch; margin: 0; }
-  }
-</style>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content={`0;url=${target}`} />
+    <link rel="canonical" href={new URL(target, Astro.site)} />
+    <title>Story moved</title>
+  </head>
+  <body>
+    <p><a href={target}>Continue to the story</a></p>
+  </body>
+</html>

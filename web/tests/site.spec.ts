@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { loadDistrict, loadLatest } from "../src/lib/data";
-import { buildStories, cottonHeadline, cottonStorySlug, droughtStorySlug, droughtStoryTitle, formatStoryValue } from "../src/lib/stories";
-import { cattleStorySlug } from "../src/lib/stories/cattle";
+import { loadDistrict, loadLatest, REGION } from "../src/lib/data";
+import { buildStories, cottonHeadline, cottonStorySlug, droughtStorySlug, formatStoryValue, legacyStorySlugs } from "../src/lib/stories";
+import { cattleStorySlug } from "../src/lib/local-stories/cattle";
 import { turningPoints } from "../src/lib/stories/drought";
 import type { ProgressCard } from "../src/lib/types";
 
@@ -10,8 +10,9 @@ import type { ProgressCard } from "../src/lib/types";
 const ORIGIN = `${process.env.SITE_URL || "https://thatorjohn.github.io"}${process.env.SITE_BASE || "/ag-dashboard/"}`;
 const NASS = "This product uses the NASS API but is not endorsed or certified by NASS.";
 const DISTRICTS = loadLatest().districts.map((d) => `district/${d.slug}/`);
-const STORY_PAGES = buildStories().map(({ slug }) => `stories/${slug}/`);
-const droughtStory = () => buildStories().find(({ slug }) => slug === droughtStorySlug)!.story;
+const stories = buildStories();
+const STORY_PAGES = stories.map(({ path }) => `stories/${path}/`);
+const stateStory = (id: string) => stories.find(({ slug, area }) => slug === id && area.level === "state" && area.id === REGION)!;
 const PAGES = ["", ...DISTRICTS, "stories/", ...STORY_PAGES, "about/", "for/corn-sorghum/", "for/cotton/", "for/wheat/", "for/cattle-hay/", "for/land-water/"];
 
 for (const p of PAGES) {
@@ -114,8 +115,40 @@ test("the homepage links to one alphabetical comparison of every district", asyn
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trans-Pecos");
 });
 
+test("old story URLs refresh to the scoped canonical pages", async ({ request }) => {
+  for (const slug of legacyStorySlugs) {
+    const old = await request.get(`stories/${slug}/`);
+    expect(old.ok()).toBe(true);
+    const scoped = `stories/tx/${slug}/`;
+    const target = new URL(scoped, ORIGIN).pathname;
+    const html = await old.text();
+    expect(html).toContain(`content="0;url=${target}"`);
+    expect(html).toContain(`href="${ORIGIN}${scoped}"`);
+    expect(html).toContain(`href="${target}"`);
+    expect((await request.get(scoped)).ok()).toBe(true);
+  }
+});
+
+test("district stories are linked from the district and use their own share image", async ({ page, request }) => {
+  const built = stories.find(({ area, slug }) => area.level === "district" && area.id === "blacklands" && slug === droughtStorySlug)!;
+  test.skip(!built.story, "Blacklands drought data is stale on this build");
+  await page.goto("stories/");
+  await expect(page.getByRole("link", { name: built.story!.title })).toHaveCount(0);
+  await page.goto("district/blacklands/");
+  await page.getByRole("navigation", { name: "Stories", exact: true }).getByRole("link", { name: built.story!.title }).click();
+  await expect(page).toHaveURL(new RegExp(`/stories/${built.path}/$`));
+  const image = await page.locator('meta[property="og:image"]').getAttribute("content");
+  const ogPath = new URL(image!).pathname;
+  expect(ogPath).toContain(`/og/${built.image}.png`);
+  const response = await request.get(ogPath);
+  expect(response.headers()["content-type"]).toContain("image/png");
+  const visual = built.story!.visual;
+  if (visual.kind !== "drought") throw new Error("expected a drought story");
+  await expect(page.locator(".dflip-counties g")).toHaveCount(visual.fips.length);
+});
+
 test("the drought story replays every weekly county map with a scrubbable timeline", async ({ page }) => {
-  const story = droughtStory();
+  const { story } = stateStory(droughtStorySlug);
   test.skip(!story, "Drought Monitor data is stale on this build");
   const { visual, frames, chapters } = story!;
   if (visual.kind !== "drought") throw new Error("expected a drought story");
@@ -123,7 +156,7 @@ test("the drought story replays every weekly county map with a scrubbable timeli
   await page.clock.install();
   await page.goto("");
   await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Stories" }).click();
-  await page.getByRole("link", { name: droughtStoryTitle }).click();
+  await page.getByRole("link", { name: story!.title }).click();
   const stage = page.locator("#story-player");
   const slider = stage.getByRole("slider", { name: "Map week" });
   const expectWeek = async (index: number) => {
@@ -157,11 +190,11 @@ test("the drought story replays every weekly county map with a scrubbable timeli
 });
 
 test("the drought story is readable and links onward without JavaScript", async ({ browser }) => {
-  const story = droughtStory();
+  const { story } = stateStory(droughtStorySlug);
   test.skip(!story, "Drought Monitor data is stale on this build");
   const page = await browser.newPage({ javaScriptEnabled: false });
   try {
-    await page.goto(`stories/${droughtStorySlug}/`);
+    await page.goto(`stories/${stateStory(droughtStorySlug).path}/`);
     await expect(page.getByRole("heading", { name: story!.takeaway.title })).toBeVisible();
     await expect(page.getByRole("button", { name: "Play" })).toHaveCount(0);
     await page.getByText("See all figures").click();
@@ -184,11 +217,11 @@ test("the rain story fills each gauge to the published totals", async ({ page })
 });
 
 test("the cotton story races each season and is featured only when the pace differs", async ({ page }) => {
-  const built = buildStories().find(({ slug }) => slug === cottonStorySlug)!;
+  const built = stateStory(cottonStorySlug);
   await page.goto("stories/");
-  const featured = page.locator(".featured").filter({ has: page.locator(`a[href$="/${cottonStorySlug}/"]`) });
+  const featured = page.locator(".featured").filter({ has: page.locator(`a[href$="/${built.path}/"]`) });
   await expect(featured).toHaveCount(built.featured ? 1 : 0);
-  await page.goto(`stories/${cottonStorySlug}/`);
+  await page.goto(`stories/${built.path}/`);
   if (!built.story) {
     await expect(page.locator("#story-player")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Cotton dashboard" })).toBeVisible();
@@ -203,10 +236,10 @@ test("the cotton story races each season and is featured only when the pace diff
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Stories");
 });
 
-for (const { slug, story } of buildStories()) {
+for (const { path, story } of stories) {
   if (!story || story.visual.kind === "drought") continue;
-  test(`the ${slug} story's readout follows every chapter`, async ({ page }) => {
-    await page.goto(`stories/${slug}/`);
+  test(`the ${path} story's readout follows every chapter`, async ({ page }) => {
+    await page.goto(`stories/${path}/`);
     const stage = page.locator("#story-player");
     for (const { frame, label } of story.chapters) {
       await stage.getByRole("group", { name: "Story chapters" }).getByRole("button", { name: label, exact: true }).click();
@@ -219,22 +252,22 @@ for (const { slug, story } of buildStories()) {
 
 test("on a laptop screen every story's player and controls fit without scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  for (const { slug, story } of buildStories()) {
+  for (const { path, story } of stories) {
     if (!story) continue;
-    await page.goto(`stories/${slug}/`);
+    await page.goto(`stories/${path}/`);
     const controls = page.locator("[data-story-controls]");
     await expect(controls).toBeVisible();
     const box = (await controls.boundingBox())!;
-    expect(box.y + box.height, slug).toBeLessThanOrEqual(800);
+    expect(box.y + box.height, path).toBeLessThanOrEqual(800);
   }
 });
 
 test("the calf replay keeps its tags, pens and controls in place across sale weeks", async ({ page }, testInfo) => {
-  const story = buildStories().find(({ slug }) => slug === cattleStorySlug)?.story;
+  const { story, path } = stateStory(cattleStorySlug);
   test.skip(!story, "The calf story requires current auction data");
   const viewport = testInfo.project.name === "phone" ? { width: 390, height: 760 } : { width: 1024, height: 768 };
   await page.setViewportSize(viewport);
-  await page.goto(`stories/${cattleStorySlug}/`);
+  await page.goto(`stories/${path}/`);
   const controls = page.locator("[data-story-controls]");
   await expect(controls).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
@@ -256,7 +289,7 @@ test("the calf replay keeps its tags, pens and controls in place across sale wee
 });
 
 test("every story builder keeps its captions and table rows in range", () => {
-  for (const { story } of buildStories()) {
+  for (const { story } of stories) {
     if (!story) continue;
     expect(story.chapters.length).toBeGreaterThan(0);
     for (const { frame } of story.chapters) expect(frame).toBeLessThan(story.frames.length);
@@ -273,23 +306,23 @@ test("the cotton headline requires fresh harvest figures and a five-point gap", 
   const progress: ProgressCard = {
     status: "fresh", level: "state", last_report: "2026-11-15", week_ending: "2026-11-15", stages: [harvest],
   };
-  snapshot.texas.crops.cotton.progress = progress;
-  expect(cottonHeadline(snapshot)?.ahead).toBe(true);
+
+  expect(cottonHeadline(progress, snapshot.sources.nass)?.ahead).toBe(true);
   harvest.pct = 55;
-  expect(cottonHeadline(snapshot)?.ahead).toBe(false);
+  expect(cottonHeadline(progress, snapshot.sources.nass)?.ahead).toBe(false);
   harvest.pct = 64;
-  expect(cottonHeadline(snapshot)).toBeNull();
+  expect(cottonHeadline(progress, snapshot.sources.nass)).toBeNull();
   harvest.pct = 96;
-  expect(cottonHeadline(snapshot)).toBeNull();
+  expect(cottonHeadline(progress, snapshot.sources.nass)).toBeNull();
   harvest.pct = 65;
   harvest.avg_5yr = null;
-  expect(cottonHeadline(snapshot)).toBeNull();
+  expect(cottonHeadline(progress, snapshot.sources.nass)).toBeNull();
   harvest.avg_5yr = 60;
   progress.status = "out_of_season";
-  expect(cottonHeadline(snapshot)).toBeNull();
+  expect(cottonHeadline(progress, snapshot.sources.nass)).toBeNull();
   progress.status = "fresh";
   snapshot.sources.nass.stale = true;
-  expect(cottonHeadline(snapshot)).toBeNull();
+  expect(cottonHeadline(progress, snapshot.sources.nass)).toBeNull();
 });
 
 test("drought turning points alternate and skip small wiggles", () => {

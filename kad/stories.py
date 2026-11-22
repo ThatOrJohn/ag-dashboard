@@ -153,15 +153,21 @@ def site_data(region: Region, w: pd.DataFrame, nass: pd.DataFrame, *, drought_ok
     ok = (lambda key: fresh is not None and key in fresh.sources and not fresh.sources[key]["stale"])
     empty = pd.DataFrame(columns=["geo", "var", "date", "value"])
     get = (lambda key: f.get(key) if f.get(key) is not None else empty)
-    statewide_ams = next((r["slug"] for r in region.source("ams").get("reports", []) if r.get("scope") == "statewide"), "1955")
+    local = region.extras.get("stories", {})
+    wells = local.get("wells", {}).get("sites", [])
+    gauge = local.get("river", {}).get("site")
     return {
         "drought": drought_weeks(w, region) if drought_ok else None,
         "cotton": cotton_seasons(nass, region) if nass_ok and not nass.empty else None,
-        "reservoirs": reservoir_months(get("twdb_reservoirs")) if ok("twdb_reservoirs") else None,
-        "wells": well_winters(get("twdb_groundwater"), region.source("twdb_groundwater").get("sites", []))
-        if ok("twdb_groundwater") else None,
-        "river": river_months(get("usgs_streamflow"), region.source("usgs_streamflow").get("sites", []))
-        if ok("usgs_streamflow") else None,
-        "cattle": cattle_weeks(get("ams"), str(statewide_ams)) if ok("ams") else None,
+        "reservoirs": reservoir_months(get("twdb_reservoirs"), local["reservoirs"]["scope"])
+        if "reservoirs" in local and ok("twdb_reservoirs") else None,
+        "wells": well_winters(get("twdb_groundwater"),
+                              [s for s in region.source("twdb_groundwater").get("sites", []) if s["id"] in wells])
+        if wells and ok("twdb_groundwater") else None,
+        "river": river_months(get("usgs_streamflow"),
+                              [s for s in region.source("usgs_streamflow").get("sites", []) if s["id"] == gauge])
+        if gauge and ok("usgs_streamflow") else None,
+        "cattle": cattle_weeks(get("ams"), str(local["cattle"]["report"]))
+        if "cattle" in local and ok("ams") else None,
         "census": census_counties(get("census"), region) if ok("census") else None,
     }

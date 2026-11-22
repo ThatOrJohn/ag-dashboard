@@ -6,6 +6,14 @@ state_alpha: TX
 state_fips: "48"
 timezone: America/Chicago
 
+# Local replays. Site and report IDs refer to sources below.
+stories:
+  reservoirs: { scope: statewide }
+  wells: { sites: ['0260303', '1151403', '1051909'] }
+  river: { site: USGS-08114000 }
+  cattle: { report: '1955' }
+  rain: {}
+
 # NASS agricultural statistics districts. Every district gets the full working view (district page, county cards).
 # `home` districts are the featured districts (the site's word for them): header links and first place on the
 # Texas page, in this order (decision 0018). Names follow Quick Stats

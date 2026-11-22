@@ -2,17 +2,19 @@
 // Census story visual: a dot per county at its center, area proportional to farms. Steps grow or shrink the dots
 // between census years, leave the earlier size as an outline, and mark counties that lost or gained farms
 // (with a minus or plus as well as color). The readout names the biggest changes in text.
-import { countyPaths } from "../../lib/geo";
-import { formatStoryValue, type Story } from "../../lib/stories/model";
-import type { Latest } from "../../lib/types";
+import { countyPaths, stateName, statePaths } from "../../lib/geo";
+import { formatStoryValue, type Story, type StoryDisplayContext } from "../../lib/stories/model";
 
-interface Props { story: Story; latest: Latest }
-const { story, latest } = Astro.props;
+interface Props { story: Story; context: StoryDisplayContext }
+const { story, context } = Astro.props;
 if (story.visual.kind !== "census") throw new Error("CensusDots needs a census story");
 const { fips, farms, years, steps } = story.visual;
 const W = 520, H = 500;
-const { counties, borders } = countyPaths(null, W, H, (f) => latest.counties[f]?.district ?? "");
-const at = new Map(counties.map((c) => [c.fips, c]));
+const { area, counties } = context;
+const keep = area.level === "district" ? new Set(Object.keys(counties).filter((f) => counties[f].district === area.id)) : null;
+const { shapes, borders } = area.level === "us" ? statePaths(W, H)
+  : countyPaths(area.stateFips, keep, W, H, (f) => counties[f]?.district ?? "");
+const at = new Map(shapes.map((c) => [c.fips, c]));
 const most = Math.max(...farms.flatMap(([a, b]) => [a ?? 0, b ?? 0]));
 const R = 17;
 const r = (v: number | null) => (R * Math.sqrt((v ?? 0) / most)).toFixed(2);
@@ -21,13 +23,13 @@ const dots = fips.flatMap((f, i) => {
   return c ? [{ f, i, cx: c.cx.toFixed(1), cy: c.cy.toFixed(1), a: farms[i][0], b: farms[i][1] }] : [];
 });
 const v0 = story.frames[0].values;
-const name = (f: string) => latest.counties[f]?.name ?? f;
+const name = (f: string) => area.level === "us" ? stateName(f) : counties[f]?.name ?? f;
 const change = dots.map((d) => ({ name: name(d.f), d: (d.b ?? 0) - (d.a ?? 0) }));
 const top = (sign: 1 | -1) => change.filter((x) => x.d * sign > 0).sort((a, b) => sign * (b.d - a.d)).slice(0, 5);
 ---
 <figure class="cd-map" data-steps={JSON.stringify(steps)} data-r={JSON.stringify(dots.map((d) => [r(d.a), r(d.b)]))}>
-  <svg viewBox={`-4 -4 ${W + 8} ${H + 8}`} role="img" aria-label={`Texas counties as dots sized by number of farms, ${years[0]} and ${years[1]}. The readout lists the largest changes.`}>
-    <path class="cd-state" d={counties.map((c) => c.d).join("")} />
+  <svg viewBox={`-4 -4 ${W + 8} ${H + 8}`} role="img" aria-label={`${area.level === "us" ? "States" : "Counties"} in ${area.phrase} as dots sized by number of farms, ${years[0]} and ${years[1]}. The readout lists the largest changes.`}>
+    <path class="cd-state" d={shapes.map((c) => c.d).join("")} />
     <path class="cd-borders" d={borders} />
     <g class="cd-ghosts">{dots.map((d) => <circle cx={d.cx} cy={d.cy} r={r(d.a)} />)}</g>
     <g class="cd-dots">{dots.map((d) => <circle cx={d.cx} cy={d.cy} r={r(d.a)} class={(d.b ?? 0) < (d.a ?? 0) ? "loss" : (d.b ?? 0) > (d.a ?? 0) ? "gain" : ""} />)}</g>

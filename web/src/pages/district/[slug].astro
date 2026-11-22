@@ -14,6 +14,7 @@ import WeatherStrip from "../../components/WeatherStrip.astro";
 import WaterCard from "../../components/WaterCard.astro";
 import SeasonRain from "../../components/SeasonRain.astro";
 import { loadDistrict, loadLatest } from "../../lib/data";
+import { buildDistrictStories } from "../../lib/stories";
 import { category, categoryName, change, day, href, inches, pct } from "../../lib/format";
 
 export function getStaticPaths() {
@@ -24,6 +25,7 @@ const { slug } = Astro.params as { slug: string };
 const L = loadLatest();
 const D = loadDistrict(slug);
 const S = L.sources;
+const stories = buildDistrictStories(L, D).flatMap(({ path, story }) => story ? [{ path, title: story.title }] : []);
 const sum = D.summary;
 const keep = D.counties.map((c) => c.fips);
 const crops = sum.crops;
@@ -77,6 +79,13 @@ const pests = screwworm && detection ? [{
       {!S.nass.stale && <li><a href="#cr-h">Crops, statewide</a></li>}
     </ul>
   </nav>
+
+  {stories.length > 0 && (
+    <nav class="district-sections" aria-labelledby="district-stories-label">
+      <p id="district-stories-label">Stories</p>
+      <ul>{stories.map(({ path, title }) => <li><a href={href(`stories/${path}/`)}>{title}</a></li>)}</ul>
+    </nav>
+  )}
 
   {hasRoundup && (
     <section aria-labelledby="weekly-h">

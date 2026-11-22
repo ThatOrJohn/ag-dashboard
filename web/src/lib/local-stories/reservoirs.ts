@@ -1,8 +1,8 @@
 // Texas reservoir storage month by month since 1950. Chapters are found in the data: the lowest month, the low
 // points of later droughts, the big refills, and the latest month.
 import { day } from "../format";
-import { turningPoints } from "./drought";
-import { chapterCaptions, monthLabel, yearStarts, type Story, type StoryContext, type StoryEntry } from "./model";
+import { turningPoints } from "../stories/drought";
+import { chapterCaptions, monthLabel, yearStarts, type Story, type StoryContext, type StoryEntry } from "../stories/model";
 
 export const reservoirStorySlug = "texas-reservoirs-since-1950";
 const SWING = 25;          // points between turning points worth a chapter
@@ -10,9 +10,9 @@ const GAP = 72;            // months: a chapter this close to an earlier-listed 
 
 const pct = (v: number) => Math.round(v) + "%";
 
-export function buildReservoirStory({ data, latest }: StoryContext): Story | null {
+export function buildReservoirStory({ data, sources }: StoryContext): Story | null {
   const months = data.reservoirs?.months ?? [];
-  if (months.length < 120 || latest.sources.twdb_reservoirs?.stale) return null;
+  if (months.length < 120 || sources.twdb_reservoirs?.stale) return null;
   const v = months.map((m) => m.pct);
   const label = (i: number) => monthLabel(months[i].month);
   const last = months.length - 1;

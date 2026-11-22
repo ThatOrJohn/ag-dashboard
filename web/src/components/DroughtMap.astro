@@ -8,7 +8,7 @@ import { countyPaths, placeLabels } from "../lib/geo";
 
 interface Props {
   counties: Record<string, CountyCard>;
-  keep?: string[] | null;               // FIPS to draw; all of Texas when omitted
+  keep?: string[] | null;               // FIPS to draw; all counties in the state when omitted
   link: (fips: string) => string | null;
   labels?: { text: string; fips: string[] }[];   // text at the centroid of these counties' centroids
   countyNames?: boolean;                // label every county (district maps)
@@ -18,7 +18,8 @@ interface Props {
   showDrought: boolean;
 }
 const { counties, keep = null, link, labels = [], countyNames = false, width = 640, height = 600, title, showDrought } = Astro.props;
-const { counties: shapes, borders } = countyPaths(keep ? new Set(keep) : null, width, height,
+const stateFips = Object.keys(counties)[0]?.slice(0, 2) ?? "";
+const { shapes, borders } = countyPaths(stateFips, keep ? new Set(keep) : null, width, height,
   (f) => counties[f]?.district ?? "");
 const cls = (c: number) => (c < 0 ? "f-none" : `f-d${c}`);
 const labelPos = labels.map((l) => {

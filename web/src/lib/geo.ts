@@ -1,27 +1,29 @@
 // County and state shapes from us-atlas (Census cartographic boundaries, 1:10m), projected at build time.
-import { geoConicEqualArea, geoPath } from "d3-geo";
+import { geoAlbersUsa, geoCentroid, geoConicEqualArea, geoPath } from "d3-geo";
 import { feature, mesh } from "topojson-client";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { GeometryCollection, Topology } from "topojson-specification";
-import us from "us-atlas/counties-10m.json";
+import us from "us-atlas/counties-10m.json" with { type: "json" };
 
 const topo = us as unknown as Topology<{ counties: GeometryCollection; states: GeometryCollection; nation: GeometryCollection }>;
 const counties = feature(topo, topo.objects.counties) as FeatureCollection<Geometry>;
 
-export const TX = "48";
+const states = feature(topo, topo.objects.states) as FeatureCollection<Geometry, { name: string }>;
+const stateNames = new Map(states.features.map(({ id, properties }) => [String(id), properties.name]));
+export const stateName = (fips: string) => stateNames.get(fips) ?? fips;
 
-function texasCounties(keep?: Set<string>): Feature<Geometry>[] {
-  return counties.features.filter((f) => String(f.id).startsWith(TX) && (!keep || keep.has(String(f.id))));
-}
-
-/** SVG paths for a set of Texas counties (all when `keep` is null) fitted to width × height, plus group
+/** SVG paths for counties in a state fitted to width × height, plus group
  *  borders: the outer edge and every edge between counties in different groups (districts). */
-export function countyPaths(keep: Set<string> | null, width: number, height: number, groupOf: (fips: string) => string) {
-  const feats = texasCounties(keep ?? undefined);
-  const proj = geoConicEqualArea().parallels([27.5, 35]).rotate([100, 0])
-    .fitSize([width, height], { type: "FeatureCollection", features: feats });
+export function countyPaths(stateFips: string, keep: Set<string> | null, width: number, height: number,
+                            groupOf: (fips: string) => string) {
+  const inSet = (id: string) => id.startsWith(stateFips) && (!keep || keep.has(id));
+  const feats = counties.features.filter(({ id }) => inSet(String(id)));
+  if (!stateFips || !feats.length) return { shapes: [], borders: "" };
+  const collection: FeatureCollection<Geometry> = { type: "FeatureCollection", features: feats };
+  const [lon, lat] = geoCentroid(collection);
+  const proj = geoConicEqualArea().parallels([lat - 4, lat + 4]).rotate([-lon, 0])
+    .fitSize([width, height], collection);
   const path = geoPath(proj);
-  const inSet = (id: string) => id.startsWith(TX) && (!keep || keep.has(id));
   const borders = path(mesh(topo, topo.objects.counties, (a, b) => {
     const fa = String(a.id), fb = String(b.id);
     if (a === b) return inSet(fa);
@@ -29,12 +31,21 @@ export function countyPaths(keep: Set<string> | null, width: number, height: num
     return inSet(fa) && groupOf(fa) !== groupOf(fb);
   })) ?? "";
   return {
-    counties: feats.map((f) => {
-      const [cx, cy] = path.centroid(f);
-      return { fips: String(f.id), d: path(f) ?? "", cx, cy, area: path.area(f) };
-    }),
+    shapes: feats.map((f) => shape(path, f)),
     borders,
   };
+}
+
+function shape(path: ReturnType<typeof geoPath>, f: Feature<Geometry>) {
+  const [cx, cy] = path.centroid(f);
+  return { fips: String(f.id), d: path(f) ?? "", cx, cy, area: path.area(f) };
+}
+
+/** National stories draw state outlines, including Alaska and Hawaii in their inset positions. */
+export function statePaths(width: number, height: number) {
+  const path = geoPath(geoAlbersUsa().fitSize([width, height], states));
+  const shapes = states.features.map((f) => shape(path, f)).filter(({ d }) => d);
+  return { shapes, borders: shapes.map(({ d }) => d).join("") };
 }
 
 /** Greedy label placement at build time: biggest county first, each label tries full size then smaller,
