@@ -232,3 +232,12 @@ export interface DistrictFile {
   markets: MarketCard[];
   annual?: DistrictAnnual;
 }
+
+/** stories.json (kad/stories.py): the history the animated stories replay. A stale source is null. */
+export interface StoryData {
+  drought: {
+    counties: string[];               // FIPS, in the order of each week's `map` string
+    weeks: { date: string; map: string; state?: DroughtLevels }[];   // map: one char per county, "-", "0"–"4" or "?"
+  } | null;
+  cotton: { seasons: { year: number; reports: { date: string; pct: number }[] }[] } | null;
+}

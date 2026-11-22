@@ -1,0 +1,71 @@
+---
+import Base from "../../layouts/Base.astro";
+import { href } from "../../lib/format";
+import { buildStories, storiesDescription } from "../../lib/stories";
+
+const built = buildStories().flatMap(({ story, featured }) => (story ? [{ story, featured }] : []));
+const featured = built.filter((b) => b.featured).map((b) => b.story);
+const rest = built.filter((b) => !b.featured).map((b) => b.story);
+const storyHref = (slug: string) => href("stories/" + slug + "/");
+---
+<Base title="Stories · Texas Ag Dashboard" description={storiesDescription} current="stories">
+  <header class="collection-heading">
+    <h1>Stories</h1>
+    <p class="lede">Press play to watch the numbers behind the dashboard change, one map, day or report at a time.</p>
+  </header>
+  {featured.map((story) => (
+    <section class="featured" aria-labelledby={"featured-" + story.slug}>
+      <div>
+        <p class="eyebrow">{story.topic} · {story.period}</p>
+        <h2 id={"featured-" + story.slug}><a href={storyHref(story.slug)}>{story.title}</a></h2>
+        <p>{story.description}</p>
+      </div>
+      {story.highlights.length > 0 && (
+        <dl class="featured-data" aria-label={story.metric}>
+          {story.highlights.map(({ label, value }) => <div><dt>{label}</dt><dd class="num">{value}</dd></div>)}
+        </dl>
+      )}
+    </section>
+  ))}
+  {rest.length > 0 && (
+    <section class="archive" aria-labelledby="archive-heading">
+      <h2 id="archive-heading">More stories</h2>
+      <div class="story-grid">
+        {rest.map((story) => (
+          <article>
+            <p class="eyebrow">{story.topic} · {story.period}</p>
+            <h3><a href={storyHref(story.slug)}>{story.title}</a></h3>
+            <p>{story.description}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  .collection-heading { margin-bottom: 1.5rem; }
+  .featured {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(1rem, 4vw, 3rem);
+    padding: clamp(1rem, 4vw, 2.5rem);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--paper-2);
+  }
+  .featured h2 { margin-top: 0; font-size: clamp(1.5rem, 3vw, 2.45rem); }
+  .featured + .featured { margin-top: 1rem; }
+  .archive { margin-top: 2rem; }
+  .featured p:last-child, .story-grid p:last-child { margin-bottom: 0; color: var(--ink-2); }
+  .featured-data { margin: 0; display: flex; flex-wrap: wrap; gap: .85rem 1.5rem; }
+  .featured-data dt { color: var(--ink-2); }
+  .featured-data dd { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); }
+  .story-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }
+  .story-grid article { border-top: 1px solid var(--rule); padding: 1rem 0; }
+  .story-grid h3 { font-family: var(--font-serif); font-size: 1.35rem; }
+  .featured a, .story-grid a { color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: .16em; }
+  .featured a:hover, .story-grid a:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
+  @media (max-width: 700px) { .featured { grid-template-columns: 1fr; } }
+</style>

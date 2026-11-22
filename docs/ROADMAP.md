@@ -24,12 +24,17 @@
   ([0022](decisions/0022-crop-pest-monitoring.md)).
 - Texas cotton harvest outlook with an estimate for the next USDA report and a public accuracy history
   ([0023](decisions/0023-texas-cotton-harvest-outlook.md)).
+- Stories: animated replays of two years of county drought maps, the cotton harvest race between seasons,
+  and five weeks of district rain ([0024](decisions/0024-animated-stories.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next
 - Data view (tables, methods, CSV / Parquet downloads).
 
 ## Later / maybe
+- More stories from data already in the store: 90 years of statewide reservoir storage (1933 on), Ogallala
+  well depths since 1992, the Brazos at Richmond since 1990, a year of feeder cattle prices, and Census
+  2017 → 2022 farm changes.
 - National context on the US map (drought, where Texas ranks per commodity).
 - Weekly digest (RSS / social) like ms-sound-check.
 - More districts' auctions if AMS adds Blacklands or East Texas markets. Hay prices (Texas Direct Hay 2707).

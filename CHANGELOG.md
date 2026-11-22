@@ -3,6 +3,12 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- New Stories section with animated replays. Watch two years of weekly Drought Monitor maps recolor every
+  Texas county, with chapters at the turning points. Race every Texas cotton harvest since 2021 with a
+  harvester in each season's lane. Watch three district rain gauges fill day by day through five weeks of
+  fall rain.
+- Fixed dark-mode drought colors: abnormally dry and moderate drought showed as green and exceptional
+  drought as purple. The scale now runs from amber through orange to red as intended.
 - About the data explains how to identify published figures, dashboard summaries, and dashboard forecasts.
   The cotton outlook links to its forecasting and scoring methods.
 - The cotton card labels the USDA report and shows the outlook in a separate inset with a scale for

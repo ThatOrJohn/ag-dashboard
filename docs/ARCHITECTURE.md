@@ -70,6 +70,7 @@ The build writes a region-wide file and one file per district under `web/public/
 | --- | --- |
 | `latest.json` | Build date, source metadata and freshness, failed source keys, Texas indicators and headlines, statewide reservoir storage, persona settings, district summaries, markets, and county conditions keyed by FIPS. |
 | `districts/<slug>.json` | District summary and drought history, weather strip, year-to-date rain, local water indicators where configured, county cards with annual details, district annual rollups, and relevant markets. |
+| `stories.json` | History the animated stories replay: each county's Drought Monitor category for the last 104 weekly maps (one character per county) with the official statewide percentages, and statewide cotton harvest reports by season. A stale source's entry is `null`. [Story data](../kad/stories.py) |
 
 ## From JSON to pages
 
@@ -78,12 +79,22 @@ The build writes a region-wide file and one file per district under `web/public/
 | [`/`](../web/src/pages/index.astro) | Texas overview, county map, weekly figures, and statewide context including reservoir storage. The overview links to one alphabetical comparison table with a link to every district. |
 | [`/district/<slug>/`](../web/src/pages/district/%5Bslug%5D.astro) | District conditions, configured water indicators, and annual figures. The **On this page** links below the overview reflect the sections available for that district and snapshot. Map links target `#c-<fips>` and open the county's expandable card on the district page. |
 | [`/for/<persona>/`](../web/src/pages/for/%5Bpersona%5D.astro) | The same published data, with cards selected and ordered by the persona's `card_order` in the region YAML. |
+| [`/stories/`](../web/src/pages/stories/index.astro) | Every story this build supports. Featured stories (the drought replay always, cotton when its pace differs from average) come first as large cards. |
+| [`/stories/<slug>/`](../web/src/pages/stories/%5Bslug%5D.astro) | An animated story with chapters, source notes, a values table and links to the relevant dashboard pages, or a short fallback when its data is stale. |
 | [`/about/`](../web/src/pages/about.astro) | Publisher credits, source dates, required notices, how dashboard summaries are calculated, and how the cotton outlook is made and scored. The outlook card links directly to the forecast method. |
 | [`/og/<name>.png`](../web/src/pages/og/%5Bname%5D.png.ts) | Build-time social previews, rendered with Satori and Sharp and referenced by page metadata. |
 
 `Base.astro` owns shared navigation, metadata, the theme toggle, and the footer notice. `AsOf.astro` pairs figures with source and date labels, while `format.ts` owns display units and base-aware links. Components render maps and charts as SVG, with small browser scripts for interactions such as chart readouts and opening county cards. The theme and data colors live in `tokens.css`. [Shared layout](../web/src/layouts/Base.astro) · [As-of component](../web/src/components/AsOf.astro) · [Formatting](../web/src/lib/format.ts) · [Design tokens](../web/src/styles/tokens.css)
 
 The district weather strip lists the dates for unreported conditions and the forecast in a wrapping chart key. The plot uses patterns and shading to mark those dates, with pending rain marked only on days without an estimate. Hover or tap for a day's readout, or open the daily values table below the plot. [Weather strip](../web/src/components/WeatherStrip.astro)
+
+Stories are registered in one list. Each entry has a stable slug, a builder that returns a story or `null` from `latest.json` and `stories.json`, a fallback page, and a featured rule. A story is a list of frames (one per map week, day or calendar week) with values for its table, a visual kind, a frame duration, and chapters. Playback pauses on each chapter so its caption can be read, and each frame's caption is the latest chapter's narration. [Story registry](../web/src/lib/stories/index.ts) · [Story player](../web/src/components/StoryPlayer.astro)
+
+- **Drought replay** recolors every county on each of the 104 weekly maps beside a statewide timeline that scrubs the story. Its chapters come from the data on each build: the start, the least and most drought, the fastest six-week spread, turning points of 25 points or more, and the latest map. [Drought story](../web/src/lib/stories/drought.ts) · [Flipbook](../web/src/components/story/DroughtFlipbook.astro)
+- **Cotton harvest race** gives each season a field lane, with a harvester at that season's newest report on or before the same calendar day. Lanes holding at an older report say so, and long gaps in a past season's reports get their own chapter. The story is featured, with an ahead or behind title, when a fresh in-season report is 20–95% harvested and at least five points from the five-year average. [Cotton story](../web/src/lib/stories/cotton.ts) · [Race](../web/src/components/story/HarvestRace.astro)
+- **Five weeks of rain** is archived. It keeps the daily district averages from the Nov. 21, 2026 build with its captions, so it stays the same as the weather strip rolls forward. Rain gauges fill to the running totals, with falling drops scaled to each day's rain. [Rain story](../web/src/lib/stories/rain.ts) · [Gauges](../web/src/components/story/RainGauges.astro)
+
+Astro renders the first frame, the takeaway and the full table, so a story reads without JavaScript. Decorative motion stops under reduced motion. [Decision 0024](decisions/0024-animated-stories.md)
 
 ## CI, deployment, and health
 

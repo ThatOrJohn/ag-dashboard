@@ -1,0 +1,260 @@
+---
+// The shared story player: date, caption, playback, chapters and the values table. The animation itself is
+// one of the components in ./story/, chosen by the story's visual kind; each listens for "storyframe" events.
+// Without JavaScript the first frame, the takeaway and the full table still render.
+import { href } from "../lib/format";
+import { chapterHoldMs, formatStoryValue, type Story } from "../lib/stories/model";
+import type { Latest } from "../lib/types";
+import DroughtFlipbook from "./story/DroughtFlipbook.astro";
+import HarvestRace from "./story/HarvestRace.astro";
+import RainGauges from "./story/RainGauges.astro";
+
+interface Props {
+  story: Story;
+  latest: Latest;
+}
+
+const { story, latest } = Astro.props;
+const frames = story.frames.map(({ label, date, caption, values }) => ({
+  label, date, caption, text: values.map((v, i) => formatStoryValue(v, story.series[i].unit)),
+}));
+const config = {
+  frames, names: story.series.map(({ name }) => name), frameMs: story.frameMs, holdMs: chapterHoldMs,
+  chapters: story.chapters.map(({ frame }) => frame),
+};
+const first = frames[0];
+const source = latest.sources[story.source];
+const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name }] : []);
+---
+<div class={"story-stage kind-" + story.visual.kind} id="story-player" data-story={JSON.stringify(config)}>
+  {story.visual.kind === "drought" && <DroughtFlipbook story={story} latest={latest} />}
+  {story.visual.kind === "rain" && <RainGauges story={story} />}
+  {story.visual.kind === "harvest" && <HarvestRace story={story} />}
+  <section class="story-panel" aria-labelledby="story-metric">
+    <time class="story-date" data-story-date datetime={first.date} hidden={!first.date}>{first.date && first.label}</time>
+    <span class="story-date" data-story-label hidden={!!first.date}>{!first.date && first.label}</span>
+    <h2 id="story-metric">{story.metric}</h2>
+    <p class="story-caption" data-story-caption>{first.caption}</p>
+    <p class="sr-only" role="status" data-story-announcement></p>
+  </section>
+  <div class="story-controls" data-story-controls hidden>
+    <div class="timeline">
+      <button class="play" type="button" data-story-play>
+        <svg class="i-play" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor" /></svg>
+        <svg class="i-pause" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h3v11H3zM8 1.5h3v11H8z" fill="currentColor" /></svg>
+        <span data-story-play-text>Play</span>
+      </button>
+      <label>{story.frameLabel}
+        <input type="range" min="0" max={frames.length - 1} step="1" value="0" aria-valuetext={first.label} data-story-slider />
+      </label>
+    </div>
+    <div class="chapters" role="group" aria-label="Story chapters">
+      {story.chapters.map(({ frame, label }) => (
+        <button type="button" data-story-week={frame} aria-pressed={frame === 0 ? "true" : "false"}>{label}</button>
+      ))}
+    </div>
+  </div>
+</div>
+<p class="asof">{story.method} {source?.url && <>Source data from <a href={source.url}>{source.name}</a>.</>}</p>
+<section class="story-takeaway" aria-labelledby="story-takeaway">
+  <h2 id="story-takeaway">{story.takeaway.title}</h2>
+  <p>{story.takeaway.text}</p>
+  <details class="story-table">
+    <summary>See all figures</summary>
+    <div class="table-wrap">
+      <table>
+        <caption class="sr-only">{story.metric}</caption>
+        <thead><tr><th scope="col">{story.frameLabel}</th>{story.series.map(({ name }) => <th scope="col" class="n">{name}</th>)}</tr></thead>
+        <tbody>
+          {frames.map(({ date, label, text }) => (
+            <tr>
+              <th scope="row">{date ? <time datetime={date}>{label}</time> : label}</th>
+              {text.map((t) => <td class="n">{t}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {districts.length > 0 && (
+    <nav class="personas" aria-label="Current district conditions">
+      <h3>See current district conditions</h3>
+      <ul>{districts.map(({ slug, name }) => <li><a href={href("district/" + slug + "/")}>{name}</a></li>)}</ul>
+    </nav>
+  )}
+  {story.related && <p><a href={href(story.related.href)}>{story.related.label}</a></p>}
+</section>
+
+<script>
+  interface Config {
+    frames: { label: string; date?: string; caption: string; text: string[] }[];
+    names: string[];
+    frameMs: number;
+    holdMs: number;
+    chapters: number[];
+  }
+
+  const player = document.getElementById("story-player")!;
+  const { frames, names, frameMs, holdMs, chapters: chapterFrames }: Config = JSON.parse(player.dataset.story!);
+  const q = <T extends HTMLElement>(s: string) => player.querySelector<T>(s)!;
+  const controls = q("[data-story-controls]");
+  const play = q<HTMLButtonElement>("[data-story-play]");
+  const playText = q("[data-story-play-text]");
+  const slider = q<HTMLInputElement>("[data-story-slider]");
+  const date = q<HTMLTimeElement>("[data-story-date]");
+  const label = q("[data-story-label]");
+  const caption = q("[data-story-caption]");
+  const announcement = q("[data-story-announcement]");
+  const chapters = player.querySelectorAll<HTMLButtonElement>("[data-story-week]");
+  const lastFrame = frames.length - 1;
+  let frame = 0;
+  let timer: number | undefined;
+
+  function render(index: number) {
+    frame = Math.max(0, Math.min(lastFrame, index));
+    const next = frames[frame];
+    date.hidden = !next.date;
+    if (next.date) {
+      date.dateTime = next.date;
+      date.textContent = next.label;
+    }
+    label.hidden = !!next.date;
+    label.textContent = next.label;
+    if (caption.textContent !== next.caption) caption.textContent = next.caption;
+    slider.valueAsNumber = frame;
+    slider.setAttribute("aria-valuetext", next.label);
+    chapters.forEach((c) => c.setAttribute("aria-pressed", String(Number(c.dataset.storyWeek) === frame)));
+    player.dispatchEvent(new CustomEvent("storyframe", { detail: { index: frame, playing: timer !== undefined } }));
+  }
+
+  function announce() {
+    const current = frames[frame];
+    const summary = current.text.map((t, i) => names[i] + " " + t);
+    announcement.textContent = current.label + ". " + summary.join(", ") + ". " + current.caption;
+  }
+
+  function setPlaying(on: boolean) {
+    player.classList.toggle("is-playing", on);
+    playText.textContent = on ? "Pause" : frame === lastFrame ? "Replay" : "Play";
+    play.classList.toggle("playing", on);
+  }
+
+  function pause() {
+    window.clearTimeout(timer);
+    timer = undefined;
+    setPlaying(false);
+  }
+
+  function seek(index: number) {
+    window.clearTimeout(timer);
+    timer = undefined;
+    render(index);
+    setPlaying(false);
+    announce();
+  }
+
+  function schedule() {
+    timer = window.setTimeout(() => {
+      render(frame + 1);
+      if (frame === lastFrame) {
+        pause();
+        announce();
+        return;
+      }
+      if (chapterFrames.includes(frame)) announce();
+      schedule();
+    }, chapterFrames.includes(frame) && frame !== 0 ? holdMs : frameMs);
+  }
+
+  play.addEventListener("click", () => {
+    if (timer !== undefined) {
+      pause();
+      announce();
+      return;
+    }
+    if (frame === lastFrame) render(0);
+    timer = -1;   // marks playback as started so render() reports playing, before the first tick
+    setPlaying(true);
+    render(frame);
+    schedule();
+  });
+  slider.addEventListener("input", () => seek(slider.valueAsNumber));
+  chapters.forEach((c) => c.addEventListener("click", () => seek(Number(c.dataset.storyWeek))));
+  player.addEventListener("storyseek", (e) => seek((e as CustomEvent<number>).detail));
+  controls.hidden = false;
+</script>
+
+<style>
+  .story-stage {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--paper);
+  }
+  /* Each visual's parts join this grid directly (display: contents) and are placed by area. */
+  .story-stage.kind-drought {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto auto;
+    grid-template-areas: "map panel" "map readout" "timeline timeline" "controls controls";
+  }
+  .story-stage.kind-rain, .story-stage.kind-harvest {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "panel" "visual" "controls";
+  }
+  .story-panel { grid-area: panel; padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 2rem) .5rem; }
+  .story-date { display: block; font-family: var(--font-mono); font-size: clamp(1.05rem, 2vw, 1.3rem); color: var(--ink); }
+  .story-date[hidden] { display: none; }
+  .story-panel h2 { margin: .25rem 0 .6rem; font-size: clamp(1.15rem, 2.2vw, 1.5rem); }
+  .story-caption { min-height: 3lh; margin: 0; color: var(--ink-2); max-width: 42rem; }
+  .story-controls:not([hidden]) {
+    grid-area: controls;
+    display: grid;
+    gap: .75rem;
+    padding: .75rem clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 1.5rem);
+    border-top: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .timeline { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .9rem; align-items: center; }
+  .timeline label { display: grid; color: var(--ink-2); font-size: .85rem; }
+  .timeline input { width: 100%; height: 2.75rem; margin: 0; accent-color: var(--accent); }
+  .story-controls button {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    min-height: 44px;
+    padding: .45rem .8rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink-2);
+    cursor: pointer;
+    font: inherit;
+    font-size: .9rem;
+  }
+  .story-controls button:hover { border-color: var(--accent); }
+  .story-controls .play { min-width: 6.5rem; justify-content: center; font-weight: 600; }
+  .story-controls .play, .story-controls button[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-tint);
+    color: var(--accent-ink);
+  }
+  .play .i-pause, .play.playing .i-play { display: none; }
+  .play.playing .i-pause { display: inline; }
+  .chapters { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .story-takeaway { max-width: 48rem; }
+  .story-table { margin: 1.25rem 0; border-block: 1px solid var(--rule); }
+  .story-table summary { padding: .7rem 0; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+  .story-table table { margin-bottom: .75rem; }
+  .story-table th.n { font-family: inherit; }
+  .story-table td, .story-table th { padding-inline: clamp(.25rem, 1.25vw, .5rem); }
+  @media (max-width: 760px) {
+    .story-stage.kind-drought {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: none;
+      grid-template-areas: "panel" "map" "readout" "timeline" "controls";
+    }
+    .story-caption { min-height: 4lh; }
+  }
+</style>

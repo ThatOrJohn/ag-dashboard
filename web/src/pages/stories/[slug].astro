@@ -1,0 +1,33 @@
+---
+import type { GetStaticPaths } from "astro";
+import StoryPlayer from "../../components/StoryPlayer.astro";
+import Base from "../../layouts/Base.astro";
+import { loadLatest } from "../../lib/data";
+import { href } from "../../lib/format";
+import { buildStories, type BuiltStory } from "../../lib/stories";
+
+export const getStaticPaths = (() => buildStories().map((built) => ({ params: { slug: built.slug }, props: { built } }))) satisfies GetStaticPaths;
+
+interface Props { built: BuiltStory }
+const { story, fallback } = Astro.props.built;
+const latest = loadLatest();
+const title = story?.title ?? fallback.title;
+---
+<Base title={title + " · Stories · Texas Ag Dashboard"} description={story?.description ?? fallback.description} current="stories" shareImage={"story-" + Astro.params.slug}>
+  <article>
+    <a class="story-back" href={href("stories/")}>All stories</a>
+    <header class="story-heading">
+      <span class="eyebrow">{story ? story.topic + " · " + story.period : fallback.topic}</span>
+      <h1>{title}</h1>
+      {story && <p class="lede">{story.description}</p>}
+    </header>
+    {story
+      ? <StoryPlayer story={story} latest={latest} />
+      : <p>{fallback.description} Follow the latest figures on the <a href={href(fallback.related.href)}>{fallback.related.label}</a>.</p>}
+  </article>
+</Base>
+
+<style>
+  .story-back { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: .75rem; }
+  .story-heading { margin-bottom: 1.5rem; }
+</style>

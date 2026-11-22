@@ -1,9 +1,10 @@
 // One share image per page, rebuilt with the data every run: og/index.png (Texas), og/district-<slug>.png,
-// og/for-<persona>.png and og/about.png. Base.astro points og:image at them.
+// og/for-<persona>.png, og/stories.png, og/story-<slug>.png and og/about.png.
 import type { APIRoute, GetStaticPaths } from "astro";
 import { loadLatest } from "../../lib/data";
 import { day } from "../../lib/format";
 import { render, type Card } from "../../lib/og";
+import { buildStories, storiesDescription } from "../../lib/stories";
 import type { Headline } from "../../lib/types";
 
 export const getStaticPaths = (() => {
@@ -12,6 +13,10 @@ export const getStaticPaths = (() => {
     { params: { name: "index" }, props: { kind: "texas" } },
     ...L.districts.map((d) => ({ params: { name: `district-${d.slug}` }, props: { kind: "district", id: d.slug } })),
     ...L.personas.map((p) => ({ params: { name: `for-${p.id}` }, props: { kind: "persona", id: p.id } })),
+    { params: { name: "stories" }, props: { kind: "stories" } },
+    ...buildStories().map(({ slug }) => ({
+      params: { name: "story-" + slug }, props: { kind: "story", id: slug },
+    })),
     { params: { name: "about" }, props: { kind: "about" } },
   ];
 }) satisfies GetStaticPaths;
@@ -28,6 +33,12 @@ export const GET: APIRoute = async ({ props }) => {
   } else if (props.kind === "persona") {
     const p = L.personas.find((x) => x.id === props.id)!;
     card = { eyebrow: "This week", title: `${p.name}: Texas this week`, sentence: drought(L.texas.headline), credit };
+  } else if (props.kind === "stories") {
+    card = { eyebrow: "Explainers", title: "Texas Ag Stories", sentence: storiesDescription };
+  } else if (props.kind === "story") {
+    const built = buildStories().find(({ slug }) => slug === props.id)!;
+    const story = built.story ?? built.fallback;
+    card = { eyebrow: "Stories", title: story.title, sentence: story.description };
   } else if (props.kind === "about") {
     card = { eyebrow: "About", title: "About the data",
       sentence: "Where every figure comes from, how district totals are computed, and what I don't claim." };

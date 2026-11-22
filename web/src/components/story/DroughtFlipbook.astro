@@ -1,0 +1,194 @@
+---
+// Drought story visual: all Texas counties recolored on each weekly map, a readout, and a two-year timeline
+// of the statewide share that doubles as a scrubber. D3 and D4 counties are hatched so the worst categories
+// read without color; the readout and the table carry every figure in text.
+import { DROUGHT_NAMES } from "../../lib/format";
+import { countyPaths } from "../../lib/geo";
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+import type { Latest } from "../../lib/types";
+
+interface Props { story: Story; latest: Latest }
+const { story, latest } = Astro.props;
+if (story.visual.kind !== "drought") throw new Error("DroughtFlipbook needs a drought story");
+const { fips, maps } = story.visual;
+
+const districtOf = (f: string) => latest.counties[f]?.district ?? "";
+const W = 520, H = 500;
+const { counties, borders } = countyPaths(null, W, H, districtOf);
+const index = new Map(fips.map((f, i) => [f, i]));
+const cls = (c: string) => (c === "-" ? "f-none" : c === "?" ? "f-unavailable" : "f-d" + c);
+const first = maps[0];
+const firstValues = story.frames[0].values;
+
+// Timeline: statewide D1+ and D3+ share by week, 0–100%.
+const TW = 720, TH = 150, PAD = { l: 34, r: 10, t: 12, b: 24 };
+const n = story.frames.length;
+const x = (i: number) => PAD.l + (i / Math.max(1, n - 1)) * (TW - PAD.l - PAD.r);
+const y = (v: number) => PAD.t + (1 - v / 100) * (TH - PAD.t - PAD.b);
+const area = (k: number) => {
+  const pts = story.frames.map(({ values }, i) => `${x(i).toFixed(1)},${y(values[k] ?? 0).toFixed(1)}`);
+  return `M${x(0).toFixed(1)},${y(0)}L${pts.join("L")}L${x(n - 1).toFixed(1)},${y(0)}Z`;
+};
+const line = (k: number) => "M" + story.frames.map(({ values }, i) => `${x(i).toFixed(1)},${y(values[k] ?? 0).toFixed(1)}`).join("L");
+const years = story.frames.flatMap(({ date }, i) => date && i > 0 && date.slice(0, 4) !== story.frames[i - 1].date?.slice(0, 4)
+  ? [{ i, year: date.slice(0, 4) }] : []);
+const xs = story.frames.map((_, i) => Number(x(i).toFixed(1)));
+const legend = [
+  { cls: "f-none", label: "None", hatch: 0 },
+  ...DROUGHT_NAMES.map((name, i) => ({ cls: "f-d" + i, label: `D${i} ${name.toLowerCase()}`, hatch: i >= 3 ? i : 0 })),
+];
+---
+<div class="dflip" data-maps={JSON.stringify(maps)} data-xs={JSON.stringify(xs)}>
+  <figure class="dflip-map">
+    <svg viewBox={`-4 -4 ${W + 8} ${H + 8}`} role="img" aria-labelledby="dflip-title">
+      <title id="dflip-title">Texas counties colored by drought category on the map week shown above. Every week's statewide figures are in the table below.</title>
+      <defs>
+        <pattern id="dflip-h3" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line class="hatch-line" x1="0" y1="0" x2="0" y2="6" />
+        </pattern>
+        <pattern id="dflip-h4" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line class="hatch-line" x1="0" y1="0" x2="0" y2="4" /><line class="hatch-line" x1="0" y1="0" x2="4" y2="0" />
+        </pattern>
+      </defs>
+      <g class="dflip-counties">
+        {counties.map(({ fips: f, d }) => {
+          const i = index.get(f) ?? -1;
+          return <g class={cls(i < 0 ? "?" : first[i])} data-i={i}><path id={"dfc-" + f} d={d} /></g>;
+        })}
+      </g>
+      <g class="dflip-hatch" aria-hidden="true">
+        {counties.map(({ fips: f }) => {
+          const i = index.get(f) ?? -1;
+          const c = i < 0 ? "" : first[i];
+          return <use href={"#dfc-" + f} data-i={i} class={c === "3" || c === "4" ? "h" + c : ""} />;
+        })}
+      </g>
+      <path class="dflip-borders" d={borders} />
+    </svg>
+  </figure>
+  <div class="dflip-readout">
+    <p class="dflip-big"><span class="num" data-dflip-d1>{formatStoryValue(firstValues[0], "percent")}</span> of Texas in moderate drought or worse</p>
+    <p class="dflip-sub"><span class="num" data-dflip-d3>{formatStoryValue(firstValues[1], "percent")}</span> in extreme or exceptional drought · <span class="num" data-dflip-n>{firstValues[2]}</span> counties mostly D3–D4</p>
+    <ul class="dlegend dflip-legend" aria-label="Map key">
+      {legend.map(({ cls: c, label, hatch }) => (
+        <li><svg width="14" height="14" aria-hidden="true"><rect class={c} width="14" height="14" rx="2" />{hatch ? <rect width="14" height="14" fill={`url(#dflip-h${hatch})`} /> : null}</svg>{label}</li>
+      ))}
+    </ul>
+  </div>
+  <figure class="dflip-timeline">
+    <svg viewBox={`0 0 ${TW} ${TH}`} aria-hidden="true" data-dflip-track>
+      {[0, 50, 100].map((v) => (
+        <g><line class="grid" x1={PAD.l} x2={TW - PAD.r} y1={y(v)} y2={y(v)} /><text class="tick" x={PAD.l - 6} y={y(v) + 4} text-anchor="end">{v}%</text></g>
+      ))}
+      {years.map(({ i, year }) => (
+        <g><line class="year" x1={x(i)} x2={x(i)} y1={PAD.t} y2={TH - PAD.b} /><text class="tick" x={x(i) + 4} y={TH - 8}>{year}</text></g>
+      ))}
+      <path class="a-d1" d={area(0)} />
+      <path class="l-d1" d={line(0)} />
+      <path class="a-d3" d={area(1)} />
+      {story.chapters.map(({ frame }) => <circle class="chapter" cx={x(frame)} cy={y(story.frames[frame].values[0] ?? 0)} r="4" />)}
+      <g class="cursor" data-dflip-cursor style={{ transform: `translateX(${xs[0] - xs[0]}px)` }}>
+        <line x1={xs[0]} x2={xs[0]} y1={PAD.t - 4} y2={TH - PAD.b} />
+        <circle cx={xs[0]} cy={y(firstValues[0] ?? 0)} r="5" data-dflip-dot />
+      </g>
+    </svg>
+    <figcaption class="dflip-key">
+      <span><i class="k-d1"></i>Moderate or worse (D1–D4)</span>
+      <span><i class="k-d3"></i>Extreme or worse (D3–D4)</span>
+      <span class="muted">Share of Texas, each weekly map · tap to jump</span>
+    </figcaption>
+  </figure>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const root = player?.querySelector<HTMLElement>(".dflip");
+  if (player && root) {
+    const maps: string[] = JSON.parse(root.dataset.maps!);
+    const xs: number[] = JSON.parse(root.dataset.xs!);
+    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const groups = [...root.querySelectorAll<SVGGElement>(".dflip-counties g")];
+    const hatches = [...root.querySelectorAll<SVGUseElement>(".dflip-hatch use")];
+    const d1 = root.querySelector<HTMLElement>("[data-dflip-d1]")!;
+    const d3 = root.querySelector<HTMLElement>("[data-dflip-d3]")!;
+    const count = root.querySelector<HTMLElement>("[data-dflip-n]")!;
+    const cursor = root.querySelector<SVGGElement>("[data-dflip-cursor]")!;
+    const dot = root.querySelector<SVGCircleElement>("[data-dflip-dot]")!;
+    const track = root.querySelector<SVGSVGElement>("[data-dflip-track]")!;
+    const fill = (c: string | undefined) => (c === undefined || c === "?" ? "f-unavailable" : c === "-" ? "f-none" : "f-d" + c);
+    // Timeline y for the D1+ line, read from the frame's text value (percent).
+    const yOf = (pct: number) => 12 + (1 - pct / 100) * (150 - 12 - 24);
+
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      const map = maps[index];
+      groups.forEach((g) => {
+        const c = map[Number(g.dataset.i)];
+        const next = fill(c);
+        if (g.getAttribute("class") !== next) g.setAttribute("class", next);
+      });
+      hatches.forEach((u) => {
+        const c = map[Number(u.dataset.i)];
+        u.setAttribute("class", c === "3" || c === "4" ? "h" + c : "");
+      });
+      const [a, b, n] = frames[index].text;
+      d1.textContent = a;
+      d3.textContent = b;
+      count.textContent = n;
+      cursor.style.transform = `translateX(${xs[index] - xs[0]}px)`;
+      dot.setAttribute("cy", String(yOf(parseFloat(a))));
+    });
+
+    // Tap or drag on the timeline to jump to the nearest week.
+    const jump = (ev: PointerEvent) => {
+      const box = track.getBoundingClientRect();
+      const vx = ((ev.clientX - box.left) / box.width) * 720;
+      let best = 0;
+      xs.forEach((v, i) => { if (Math.abs(v - vx) < Math.abs(xs[best] - vx)) best = i; });
+      player.dispatchEvent(new CustomEvent("storyseek", { detail: best }));
+    };
+    track.addEventListener("pointerdown", (ev) => { jump(ev); track.setPointerCapture(ev.pointerId); });
+    track.addEventListener("pointermove", (ev) => { if (track.hasPointerCapture(ev.pointerId)) jump(ev); });
+  }
+</script>
+
+<style>
+  .dflip { display: contents; }
+  .dflip-map { grid-area: map; margin: 0; padding: clamp(.75rem, 2.5vw, 1.75rem); background: var(--paper-2); display: grid; align-content: center; }
+  .dflip-map svg { display: block; width: 100%; max-width: 34rem; height: auto; margin-inline: auto; }
+  .dflip-counties g { transition: fill .18s linear; }
+  .dflip-counties path { stroke: var(--paper-2); stroke-width: .45; }
+  .dflip-counties .f-unavailable { fill: var(--paper-3); }
+  .dflip-hatch use { display: none; pointer-events: none; }
+  .dflip-hatch use.h3 { display: inline; fill: url(#dflip-h3); }
+  .dflip-hatch use.h4 { display: inline; fill: url(#dflip-h4); }
+  .dflip .hatch-line { stroke: var(--paper); stroke-width: 1.5; }
+  .dflip-borders { fill: none; stroke: var(--ink); stroke-opacity: .55; stroke-width: .8; stroke-linejoin: round; pointer-events: none; }
+
+  .dflip-readout { grid-area: readout; padding: .25rem clamp(1rem, 3vw, 2rem) 1.25rem; align-self: start; }
+  .dflip-big { margin: 0 0 .35rem; font-size: 1rem; color: var(--ink-2); }
+  .dflip-big .num { display: block; font-family: var(--font-serif); font-size: clamp(3rem, 7vw, 4.75rem); line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .dflip-sub { color: var(--ink-2); font-size: .95rem; }
+  .dflip-sub .num { color: var(--ink); font-weight: 600; }
+  .dflip-legend { margin-top: .75rem; }
+  .dflip-legend svg { flex: none; }
+  .dflip-legend rect:first-child { stroke: var(--rule); }
+
+  .dflip-timeline { grid-area: timeline; margin: 0; padding: .75rem clamp(1rem, 3vw, 2rem) .5rem; border-top: 1px solid var(--rule); }
+  .dflip-timeline svg { display: block; width: 100%; height: auto; cursor: pointer; touch-action: pan-y; }
+  .dflip-timeline .grid { stroke: var(--rule-2); stroke-width: 1; }
+  .dflip-timeline .year { stroke: var(--rule); stroke-dasharray: 3 3; }
+  .dflip-timeline .tick { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-3); }
+  .a-d1 { fill: var(--dm-1); opacity: .55; }
+  .l-d1 { fill: none; stroke: color-mix(in oklab, var(--amber) 70%, var(--ink)); stroke-width: 2; stroke-linejoin: round; }
+  .a-d3 { fill: var(--dm-3); opacity: .8; }
+  .chapter { fill: var(--paper); stroke: var(--ink-2); stroke-width: 1.5; }
+  .cursor { transition: transform .18s linear; }
+  .cursor line { stroke: var(--accent); stroke-width: 2; }
+  .cursor circle { fill: var(--accent); stroke: var(--paper); stroke-width: 2; transition: cy .18s linear; }
+  .dflip-key { display: flex; flex-wrap: wrap; gap: .25rem 1rem; font-size: .8rem; color: var(--ink-2); margin-top: .35rem; }
+  .dflip-key span { display: inline-flex; align-items: center; gap: .4rem; }
+  .dflip-key i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+  .k-d1 { background: color-mix(in oklab, var(--dm-1) 55%, var(--paper)); border-top: 2px solid color-mix(in oklab, var(--amber) 70%, var(--ink)); }
+  .k-d3 { background: var(--dm-3); }
+</style>

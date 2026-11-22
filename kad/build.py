@@ -2,6 +2,7 @@
 
   web/public/data/<region>/latest.json             sources + freshness, Texas digest, every county's card
   web/public/data/<region>/districts/<slug>.json   every district: counties, drought history, markets
+  web/public/data/<region>/stories.json            history the animated stories replay (stories.py)
 
 Rules (CLAUDE.md):
 - A source past its max age is `stale`, and its sections carry no numbers (the site hides them).
@@ -18,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from . import annual_build as ab
-from . import harvest, headline, normals, store, water
+from . import harvest, headline, normals, store, stories, water
 from .adapters.ams import SHEEP_GOAT_SERIES
 from .config import SITE_OUT, Region
 
@@ -503,7 +504,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     drought_ok = fresh.mark("usdm", map_date)
 
     # NASS
-    fresh.mark("nass", nass["date"].max() if not nass.empty else None)
+    nass_ok = fresh.mark("nass", nass["date"].max() if not nass.empty else None)
     crops = {}
     for crop in CROPS:
         crops[crop] = {"progress": progress_card(region, nass, crop, asof_ts),
@@ -642,6 +643,8 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     out = SITE_OUT / region.id
     (out / "districts").mkdir(parents=True, exist_ok=True)
     (out / "latest.json").write_text(json.dumps(latest, separators=(",", ":")))
+    story_data = stories.site_data(region, w_all, nass, drought_ok=drought_ok, nass_ok=nass_ok)
+    (out / "stories.json").write_text(json.dumps(story_data, separators=(",", ":")))
 
     for d in region.districts:
         d_area = {c.fips: c.land_sqmi for c in region.counties_in(d["slug"])}

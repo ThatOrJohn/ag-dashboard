@@ -9,8 +9,9 @@ interface Props {
   title: string;
   description: string;
   current?: "texas" | "about" | string;
+  shareImage?: string;
 }
-const { title, description, current } = Astro.props;
+const { title, description, current, shareImage } = Astro.props;
 const latest = loadLatest();
 const canonical = new URL(Astro.url.pathname, Astro.site);
 // When the pipeline last fetched anything: the newest source pull, not the build time.
@@ -18,8 +19,8 @@ const lastPull = Object.values(latest.sources).map((s) => s.fetched_at).filter((
 const homes = latest.districts.filter((d) => d.home);
 const others = latest.districts.filter((d) => !d.home);
 // Share image per page (src/pages/og/[name].png.ts). The build stamp in the query keeps share caches honest.
-const ogName = current === "about" ? "about" : current?.startsWith("for-") ? current
-  : latest.districts.some((d) => d.slug === current) ? `district-${current}` : "index";
+const ogName = shareImage ?? (current === "about" || current === "stories" || current?.startsWith("for-") ? current
+  : latest.districts.some((d) => d.slug === current) ? `district-${current}` : "index");
 const ogUrl = `${new URL(href(`og/${ogName}.png`), Astro.site)}?v=${latest.generated_at.replace(/\D/g, "").slice(0, 12)}`;
 // Theme rule: no stored value follows the system; a stored "light" or "dark" overrides it.
 const THEME_INIT =
@@ -76,7 +77,8 @@ const THEME_INIT =
               ))}
             </div>
           </details>
-          <a href={href("about/")} aria-current={current === "about" ? "page" : undefined}>About the data</a>
+          <a href={href("stories/")} aria-current={current === "stories" ? "page" : undefined}>Stories</a>
+          <a href={href("about/")} aria-current={current === "about" ? "page" : undefined}>About<span class="about-detail"> the data</span></a>
           <button type="button" id="theme-toggle" aria-label="Switch color theme">
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5" /><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" /></svg>
           </button>

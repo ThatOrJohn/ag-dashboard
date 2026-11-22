@@ -13,23 +13,25 @@
   --inset: max(16px, calc(5vw - 10px), calc((100% - var(--measure)) / 2));
   --radius: 8px;
 
-  /* Drought Monitor scale, D0 → D4, mixed from the tokens. Map fills only; text always says the category. */
+  /* Drought Monitor scale, D0 → D4, mixed from the tokens. Map fills only; text always says the category.
+     Mixed in oklab: oklch would interpolate hue between amber or red and the blue-gray neutrals, turning D0/D1
+     green and D4 purple. */
   --dm-none: var(--paper-2);
   --dm-0: var(--amber-tint);
-  --dm-1: color-mix(in oklch, var(--amber) 55%, var(--amber-tint));
+  --dm-1: color-mix(in oklab, var(--amber) 55%, var(--amber-tint));
   --dm-2: var(--orange);
   --dm-3: var(--danger);
-  --dm-4: color-mix(in oklch, var(--danger) 60%, var(--ink) 40%);
+  --dm-4: color-mix(in oklab, var(--danger) 60%, var(--ink) 40%);
 }
 /* Dark: D0-D3 get brighter with severity (dim amber → amber → orange → danger red) so they read in order on a
    dark page; D4 is a deeper red, as on the Drought Monitor's own map, and its dense cross-hatch keeps it
    distinct from D3 without relying on color. */
 .dark {
-  --dm-0: color-mix(in oklch, var(--amber) 35%, var(--paper-2));
-  --dm-1: color-mix(in oklch, var(--amber) 70%, var(--paper-2));
+  --dm-0: color-mix(in oklab, var(--amber) 35%, var(--paper-2));
+  --dm-1: color-mix(in oklab, var(--amber) 70%, var(--paper-2));
   --dm-2: var(--orange);
   --dm-3: var(--danger);
-  --dm-4: color-mix(in oklch, var(--danger) 72%, var(--paper) 28%);
+  --dm-4: color-mix(in oklab, var(--danger) 72%, var(--paper) 28%);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -72,6 +74,7 @@ p { margin: 0 0 .8em; }
 .brand .section { font-family: var(--font-mono); font-size: .8rem; color: var(--ink-2); border-left: 1px solid var(--rule); padding-left: 10px; }
 .nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .nav a, .nav button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; color: var(--ink-2); text-decoration: none; border-radius: var(--radius); font: inherit; font-size: .95rem; }
+.nav .about-detail { white-space: pre; }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
 .nav a:hover, .nav button:hover { background: var(--paper-2); color: var(--ink); }
 .nav button { background: none; border: 0; cursor: pointer; min-width: 44px; justify-content: center; }
@@ -84,11 +87,19 @@ p { margin: 0 0 .8em; }
 .nav-menu summary:hover { background: var(--paper-2); color: var(--ink); }
 .nav-menu-list { position: absolute; left: 0; top: 100%; z-index: 5; display: flex; flex-direction: column; min-width: 200px;
   background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 4px; }
+@media (min-width: 1101px) {
+  .nav { gap: 2px; }
+  .nav a, .nav-menu summary { padding-inline: 8px; }
+}
 @media (max-width: 1100px) {
   .nav .nav-district { display: none; }
   .nav-menu .nav-wide { display: none; }
   .nav-menu .nav-narrow { display: block; }
   .nav-menu a.nav-narrow { display: flex; }
+}
+@media (max-width: 360px) {
+  .nav .about-detail { display: none; }
+  .nav a, .nav-menu summary { padding-inline: 7px; }
 }
 
 main { padding-top: 2rem; padding-bottom: 3rem; }

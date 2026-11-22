@@ -1,12 +1,17 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { loadDistrict, loadLatest } from "../src/lib/data";
+import { buildStories, cottonHeadline, cottonStorySlug, droughtStorySlug, droughtStoryTitle, formatStoryValue } from "../src/lib/stories";
+import { turningPoints } from "../src/lib/stories/drought";
+import type { ProgressCard } from "../src/lib/types";
 
 // Must match astro.config.mjs (and its SITE_URL / SITE_BASE overrides).
 const ORIGIN = `${process.env.SITE_URL || "https://thatorjohn.github.io"}${process.env.SITE_BASE || "/ag-dashboard/"}`;
 const NASS = "This product uses the NASS API but is not endorsed or certified by NASS.";
 const DISTRICTS = loadLatest().districts.map((d) => `district/${d.slug}/`);
-const PAGES = ["", ...DISTRICTS, "about/", "for/corn-sorghum/", "for/cotton/", "for/wheat/", "for/cattle-hay/", "for/land-water/"];
+const STORY_PAGES = buildStories().map(({ slug }) => `stories/${slug}/`);
+const droughtStory = () => buildStories().find(({ slug }) => slug === droughtStorySlug)!.story;
+const PAGES = ["", ...DISTRICTS, "stories/", ...STORY_PAGES, "about/", "for/corn-sorghum/", "for/cotton/", "for/wheat/", "for/cattle-hay/", "for/land-water/"];
 
 for (const p of PAGES) {
   test.describe(`/${p}`, () => {
@@ -106,6 +111,126 @@ test("the homepage links to one alphabetical comparison of every district", asyn
   await expect(comparison.getByRole("link")).toHaveText(districts);
   await comparison.getByRole("link", { name: "Trans-Pecos" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trans-Pecos");
+});
+
+test("the drought story replays every weekly county map with a scrubbable timeline", async ({ page }) => {
+  const story = droughtStory();
+  test.skip(!story, "Drought Monitor data is stale on this build");
+  const { visual, frames, chapters } = story!;
+  if (visual.kind !== "drought") throw new Error("expected a drought story");
+  const fill = (c: string) => (c === "-" ? "f-none" : c === "?" ? "f-unavailable" : "f-d" + c);
+  await page.clock.install();
+  await page.goto("");
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Stories" }).click();
+  await page.getByRole("link", { name: droughtStoryTitle }).click();
+  const stage = page.locator("#story-player");
+  const slider = stage.getByRole("slider", { name: "Map week" });
+  const expectWeek = async (index: number) => {
+    await expect(stage.locator("time[data-story-date]")).toHaveAttribute("datetime", frames[index].date!);
+    await expect(slider).toHaveValue(String(index));
+    await expect(stage.locator("[data-dflip-d1]")).toHaveText(formatStoryValue(frames[index].values[0], "percent"));
+    // Spot-check that the map itself changed: every county group carries this week's category.
+    const classes = await stage.locator(".dflip-counties g").evaluateAll((gs) => gs.map((g) => [Number((g as SVGGElement).dataset.i), g.getAttribute("class")] as const));
+    for (const [i, cls] of classes) expect(cls).toBe(fill(visual.maps[index][i]));
+  };
+  await expectWeek(0);
+  await stage.getByRole("button", { name: "Play" }).click();
+  await page.clock.runFor(story!.frameMs + 10);
+  await expectWeek(1);
+  await stage.getByRole("button", { name: "Pause" }).click();
+  await page.clock.runFor(story!.frameMs * 3);
+  await expectWeek(1);
+
+  const peak = chapters.find(({ label }) => label === "Most drought")!;
+  await stage.getByRole("button", { name: "Most drought" }).click();
+  await expect(stage.getByRole("button", { name: "Most drought" })).toHaveAttribute("aria-pressed", "true");
+  await expectWeek(peak.frame);
+  await expect(stage.locator("[data-story-caption]")).toHaveText(frames[peak.frame].caption);
+  // The maps differ between the start and the peak, so the animation shows a real change.
+  expect(visual.maps[peak.frame]).not.toEqual(visual.maps[0]);
+  await slider.press("End");
+  await expectWeek(frames.length - 1);
+  await expect(stage.getByRole("button", { name: "Replay" })).toBeVisible();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(stage.locator(".dflip-counties g").first()).toHaveCSS("transition-duration", "0s");
+});
+
+test("the drought story is readable and links onward without JavaScript", async ({ browser }) => {
+  const story = droughtStory();
+  test.skip(!story, "Drought Monitor data is stale on this build");
+  const page = await browser.newPage({ javaScriptEnabled: false });
+  try {
+    await page.goto(`stories/${droughtStorySlug}/`);
+    await expect(page.getByRole("heading", { name: story!.takeaway.title })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Play" })).toHaveCount(0);
+    await page.getByText("See all figures").click();
+    await expect(page.getByRole("table").getByRole("row")).toHaveCount(story!.frames.length + 1);
+  } finally {
+    await page.close();
+  }
+});
+
+test("the rain story fills each gauge to the published totals", async ({ page }) => {
+  await page.goto("stories/");
+  await page.getByRole("link", { name: "Five weeks of rain, two very different starts" }).click();
+  const stage = page.locator("#story-player");
+  await stage.getByRole("button", { name: "Downpour" }).click();
+  await expect(stage.locator("[data-today]").nth(1)).toHaveText("2.11 in today");
+  await stage.getByRole("button", { name: "Final totals" }).click();
+  await expect(stage.locator("[data-story-share]")).toHaveText(["5.47 in", "5.02 in", "0.97 in"]);
+  await page.getByRole("navigation", { name: "Current district conditions" }).getByRole("link", { name: "Blacklands" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Blacklands");
+});
+
+test("the cotton story races each season and is featured only when the pace differs", async ({ page }) => {
+  const built = buildStories().find(({ slug }) => slug === cottonStorySlug)!;
+  await page.goto("stories/");
+  const featured = page.locator(".featured").filter({ has: page.locator(`a[href$="/${cottonStorySlug}/"]`) });
+  await expect(featured).toHaveCount(built.featured ? 1 : 0);
+  await page.goto(`stories/${cottonStorySlug}/`);
+  if (!built.story) {
+    await expect(page.locator("#story-player")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Cotton dashboard" })).toBeVisible();
+    return;
+  }
+  const { frames, series } = built.story;
+  const stage = page.locator("#story-player");
+  await expect(stage.locator("[data-lane]")).toHaveCount(series.length);
+  await stage.getByRole("button", { name: "End of November" }).click();
+  await expect(stage.locator("[data-story-share]")).toHaveText(frames.at(-1)!.values.map((v) => formatStoryValue(v, "percent")));
+  await page.getByRole("link", { name: "All stories" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Stories");
+});
+
+test("the cotton headline requires fresh harvest figures and a five-point gap", () => {
+  const snapshot = loadLatest();
+  snapshot.sources.nass.stale = false;
+  const harvest = { stage: "harvested", pct: 65, last_week: null, last_year: null, avg_5yr: 60 as number | null };
+  const progress: ProgressCard = {
+    status: "fresh", level: "state", last_report: "2026-11-15", week_ending: "2026-11-15", stages: [harvest],
+  };
+  snapshot.texas.crops.cotton.progress = progress;
+  expect(cottonHeadline(snapshot)?.ahead).toBe(true);
+  harvest.pct = 55;
+  expect(cottonHeadline(snapshot)?.ahead).toBe(false);
+  harvest.pct = 64;
+  expect(cottonHeadline(snapshot)).toBeNull();
+  harvest.pct = 96;
+  expect(cottonHeadline(snapshot)).toBeNull();
+  harvest.pct = 65;
+  harvest.avg_5yr = null;
+  expect(cottonHeadline(snapshot)).toBeNull();
+  harvest.avg_5yr = 60;
+  progress.status = "out_of_season";
+  expect(cottonHeadline(snapshot)).toBeNull();
+  progress.status = "fresh";
+  snapshot.sources.nass.stale = true;
+  expect(cottonHeadline(snapshot)).toBeNull();
+});
+
+test("drought turning points alternate and skip small wiggles", () => {
+  expect(turningPoints([50, 20, 60, 55, 70, 30, 40], 25)).toEqual([{ i: 1, kind: "low" }, { i: 4, kind: "high" }]);
+  expect(turningPoints([50, 45, 55, 48], 25)).toEqual([]);
 });
 
 test("every district has a page, and the Texas map links counties outside the featured districts", async ({ page }) => {

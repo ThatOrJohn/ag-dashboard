@@ -1,0 +1,123 @@
+---
+// Rain story visual: one rain gauge per district. The water level is the running total; on each day with rain,
+// drops fall from the cloud in proportion to that day's amount. Drops are decoration only (hidden from
+// assistive tech and skipped with reduced motion); the totals and each day's amount are always in text.
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+
+interface Props { story: Story }
+const { story } = Astro.props;
+if (story.visual.kind !== "rain") throw new Error("RainGauges needs a rain story");
+const { daily, scaleMax } = story.visual;
+const first = story.frames[0];
+const ticks = Array.from({ length: scaleMax + 1 }, (_, i) => i);
+const level = (v: number | null) => Math.min(100, ((v ?? 0) / scaleMax) * 100).toFixed(2) + "%";
+---
+<div class="rain" data-daily={JSON.stringify(daily)} data-scale={scaleMax}>
+  <ul class="gauges" role="list">
+    {story.series.map(({ name }, i) => (
+      <li class="gauge" data-gauge={i}>
+        <div class="sky" aria-hidden="true">
+          <svg class="cloud" viewBox="0 0 64 34" data-cloud>
+            <path d="M16 32h34a12 12 0 0 0 1-24 16 16 0 0 0-30-2A12 12 0 0 0 16 32z" />
+          </svg>
+          <div class="drops" data-drops></div>
+        </div>
+        <div class="tube-wrap" aria-hidden="true">
+          <ol class="scale">{ticks.map((t) => <li style={{ bottom: (t / scaleMax * 100) + "%" }}>{t}″</li>)}</ol>
+          <div class="tube">
+            <div class="water" data-water style={{ height: level(first.values[i]) }}><span class="surface"></span></div>
+          </div>
+        </div>
+        <p class="gauge-name">{name}</p>
+        <p class="gauge-total"><span class="num" data-story-share>{formatStoryValue(first.values[i], "inches")}</span> so far</p>
+        <p class="gauge-today" data-today>{daily[0][i] > 0 ? formatStoryValue(daily[0][i], "inches") + " today" : "Dry today"}</p>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const root = player?.querySelector<HTMLElement>(".rain");
+  if (player && root) {
+    const daily: number[][] = JSON.parse(root.dataset.daily!);
+    const scale = Number(root.dataset.scale);
+    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const gauges = [...root.querySelectorAll<HTMLElement>("[data-gauge]")];
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    function rain(box: HTMLElement, inches: number, level: number) {
+      if (still.matches || inches <= 0) return;
+      // About 14 drops per inch: a drizzle is a couple of drops, a two-inch day is a downpour.
+      const count = Math.min(32, Math.max(2, Math.round(inches * 14)));
+      for (let k = 0; k < count; k++) {
+        const drop = document.createElement("span");
+        drop.className = "drop";
+        drop.style.left = 8 + Math.random() * 84 + "%";
+        drop.style.animationDelay = (Math.random() * 0.35).toFixed(2) + "s";
+        drop.style.animationDuration = (0.55 + Math.random() * 0.25).toFixed(2) + "s";
+        // Fall to the water surface: the sky's height plus the empty part of the tube.
+        drop.style.setProperty("--fall", `calc(3.7rem + ${(1 - level) * 0.9} * var(--tube-h))`);
+        drop.addEventListener("animationend", () => drop.remove());
+        box.append(drop);
+      }
+    }
+
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      gauges.forEach((g, i) => {
+        const today = daily[index][i];
+        const total = parseFloat(frames[index].text[i]);
+        g.querySelector<HTMLElement>("[data-water]")!.style.height = Math.min(100, (total / scale) * 100).toFixed(2) + "%";
+        g.querySelector<HTMLElement>("[data-story-share]")!.textContent = frames[index].text[i];
+        g.querySelector<HTMLElement>("[data-today]")!.textContent = today > 0 ? today.toFixed(2) + " in today" : "Dry today";
+        g.classList.toggle("wet", today >= 0.05);
+        g.classList.toggle("storm", today >= 1);
+        rain(g.querySelector<HTMLElement>("[data-drops]")!, today, Math.min(1, total / scale));
+      });
+    });
+  }
+</script>
+
+<style>
+  .rain { grid-area: visual; padding: .5rem clamp(1rem, 3vw, 2rem) 1.5rem; background: linear-gradient(var(--paper), var(--paper-2)); }
+  .gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(.75rem, 3vw, 2.5rem); margin: 0; padding: 0; list-style: none; }
+  .gauge { display: grid; justify-items: center; text-align: center; }
+  .sky { position: relative; width: 100%; max-width: 8rem; height: 5.5rem; }
+  .cloud { position: absolute; left: 50%; top: 0; width: 4.5rem; transform: translateX(-50%); transition: transform .4s ease-out; }
+  .cloud path { fill: var(--paper-3); stroke: var(--rule); stroke-width: 1.5; transition: fill .3s; }
+  .gauge.wet .cloud path { fill: color-mix(in oklab, var(--ink-3) 55%, var(--paper-3)); }
+  .gauge.storm .cloud path { fill: var(--ink-3); }
+  .gauge.storm .cloud { animation: rumble .35s ease-in-out 2; }
+  .drops { position: absolute; z-index: 1; top: 1.8rem; bottom: 0; left: calc(50% + .8rem - 1.5rem); width: 3rem; overflow: visible; pointer-events: none; }
+  .drops :global(.drop) {
+    position: absolute; top: 0; width: 3px; height: 11px; border-radius: 0 0 2px 2px;
+    background: var(--green); opacity: 0; animation-name: fall; animation-timing-function: cubic-bezier(.5, 0, 1, 1);
+  }
+  .gauge { --tube-h: clamp(12rem, 34vw, 17rem); }
+  .tube-wrap { position: relative; height: var(--tube-h); width: 3.75rem; margin-left: 1.6rem; }
+  .scale { position: absolute; inset: 0 auto 0 -1.9rem; width: 1.6rem; margin: 0; padding: 0; list-style: none; }
+  .scale li { position: absolute; right: 0; transform: translateY(50%); font-family: var(--font-mono); font-size: .7rem; color: var(--ink-3); }
+  .tube {
+    position: relative; height: 100%; overflow: hidden; border: 2px solid var(--ink-3); border-top: 0;
+    border-radius: 0 0 1rem 1rem; background: repeating-linear-gradient(to top, transparent 0 calc(100% / 6 - 1px), var(--rule) calc(100% / 6 - 1px) calc(100% / 6));
+  }
+  .water {
+    position: absolute; inset: auto 0 0; background: linear-gradient(color-mix(in oklab, var(--green) 75%, var(--paper)), var(--green));
+    transition: height .35s ease-out;
+  }
+  .surface { position: absolute; inset: -3px 0 auto; height: 6px; border-radius: 50%; background: color-mix(in oklab, var(--green) 45%, var(--paper)); }
+  .gauge.wet .surface { animation: ripple .5s ease-out 2; }
+  .gauge-name { margin: .75rem 0 0; font-weight: 600; line-height: 1.2; }
+  .gauge-total { margin: .2rem 0 0; color: var(--ink-2); }
+  .gauge-total .num { color: var(--ink); font-size: clamp(1.15rem, 2.6vw, 1.5rem); font-weight: 600; }
+  .gauge-today { margin: .15rem 0 0; font-size: .85rem; color: var(--ink-3); font-family: var(--font-mono); }
+  @keyframes fall { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 85% { opacity: .9; } 100% { transform: translateY(var(--fall, 9rem)); opacity: 0; } }
+  @keyframes ripple { 50% { transform: scaleX(.8) scaleY(1.8); } }
+  @keyframes rumble { 25% { transform: translateX(calc(-50% - 2px)); } 75% { transform: translateX(calc(-50% + 2px)); } }
+  @media (max-width: 520px) {
+    .tube-wrap { width: 2.75rem; margin-left: 1.4rem; }
+    .scale { left: -1.6rem; }
+    .gauge-name { font-size: .9rem; }
+  }
+</style>

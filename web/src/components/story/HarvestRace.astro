@@ -1,0 +1,114 @@
+---
+// Cotton story visual: one field lane per season. A harvester drives across as the season's harvested share
+// rises, leaving bare stubble behind it and open cotton ahead. The share is always written at the lane's end,
+// with a note when the lane is holding at an older report.
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+
+interface Props { story: Story }
+const { story } = Astro.props;
+if (story.visual.kind !== "harvest") throw new Error("HarvestRace needs a harvest story");
+const { current, notes } = story.visual;
+const first = story.frames[0];
+const pos = (v: number | null) => (v ?? 0) / 100;
+---
+<div class="harvest" data-notes={JSON.stringify(notes)}>
+  <ol class="lanes" role="list">
+    {story.series.map(({ name }, i) => {
+      const p = pos(first.values[i]);
+      return (
+        <li class:list={["lane", { current: i === current }]} data-lane={i}>
+          <span class="lane-year">{name.replace(" (this season)", "")}{i === current && <small>this season</small>}</span>
+          <div class="field" aria-hidden="true">
+            <div class="cut" data-cut style={{ width: `calc(${p} * (100% - 3.25rem) + 1.6rem)` }}></div>
+            <div class="rig" data-rig style={{ left: `calc(${p} * (100% - 3.25rem))` }}>
+              <svg viewBox="0 0 52 34" width="52" height="34">
+                <path class="rig-header" d="M40 17h9l2 13h-11z" />
+                <rect class="rig-basket" x="6" y="2" width="26" height="13" rx="2" />
+                <path class="rig-body" d="M4 15h36v11H4z" />
+                <path class="rig-cab" d="M30 5h9v10h-9z" />
+                <rect class="rig-glass" x="32" y="7" width="5" height="5" rx="1" />
+                <g class="wheel" style="transform-origin: 13px 26px"><circle cx="13" cy="26" r="7.5" /><path d="M13 19.5v13M6.5 26h13" /></g>
+                <g class="wheel" style="transform-origin: 35px 28px"><circle cx="35" cy="28" r="5" /><path d="M35 23.5v9M30.5 28h9" /></g>
+              </svg>
+            </div>
+          </div>
+          <span class="lane-pct"><span class="num" data-story-share>{formatStoryValue(first.values[i], "percent")}</span><small data-note>{notes[0][i] ?? ""}</small></span>
+        </li>
+      );
+    })}
+  </ol>
+  <p class="harvest-key"><span class="k-open" aria-hidden="true"></span>Still in the field <span class="k-cut" aria-hidden="true"></span>Harvested</p>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const root = player?.querySelector<HTMLElement>(".harvest");
+  if (player && root) {
+    const notes: (string | null)[][] = JSON.parse(root.dataset.notes!);
+    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const lanes = [...root.querySelectorAll<HTMLElement>("[data-lane]")];
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      lanes.forEach((lane, i) => {
+        const text = frames[index].text[i];
+        const p = (parseFloat(text) || 0) / 100;
+        const rig = lane.querySelector<HTMLElement>("[data-rig]")!;
+        const before = rig.style.left;
+        rig.style.left = `calc(${p} * (100% - 3.25rem))`;
+        lane.querySelector<HTMLElement>("[data-cut]")!.style.width = `calc(${p} * (100% - 3.25rem) + 1.6rem)`;
+        lane.querySelector<HTMLElement>("[data-story-share]")!.textContent = text;
+        lane.querySelector<HTMLElement>("[data-note]")!.textContent = notes[index][i] ?? "";
+        lane.classList.toggle("moving", rig.style.left !== before);
+      });
+    });
+  }
+</script>
+
+<style>
+  .harvest { grid-area: visual; padding: .5rem clamp(1rem, 3vw, 2rem) 1.25rem; }
+  .harvest { --boll: var(--paper); }
+  :global(.dark) .harvest { --boll: var(--ink); }
+  .lanes { display: grid; gap: .55rem; margin: 0; padding: 0; list-style: none; }
+  .lane { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 6.5rem; gap: .75rem; align-items: center; }
+  .lane-year { font-family: var(--font-mono); font-size: .95rem; color: var(--ink-2); display: grid; line-height: 1.15; }
+  .lane-year small { font-family: var(--font-sans); font-size: .72rem; color: var(--accent-ink); font-weight: 600; }
+  .lane.current .lane-year { color: var(--ink); font-weight: 700; }
+  .field {
+    position: relative; height: 2.6rem; border-radius: 6px; overflow: hidden;
+    background:
+      radial-gradient(circle, var(--boll) 0 2.1px, transparent 2.6px) 0 0 / 10px 9px,
+      radial-gradient(circle, var(--boll) 0 1.6px, transparent 2.1px) 5px 4.5px / 10px 9px,
+      repeating-linear-gradient(to bottom, var(--green) 0 2px, var(--green-tint) 2px 9px);
+  }
+  .lane.current .field { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cut {
+    position: absolute; inset: 0 auto 0 0;
+    background: repeating-linear-gradient(to bottom, color-mix(in oklab, var(--amber) 30%, var(--amber-tint)) 0 2px, var(--amber-tint) 2px 9px);
+    transition: width .8s ease-in-out;
+  }
+  .rig { position: absolute; top: 50%; translate: 0 -50%; transition: left .8s ease-in-out; filter: drop-shadow(0 1px 0 var(--paper)); }
+  .rig svg { display: block; width: 3.25rem; height: auto; }
+  .rig-body, .rig-cab { fill: var(--ink-2); }
+  .lane.current .rig-body, .lane.current .rig-cab { fill: var(--accent); }
+  .rig-header { fill: var(--ink-3); }
+  .rig-basket { fill: var(--boll); stroke: var(--ink-3); stroke-width: 1.5; }
+  .rig-glass { fill: var(--paper-2); }
+  .wheel circle { fill: var(--ink); stroke: var(--ink-3); stroke-width: 1.5; }
+  .wheel path { stroke: var(--ink-3); stroke-width: 1.5; }
+  :global(.is-playing) .lane.moving .wheel { animation: roll .8s linear; }
+  :global(.is-playing) .lane.moving .rig svg { animation: bump .2s ease-in-out 4; }
+  .lane-pct { display: grid; line-height: 1.15; }
+  .lane-pct .num { font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+  .lane-pct small { font-size: .72rem; color: var(--ink-3); min-height: 1em; }
+  .harvest-key { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .9rem 0 0; font-size: .8rem; color: var(--ink-2); }
+  .harvest-key span { display: inline-block; width: 18px; height: 12px; border-radius: 3px; border: 1px solid var(--rule); }
+  .harvest-key .k-cut { margin-left: .75rem; background: var(--amber-tint); }
+  .k-open { background: radial-gradient(circle, var(--boll) 0 2px, transparent 2.5px) 0 0 / 6px 6px, var(--green); }
+  @keyframes roll { to { transform: rotate(360deg); } }
+  @keyframes bump { 50% { transform: translateY(-1.5px); } }
+  @media (max-width: 560px) {
+    .lane { grid-template-columns: 3rem minmax(0, 1fr) 4.5rem; gap: .5rem; }
+    .lane-year small { display: none; }
+    .lane-pct small { font-size: .65rem; }
+  }
+</style>
