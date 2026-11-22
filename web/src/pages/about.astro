@@ -8,14 +8,39 @@ const L = loadLatest();
 const rows = Object.entries(L.sources);
 const homes = L.districts.filter((d) => d.home).map((d) => d.name);
 ---
-<Base title="About the data · Texas Ag Dashboard" description="Where every figure on these Texas agriculture pages comes from, how I compute district totals, and what I don't claim." current="about">
+<Base title="About the data · Texas Ag Dashboard" description="Where the Texas Ag Dashboard gets its public data, how I summarize it, and how I make and score forecasts." current="about">
   <h1>About the data</h1>
-  <p class="lede">Every figure on this site shows its public source and date. I hide figures when they pass
-    the age limit for their source.</p>
+  <p class="lede">The dashboard brings together public reports, summaries I calculate from those reports,
+    and forecasts I make from public data.</p>
 
   <p class="notice"><strong>{L.nass_notice}</strong></p>
 
+  <h2>How to read the figures</h2>
+  <ul>
+    <li><strong>Published data.</strong> USDA’s statewide harvest progress and the U.S. Drought Monitor’s
+      county drought figures come from those publishers. The seven-day weather forecast comes from the
+      National Weather Service. Look for the source and date beside each figure.</li>
+    <li><strong>Dashboard summaries.</strong> I combine published county drought figures to show
+      conditions across each district and calculate comparisons such as rainfall versus normal.
+      These summaries describe what the available data shows.</li>
+    <li><strong>Dashboard forecasts.</strong> I label my predictions as outlooks and show when I issued
+      them and which period they cover. The cotton harvest outlook estimates what a future USDA report
+      will say for Texas as a whole.</li>
+  </ul>
+
+  <h2 id="dashboard-forecasts">How I forecast cotton harvest progress</h2>
+  <p>I use USDA’s weekly Texas cotton reports from earlier seasons to learn how harvest progress usually
+    changes. The model looks at the time of year, how much of the crop USDA says is already harvested,
+    and how fast harvest moved in the previous week. If that previous report is missing, I use the
+    typical weekly gain for that time of year.</p>
+  <p>I use the errors from testing the model on earlier seasons to set the estimated range. On the cotton card,
+    <strong>Texas cotton forecast accuracy</strong> shows how far my forecasts missed on average,
+    how often the USDA result fell in the estimated range, and how the forecasts compare with using
+    the typical weekly gain alone. I save each prediction when I issue it and score it against the
+    first USDA result I receive for that same week.</p>
+
   <h2>Sources</h2>
+  <p>I hide figures when they pass the age limit for their source.</p>
   <div class="table-wrap">
     <table>
       <caption class="sr-only">Sources and how current each one is</caption>
@@ -87,9 +112,9 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
 
   <h2>How I compute what isn't published</h2>
   <ul>
-    <li><strong>Districts</strong> are NASS agricultural statistics districts. NASS stopped publishing district
-      estimates after 2019, so every district figure here is <em>my own</em> total of county figures, weighted by
-      land area. It is not a USDA estimate.</li>
+    <li><strong>Districts</strong> are NASS agricultural statistics districts. NASS stopped publishing
+      district crop estimates after 2019. I calculate district figures from county data where available,
+      such as total published crop acreage and the land-area-weighted share of each district in drought.</li>
     <li><strong>A county's drought category</strong> on the maps is the most severe category covering at least half
       of the county. The county card gives the shares.</li>
     <li><strong>"A year ago" and "5-year average"</strong> compare to the report nearest the same date in earlier
@@ -99,9 +124,9 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
   </ul>
 
   <h2>Free, from public data</h2>
-  <p>This site is free to use: no ads, no sign-up, no subscriptions, and nothing is sold here. Every figure comes
-    from public data published by government agencies, universities and public reporting programs, credited where it
-    appears. It is a personal project by {AUTHOR}, and the code is <a href={REPO_URL}>on GitHub</a>.</p>
+  <p>This site is free to use: no ads, no sign-up, no subscriptions, and nothing is sold here.
+    Government agencies, universities, and public reporting programs publish the data I use.
+    It is a personal project by {AUTHOR}, and the code is <a href={REPO_URL}>on GitHub</a>.</p>
 
   <h2>Not an official source</h2>
   <p>This is a free, plain-language read on public data. It is not

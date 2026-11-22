@@ -3,6 +3,10 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- About the data explains how to identify published figures, dashboard summaries, and dashboard forecasts.
+  The cotton outlook links to its forecasting and scoring methods.
+- The cotton card labels the USDA report and shows the outlook in a separate inset with a scale for
+  reported progress, the forecast, and its estimated range.
 - Cotton shows an estimate for the next statewide harvest report in season. The accuracy panel compares
   past estimates and their ranges with USDA results and a typical-week baseline.
 - Cotton shows weekly boll weevil trapping and treatment by reporting area. Cotton, Corn & Sorghum,

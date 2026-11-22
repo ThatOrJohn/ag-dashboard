@@ -1,6 +1,6 @@
 ---
 import type { HarvestOutlook } from "../lib/types";
-import { day, pct, pulled } from "../lib/format";
+import { day, href, pct, pulled } from "../lib/format";
 
 interface Props { outlook: HarvestOutlook; asof: string }
 const { active, accuracy, history } = Astro.props.outlook;
@@ -9,14 +9,28 @@ const estimatedRange = (range: [number, number]) => `${range[0]}–${range[1]}%`
 ---
 <div class="harvest-outlook">
   {active && (
-    <>
+    <div class="forecast-inset">
       <h4>Texas cotton harvest outlook</h4>
-      <p><strong>About {pct(active.estimate)} harvested</strong> for the week ending {day(active.target_week, asof)}.
+      <p class="estimate"><strong>About {pct(active.estimate)} harvested</strong> for the week ending {day(active.target_week, asof)}.
         {active.range && ` Estimated range ${estimatedRange(active.range)}.`}
       </p>
-      <p class="muted">My estimate, issued {pulled(active.issued_at)}. USDA reported {pct(active.input_pct)}
+      <div class="harvest-scale" aria-hidden="true">
+        <div class="scale-track">
+          <span class="scale-reported" style={{ width: `${active.input_pct}%` }}></span>
+          {active.range && (
+            <span class="scale-range" style={{
+              insetInlineStart: `${active.range[0]}%`,
+              inlineSize: `${active.range[1] - active.range[0]}%`,
+            }}></span>
+          )}
+          <span class="scale-estimate" style={{ insetInlineStart: `${active.estimate}%` }}></span>
+        </div>
+        <div class="scale-ticks"><span>0%</span><span>100%</span></div>
+      </div>
+      <p class="forecast-source"><span class="reported-key" aria-hidden="true"></span> USDA reported {pct(active.input_pct)}
         harvested for the week ending {day(active.input_week, asof)}.</p>
-    </>
+      <p class="forecast-source">Dashboard forecast issued {pulled(active.issued_at)}.</p>
+    </div>
   )}
   <details>
     <summary>Texas cotton forecast accuracy</summary>
@@ -55,12 +69,72 @@ const estimatedRange = (range: [number, number]) => `${range[0]}–${range[1]}%`
       </div>
     )}
   </details>
+  <a href={href("about/#dashboard-forecasts")}>How I forecast cotton harvest progress</a>
 </div>
 <style>
   .harvest-outlook {
-    border-block-start: 1px solid var(--rule);
     margin-block: 0.75rem;
-    padding-block-start: 0.75rem;
+  }
+  .forecast-inset {
+    padding: .85rem;
+    border: 1px dashed var(--accent);
+    border-radius: var(--radius);
+    background: var(--accent-tint);
+  }
+  .forecast-inset h4, .estimate strong { color: var(--accent-ink); }
+  .forecast-inset p { margin-block: .35rem 0; }
+  .estimate strong { font-variant-numeric: tabular-nums; }
+  .forecast-source { font-size: .85rem; color: var(--ink-2); }
+  .harvest-scale { margin-block: .8rem .4rem; }
+  .scale-track {
+    position: relative;
+    block-size: .85rem;
+    margin-inline: .4rem;
+  }
+  .scale-track::before, .scale-reported {
+    position: absolute;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    inset-inline-start: 0;
+  }
+  .scale-track::before {
+    content: "";
+    inline-size: 100%;
+    border-block-start: 1px solid var(--ink-3);
+  }
+  .scale-reported, .reported-key {
+    block-size: .28rem;
+    border-radius: 1rem;
+    background: var(--ink-2);
+  }
+  .reported-key {
+    display: inline-block;
+    inline-size: 1rem;
+    vertical-align: middle;
+    margin-inline-end: .15rem;
+  }
+  .scale-range {
+    position: absolute;
+    inset-block: 0;
+    border-block: 1px solid var(--accent);
+    background: repeating-linear-gradient(135deg, var(--accent) 0 1px, var(--accent-tint) 1px 4px);
+  }
+  .scale-estimate {
+    position: absolute;
+    inset-block-start: 50%;
+    transform: translate(-50%, -50%);
+    inline-size: .8rem;
+    block-size: .8rem;
+    border: 2px solid var(--accent-ink);
+    border-radius: 50%;
+    background: var(--paper);
+  }
+  .scale-ticks {
+    display: flex;
+    justify-content: space-between;
+    color: var(--ink-2);
+    font: .75rem var(--font-mono);
+    margin-block-start: .1rem;
   }
   h4 { margin: 0; }
   summary {

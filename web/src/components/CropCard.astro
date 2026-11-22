@@ -15,7 +15,11 @@ const name = title ?? CROPS[crop] ?? crop;
   {progress && progress.status === "fresh" && progress.stages && (
     <div class="table-wrap">
       <table>
-        <caption class="sr-only">{`${name} progress, Texas, week ending ${day(progress.week_ending, asof)}`}</caption>
+        <caption class={progress.harvest_outlook?.active ? "reported-caption" : "sr-only"}>
+          {progress.harvest_outlook?.active
+            ? `USDA crop progress · Week ending ${day(progress.week_ending, asof)}`
+            : `${name} progress, Texas, week ending ${day(progress.week_ending, asof)}`}
+        </caption>
         <thead><tr><th scope="col">Stage</th><th class="n" scope="col">Now</th><th class="n" scope="col">Last week</th><th class="n" scope="col">Last year</th><th class="n" scope="col">5-yr avg</th></tr></thead>
         <tbody>
           {progress.stages.map((s) => (
@@ -25,7 +29,6 @@ const name = title ?? CROPS[crop] ?? crop;
       </table>
     </div>
   )}
-  {progress?.harvest_outlook && <HarvestOutlook outlook={progress.harvest_outlook} asof={asof} />}
   {progress && progress.status === "out_of_season" && (
     <p class="muted">{`Progress reports are done for the season. Last report: ${day(progress.last_report, asof)}.`}</p>
   )}
@@ -44,4 +47,14 @@ const name = title ?? CROPS[crop] ?? crop;
     <p class="muted">{`${name} condition is hidden: the newest rating is older than I expect.`}</p>
   )}
   <AsOf source={source} label="Week ending" date={(progress?.week_ending ?? condition.week_ending ?? progress?.last_report ?? condition.last_report) || null} />
+  {progress?.harvest_outlook && <HarvestOutlook outlook={progress.harvest_outlook} asof={asof} />}
 </article>
+<style>
+  .reported-caption {
+    text-align: start;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    padding-block: .3rem;
+  }
+</style>
