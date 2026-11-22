@@ -100,7 +100,6 @@ main { padding-top: 2rem; padding-bottom: 3rem; }
   align-items: start;
 }
 .overview > div { padding-top: .35rem; }
-.overview-link { margin: 1rem 0 0; }
 .condition-details {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));

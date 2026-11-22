@@ -75,13 +75,15 @@ The build writes a region-wide file and one file per district under `web/public/
 
 | Route | What it renders |
 | --- | --- |
-| [`/`](../web/src/pages/index.astro) | Texas overview, county map, district links, weekly figures, and statewide context including reservoir storage. |
-| [`/district/<slug>/`](../web/src/pages/district/%5Bslug%5D.astro) | District conditions, configured water indicators, and annual figures. Map links target `#c-<fips>` and open the county's expandable card on the district page. |
+| [`/`](../web/src/pages/index.astro) | Texas overview, county map, weekly figures, and statewide context including reservoir storage. The overview links to one alphabetical comparison table with a link to every district. |
+| [`/district/<slug>/`](../web/src/pages/district/%5Bslug%5D.astro) | District conditions, configured water indicators, and annual figures. The **On this page** links below the overview reflect the sections available for that district and snapshot. Map links target `#c-<fips>` and open the county's expandable card on the district page. |
 | [`/for/<persona>/`](../web/src/pages/for/%5Bpersona%5D.astro) | The same published data, with cards selected and ordered by the persona's `card_order` in the region YAML. |
 | [`/about/`](../web/src/pages/about.astro) | Publisher credits, source dates, required notices, how dashboard summaries are calculated, and how the cotton outlook is made and scored. The outlook card links directly to the forecast method. |
 | [`/og/<name>.png`](../web/src/pages/og/%5Bname%5D.png.ts) | Build-time social previews, rendered with Satori and Sharp and referenced by page metadata. |
 
 `Base.astro` owns shared navigation, metadata, the theme toggle, and the footer notice. `AsOf.astro` pairs figures with source and date labels, while `format.ts` owns display units and base-aware links. Components render maps and charts as SVG, with small browser scripts for interactions such as chart readouts and opening county cards. The theme and data colors live in `tokens.css`. [Shared layout](../web/src/layouts/Base.astro) · [As-of component](../web/src/components/AsOf.astro) · [Formatting](../web/src/lib/format.ts) · [Design tokens](../web/src/styles/tokens.css)
+
+The district weather strip lists the dates for unreported conditions and the forecast in a wrapping chart key. The plot uses patterns and shading to mark those dates, with pending rain marked only on days without an estimate. Hover or tap for a day's readout, or open the daily values table below the plot. [Weather strip](../web/src/components/WeatherStrip.astro)
 
 ## CI, deployment, and health
 

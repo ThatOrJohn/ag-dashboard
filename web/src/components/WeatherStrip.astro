@@ -2,7 +2,7 @@
 // District weather strip: daily high-to-low bars and daily rain (its own panel, same dates: never two y scales
 // on one chart). Runs of days (decisions 0014, 0017): observed (NOAA nClimGrid county averages, about a week
 // behind), estimated (days since then with a Stage IV radar-and-gauge rain estimate: outlined rain bars, and
-// the temperature panel still textured as pending), pending (no numbers yet: a labeled, textured gap), and
+// the temperature panel still textured as pending), pending (no numbers yet: a textured gap), and
 // forecast (NWS, hatched bars on a shaded band). None of them relies on color alone. Static SVG drawn at build time
 // (decision 0005); a small script adds a hover/tap readout, each day keeps a native tooltip without it, and
 // the table carries every value. With normals (1991–2020, decision 0013), a soft band behind the bars shows
@@ -72,10 +72,12 @@ const gIdx = days.map((_, i) => i).filter((i) => days[i].kind === "pending" || d
 const hasGap = gIdx.length > 0;
 const gapX0 = hasGap ? L + slot * gIdx[0] : 0, gapX1 = hasGap ? L + slot * (gIdx[gIdx.length - 1] + 1) : 0;
 const pIdx = gIdx.filter((i) => days[i].kind === "pending");
-const hasPending = pIdx.length > 0;
-const pendX0 = hasPending ? L + slot * pIdx[0] : 0, pendX1 = hasPending ? L + slot * (pIdx[pIdx.length - 1] + 1) : 0;
 const est = days.filter((d) => d.kind === "estimated");
 const hasEst = est.length > 0;
+
+function dateRange(first: string, last: string) {
+  return first === last ? day(first, asof) : `${day(first, asof)} to ${day(last, asof)}`;
+}
 
 // Direct labels: only the warmest high and the coldest low, plus the wettest day.
 const iHi = days.findIndex((d) => d.hi_f === maxHi);
@@ -130,11 +132,11 @@ function normalText(d: (typeof days)[number]) {
   <p>{summary}</p>
   <ul class="dlegend wx-legend" aria-label="Chart key">
     <li><span class="sw wx-sw-temp" aria-hidden="true" />Daily high to low</li>
+    <li><span class="sw wx-sw-rain" aria-hidden="true" />Daily rain</li>
     {hasNormals && <li><span class="sw wx-sw-normal" aria-hidden="true" />Normal high to low, 1991–2020</li>}
-    {hasGap && <li><span class="sw wx-sw-pend" aria-hidden="true" />Not yet reported (NOAA runs about a week behind)</li>}
-    {hasEst && <li><span class="sw wx-sw-est" aria-hidden="true" />Rain estimate (outlined)</li>}
-    {hasFc && <li><span class="sw wx-sw-fc" aria-hidden="true" />Forecast (hatched)</li>}
-    <li><span class="sw wx-sw-rain" aria-hidden="true" />Rain</li>
+    {hasEst && <li><span class="sw wx-sw-est" aria-hidden="true" />Rain estimate</li>}
+    {hasGap && <li><span class="sw wx-sw-pend" aria-hidden="true" /><span>Not yet reported · {dateRange(days[gIdx[0]].date, days[gIdx[gIdx.length - 1]].date)}</span></li>}
+    {hasFc && <li><span class="sw wx-sw-fc" aria-hidden="true" /><span>Forecast · {dateRange(next[0].date, next[next.length - 1].date)}</span></li>}
   </ul>
   <div class="wx-plot">
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Daily high and low temperature and rain in ${name}. ${summary}`}>
@@ -152,17 +154,11 @@ function normalText(d: (typeof days)[number]) {
 
       {hasGap && (
         <g aria-hidden="true">
-          <rect class="wx-pend" x={gapX0} y={T0 - 20} width={gapX1 - gapX0} height={TH + 20} fill={`url(#${id}-pend)`} />
-          {hasPending && <rect class="wx-pend" x={pendX0} y={P0} width={pendX1 - pendX0} height={PH} fill={`url(#${id}-pend)`} />}
-          <text class="wx-band-label" x={(gapX0 + gapX1) / 2} y={T0 - 16} text-anchor="middle">Pending</text>
+          <rect x={gapX0} y={T0} width={gapX1 - gapX0} height={TH} fill={`url(#${id}-pend)`} />
+          {pIdx.map((i) => <rect x={L + slot * i} y={P0} width={slot} height={PH} fill={`url(#${id}-pend)`} />)}
         </g>
       )}
-      {hasFc && (
-        <g aria-hidden="true">
-          <rect class="wx-band" x={bandX} y={T0 - 20} width={W - R - bandX} height={P0 + PH - T0 + 20} />
-          <text class="wx-band-label" x={bandX + 6} y={T0 - 16}>Forecast</text>
-        </g>
-      )}
+      {hasFc && <rect class="wx-band" aria-hidden="true" x={bandX} y={T0} width={W - R - bandX} height={P0 + PH - T0} />}
 
       <g aria-hidden="true">
         <text class="wx-panel" x={L} y={T0 - 16}>High and low, °F</text>
@@ -201,7 +197,7 @@ function normalText(d: (typeof days)[number]) {
         {iRain >= 0 && <text class="wx-label" x={cx(iRain)} y={ry(maxRain) - 6} text-anchor="middle">{`${inches(maxRain)}${days[iRain].kind === "estimated" ? " (est.)" : ""}`}</text>}
 
         {xTicks.map((i) => (
-          <text class="wx-tick" x={cx(i)} y={H - 8} text-anchor="middle">{day(days[i].date, asof)}</text>
+          <text class="wx-tick" x={cx(i)} y={H - 8} text-anchor={cx(i) > W - 40 ? "end" : "middle"}>{day(days[i].date, days[i].date)}</text>
         ))}
       </g>
 
@@ -214,19 +210,8 @@ function normalText(d: (typeof days)[number]) {
     </svg>
     <div class="wx-tip" hidden></div>
   </div>
-  <figcaption class="asof">
-    Observed: NOAA <a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">nClimGrid-Daily</a>
-    county averages through {through}, my area-weighted average for the district. NOAA publishes about a week
-    late, so the days since are marked as not yet reported.
-    {hasEst && <>Rain for those days: the National Weather Service's <a href="https://water.noaa.gov/resources/downloads/precip/stageIV/">Stage IV</a>
-    radar-and-gauge estimate, my county and district averages; it often runs a little wetter than NOAA's
-    county averages, which replace it when they come out. </>}
-    {hasFc && <>Forecast: <a href="https://www.weather.gov/">National Weather Service</a>, at each county's center. </>}
-    {hasNormals && <>Normals: the same NOAA data for 1991–2020, smoothed over a month. </>}Not an official
-    record: for that, see the National Weather Service.
-  </figcaption>
   <details class="wx-table">
-    <summary>Daily numbers</summary>
+    <summary>Daily weather values</summary>
     <table>
       <caption class="sr-only">Daily high, low and rain in {name}</caption>
       <thead><tr><th scope="col">Day</th><th class="n" scope="col">High</th><th class="n" scope="col">Low</th><th class="n" scope="col">Rain</th>{hasNormals && <th class="n" scope="col">Normal high / low</th>}</tr></thead>
@@ -242,6 +227,17 @@ function normalText(d: (typeof days)[number]) {
       </tbody>
     </table>
   </details>
+  <figcaption class="asof">
+    Observed: NOAA <a href="https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily">nClimGrid-Daily</a>
+    county averages through {through}, my area-weighted average for the district. NOAA publishes about a week
+    late, so the days since are marked as not yet reported.
+    {hasEst && <>Rain for those days: the National Weather Service's <a href="https://water.noaa.gov/resources/downloads/precip/stageIV/">Stage IV</a>
+    radar-and-gauge estimate, my county and district averages; it often runs a little wetter than NOAA's
+    county averages, which replace it when they come out. </>}
+    {hasFc && <>Forecast: <a href="https://www.weather.gov/">National Weather Service</a>, at each county's center. </>}
+    {hasNormals && <>Normals: the same NOAA data for 1991–2020, smoothed over a month. </>}Not an official
+    record: for that, see the National Weather Service.
+  </figcaption>
 </figure>
 
 <script>
@@ -277,18 +273,30 @@ function normalText(d: (typeof days)[number]) {
       tip.style.left = `${Math.max(0, Math.min(pw - w, px + (px + w + 12 > pw ? -w - 12 : 12)))}px`;
     };
     const hide = () => { tip.hidden = true; cursor.classList.remove("on"); };
-    svg.addEventListener("pointermove", (e) => {
+    const showDay = (e: Event) => {
       const hit = (e.target as Element).closest<SVGRectElement>(".wx-hit");
       if (hit) show(hit);
+    };
+    svg.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "touch") showDay(e);
     });
-    svg.addEventListener("pointerleave", hide);
+    svg.addEventListener("click", showDay);
+    svg.addEventListener("pointerleave", (e) => {
+      if (e.pointerType !== "touch") hide();
+    });
+    document.addEventListener("pointerdown", (e) => {
+      if (!svg.contains(e.target as Node)) hide();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") hide();
+    });
     // Native <title> tooltips would double up with the readout once the script runs.
     svg.querySelectorAll(".wx-hit title").forEach((t) => t.remove());
   }
 </script>
 
 <style>
-  .wx { margin: 0; }
+  .wx { margin: 0; max-width: 56rem; }
   .wx > p { max-width: 62ch; }
   .wx-plot { position: relative; }
   .wx svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
@@ -296,7 +304,6 @@ function normalText(d: (typeof days)[number]) {
   .wx .wx-tick { font-family: var(--font-mono); font-variant-numeric: tabular-nums; fill: var(--ink-3); font-size: 10.5px; }
   .wx .wx-panel { font-weight: 600; fill: var(--ink); }
   .wx .wx-label { font-family: var(--font-mono); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; }
-  .wx .wx-band-label { font-weight: 600; fill: var(--ink-2); paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
   .wx .wx-note { fill: var(--ink-2); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; }
   .wx-band { fill: var(--paper-2); }
   .wx-pend-line { stroke: var(--rule); stroke-width: 1.5; }
@@ -306,7 +313,9 @@ function normalText(d: (typeof days)[number]) {
   .wx-freeze { stroke: var(--ink-3); stroke-width: 1; }
   .wx-temp { fill: var(--orange); }
   .wx-normal { fill: var(--ink); opacity: .1; }
-  .wx-legend { margin: .25rem 0 .5rem; }
+  .wx-legend { margin: .5rem 0 1rem; gap: .375rem 1rem; font-size: .875rem; }
+  .wx-legend li { align-items: flex-start; }
+  .wx-legend .sw { flex: none; margin-top: .3em; }
   .wx-sw-temp { background: var(--orange); border-color: var(--orange); width: 8px; border-radius: 4px; }
   .wx-sw-normal { background: color-mix(in oklch, var(--ink) 10%, var(--paper)); }
   .wx-sw-fc { background: repeating-linear-gradient(45deg, var(--orange) 0 2px, var(--orange-tint) 2px 4px); }
@@ -326,8 +335,17 @@ function normalText(d: (typeof days)[number]) {
     box-shadow: 0 2px 8px oklch(0 0 0 / .12); }
   .wx-tip :global(strong) { color: var(--ink); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .wx-tip :global(.wx-tip-d) { color: var(--ink); font-weight: 600; margin-bottom: 2px; }
-  .wx-table { margin-top: .5rem; }
-  .wx-table summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ink-2); }
+  .wx-table { margin: .5rem 0 1rem; }
+  .wx-table summary {
+    width: fit-content;
+    min-height: 44px;
+    padding: .6rem .8rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .wx-table summary:hover { background: var(--paper-2); }
   .wx-table table { max-width: 28rem; }
   @media (max-width: 640px) {
     .wx text { font-size: 16px; }

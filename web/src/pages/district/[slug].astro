@@ -27,11 +27,20 @@ const S = L.sources;
 const sum = D.summary;
 const keep = D.counties.map((c) => c.fips);
 const crops = sum.crops;
+const cattleMarkets = D.markets.filter((m) => m.kind !== "sheep_goats");
 const sheepGoatMarkets = D.markets.filter((m) => m.kind === "sheep_goats");
 const drought = S.usdm.stale ? null : sum.drought;
 const burnBans = !S.burn_bans.stale && sum.burn_bans != null ? { count: sum.burn_bans, of: sum.counties } : null;
 const forecast = S.nws?.stale === false ? sum.rain_next_7d_in : null;
 const hasRain = !S.nclimgrid.stale && sum.rain_7d_in != null;
+const weather = !S.nclimgrid.stale && D.weather?.days.length ? D.weather : null;
+const seasonRain = S.nclimgrid.stale ? null : D.season_rain;
+const hasRoundup = (sum.headline?.sentences.length ?? 0) > 1;
+const hasConditions = drought || hasRain || forecast != null || burnBans;
+const hasWater = (D.water?.length ?? 0) > 0;
+const annual = D.annual;
+const hasAnnual = annual && (annual.census || Object.values(annual.crops_published ?? {}).some(Boolean)
+  || annual.forage_pct_of_normal || annual.crop_mix);
 const otherTopics = sum.headline?.items?.filter(({ topic }) => ["rain", "cattle"].includes(topic)).map(({ topic }) => topic);
 const screwworm = L.texas.screwworm && S.screwworm && !S.screwworm.stale && !S.screwworm.delayed ? L.texas.screwworm : null;
 const detection = screwworm?.recent.find((row) => D.counties.some((c) => c.name === row.county));
@@ -49,19 +58,34 @@ const pests = screwworm && detection ? [{
       <h1>{D.name}</h1>
       <Headline headline={sum.headline} sources={S} asof={L.asof} topics={otherTopics?.length ? otherTopics : undefined} limit={1} />
       <Conditions asof={L.asof} drought={drought} burnBans={burnBans} forecast={forecast} pests={pests} />
-      <p class="overview-link"><a href="#co-h">Browse all {sum.counties} counties</a></p>
     </div>
     <DroughtMap counties={L.counties} keep={keep} showDrought={!S.usdm.stale} title={`${D.name} counties`} link={(f) => `#c-${f}`} countyNames />
   </div>
 
-  {(sum.headline?.sentences.length ?? 0) > 1 && (
+  <nav class="district-sections" aria-labelledby="district-sections-label">
+    <p id="district-sections-label">On this page</p>
+    <ul>
+      {hasRoundup && <li><a href="#weekly-h">Weekly roundup</a></li>}
+      {hasConditions && <li><a href="#dr-h">Drought, rain and burn bans</a></li>}
+      {hasWater && <li><a href="#water-h">Water conditions</a></li>}
+      {weather && <li><a href="#wx-h">Temperature and rain</a></li>}
+      {seasonRain && <li><a href="#sr-h">Rain since Jan. 1</a></li>}
+      <li><a href="#co-h">Counties ({sum.counties})</a></li>
+      {hasAnnual && <li><a href="#land-h">The land and its farms</a></li>}
+      {cattleMarkets.length > 0 && <li><a href="#mk-h">Cattle markets</a></li>}
+      {sheepGoatMarkets.length > 0 && <li><a href="#sg-h">Sheep and goat market</a></li>}
+      {!S.nass.stale && <li><a href="#cr-h">Crops, statewide</a></li>}
+    </ul>
+  </nav>
+
+  {hasRoundup && (
     <section aria-labelledby="weekly-h">
       <h2 id="weekly-h">Weekly roundup</h2>
       <Headline headline={sum.headline} sources={S} asof={L.asof} />
     </section>
   )}
 
-  {(drought || hasRain || forecast != null || burnBans) && (
+  {hasConditions && (
     <section aria-labelledby="dr-h">
       <h2 id="dr-h">Drought, rain and burn bans</h2>
       <div class="condition-details">
@@ -112,7 +136,7 @@ const pests = screwworm && detection ? [{
     </section>
   )}
 
-  {(D.water?.length ?? 0) > 0 && (
+  {hasWater && (
     <section aria-labelledby="water-h">
       <h2 id="water-h">Water conditions</h2>
       <div class="condition-details">
@@ -121,17 +145,17 @@ const pests = screwworm && detection ? [{
     </section>
   )}
 
-  {!S.nclimgrid.stale && D.weather && D.weather.days.length > 0 && (
+  {weather && (
     <section aria-labelledby="wx-h">
       <h2 id="wx-h">Temperature and rain</h2>
-      <WeatherStrip weather={D.weather} name={D.name} asof={L.asof} vsNormal={sum.rain_vs_normal} />
+      <WeatherStrip weather={weather} name={D.name} asof={L.asof} vsNormal={sum.rain_vs_normal} />
     </section>
   )}
 
-  {!S.nclimgrid.stale && D.season_rain && (
+  {seasonRain && (
     <section aria-labelledby="sr-h">
       <h2 id="sr-h">Rain since Jan. 1</h2>
-      <SeasonRain season={D.season_rain} name={D.name} asof={L.asof} />
+      <SeasonRain season={seasonRain} name={D.name} asof={L.asof} />
     </section>
   )}
 
@@ -177,14 +201,16 @@ const pests = screwworm && detection ? [{
     <p class="asof">Drought: {S.usdm.name}, map of {day(S.usdm.as_of)}. Rain: NOAA nClimGrid-Daily county averages through {day(S.nclimgrid.as_of)}{S.stage4 && !S.stage4.stale ? `, then NWS Stage IV radar-and-gauge estimates through ${day(S.stage4.as_of)}` : ""}; forecast: National Weather Service, at the county's center. Burn bans: Texas A&amp;M Forest Service, {day(S.burn_bans.as_of)}.</p>
   </section>
 
-  <DistrictAnnual annual={D.annual} sources={S} asof={L.asof} name={D.name} />
+  {hasAnnual && <DistrictAnnual annual={annual} sources={S} asof={L.asof} name={D.name} />}
 
-  <section aria-labelledby="mk-h">
-    <h2 id="mk-h">Cattle markets</h2>
-    <div class="grid">
-      {D.markets.filter((m) => m.kind !== "sheep_goats").map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}
-    </div>
-  </section>
+  {cattleMarkets.length > 0 && (
+    <section aria-labelledby="mk-h">
+      <h2 id="mk-h">Cattle markets</h2>
+      <div class="grid">
+        {cattleMarkets.map((m) => <MarketCard market={m} source={S.ams} asof={L.asof} />)}
+      </div>
+    </section>
+  )}
 
   {sheepGoatMarkets.length > 0 && (
     <section aria-labelledby="sg-h">
@@ -204,3 +230,33 @@ const pests = screwworm && detection ? [{
     </section>
   )}
 </Base>
+
+<style>
+  .district-sections {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 1.25rem;
+    margin-top: 1.5rem;
+    padding: .55rem 1rem;
+    border-block: 1px solid var(--rule);
+    background: var(--paper-2);
+  }
+  .district-sections p { margin: 0; font-weight: 600; }
+  .district-sections ul {
+    display: flex;
+    flex: 1 1 24rem;
+    flex-wrap: wrap;
+    column-gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .district-sections a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    font-size: .9375rem;
+  }
+  section > h2 { scroll-margin-top: 1rem; }
+</style>

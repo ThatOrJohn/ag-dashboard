@@ -97,12 +97,14 @@ test("the county map and conditions share the first desktop view", async ({ page
   }
 });
 
-test("the homepage district picker opens any district", async ({ page }) => {
+test("the homepage links to one alphabetical comparison of every district", async ({ page }) => {
   await page.goto("");
-  await page.getByText("Choose a district", { exact: true }).click();
-  const picker = page.getByRole("navigation", { name: "All Texas districts" });
-  await expect(picker.getByRole("link")).toHaveCount(DISTRICTS.length);
-  await picker.getByRole("link", { name: "Trans-Pecos" }).click();
+  await page.getByRole("link", { name: "Compare Texas districts" }).click();
+  await expect(page).toHaveURL(/#districts-h$/);
+  const comparison = page.getByRole("region", { name: /District comparison/ });
+  const districts = loadLatest().districts.map((d) => d.name).sort((a, b) => a.localeCompare(b, "en"));
+  await expect(comparison.getByRole("link")).toHaveText(districts);
+  await comparison.getByRole("link", { name: "Trans-Pecos" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trans-Pecos");
 });
 
@@ -116,9 +118,21 @@ test("every district has a page, and the Texas map links counties outside the fe
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Southern High Plains");
   await expect(page.locator(".eyebrow").first()).not.toContainText("featured district");
   await expect(page.locator("#c-48303")).toHaveAttribute("open", "");
-  await page.goto("");
-  await page.getByRole("region", { name: /Other districts this week/ }).getByRole("link", { name: "Trans-Pecos" }).click();
-  await expect(page).toHaveURL(/district\/trans-pecos\/$/);
+});
+
+test("district section links follow the sections present on each district page", async ({ page }) => {
+  for (const path of DISTRICTS) {
+    await page.goto(path);
+    const nav = page.getByRole("navigation", { name: "On this page" });
+    const sections = await page.locator("main > section[aria-labelledby] > h2").evaluateAll(
+      (headings) => headings.map((heading) => `#${heading.id}`),
+    );
+    const links = await nav.getByRole("link").evaluateAll((items) => items.map((item) => item.getAttribute("href")));
+    expect(links, path).toEqual(sections);
+  }
+  await page.getByRole("navigation", { name: "On this page" }).getByRole("link", { name: /^Counties/ }).click();
+  await expect(page).toHaveURL(/#co-h$/);
+  await expect(page.getByRole("heading", { name: "Counties", exact: true })).toBeInViewport();
 });
 
 test("on wide screens the header lists featured districts and a menu of the rest", async ({ page }) => {
@@ -204,11 +218,17 @@ test("on narrow screens the districts fold into a menu that works", async ({ pag
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("East Texas South");
 });
 
-test("district weather strip shows past days and a labeled forecast, with a table of every day", async ({ page }) => {
+test("district weather strip shows past days and a labeled forecast, with a table of every day", async ({ page }, testInfo) => {
   await page.goto("district/blacklands/");
+  await page.getByRole("link", { name: "Temperature and rain" }).click();
+  await expect(page).toHaveURL(/#wx-h$/);
   const fig = page.locator("figure.wx");
-  await expect(fig.getByRole("img")).toHaveAttribute("aria-label", /Daily high and low temperature and rain in Blacklands\. The \d+ days through [A-Z][a-z.]+ \d+: highs/);
-  await expect(fig).toContainText("Forecast");
+  const plot = fig.getByRole("img");
+  await expect(plot).toHaveAttribute("aria-label", /Daily high and low temperature and rain in Blacklands\. The \d+ days through [A-Z][a-z.]+ \d+: highs/);
+  const key = fig.getByRole("list", { name: "Chart key" });
+  await expect(key.getByText(/^Forecast · [A-Z]/)).toBeVisible();
+  await expect(key.getByText(/^Not yet reported · [A-Z]/)).toBeVisible();
+  await expect(plot.locator("text").filter({ hasText: /Pending|Forecast/ })).toHaveCount(0);
   await expect(fig).toContainText("nClimGrid-Daily");
   await expect(fig).toContainText("National Weather Service");
   await expect(fig).toContainText("Not yet reported");
@@ -219,21 +239,27 @@ test("district weather strip shows past days and a labeled forecast, with a tabl
   await expect(fig.getByText("Normal high to low, 1991–2020", { exact: true })).toHaveCount(normalBandCount);
   const rows = fig.locator("tbody tr");
   expect(await rows.count()).toBeGreaterThan(30);
-  await fig.getByText("Daily numbers").click();
+  await fig.getByText("Daily weather values").click();
   await expect(rows.filter({ hasText: "(forecast)" }).first()).toBeVisible();
   // The days since NOAA's newest: each one is a rain estimate or not yet reported, and estimates say so.
   await expect(rows.filter({ hasText: /\((not yet reported|rain estimate)\)/ }).first()).toBeVisible();
   if (await rows.filter({ hasText: "(rain estimate)" }).count()) {
-    await expect(fig).toContainText("Rain estimate (outlined)");
+    await expect(key.getByText("Rain estimate", { exact: true })).toBeVisible();
     await expect(fig).toContainText("Stage IV");
     await expect(rows.filter({ hasText: "(rain estimate)" }).first()).toContainText("(est.)");
   }
-  // Hovering a day shows its readout.
-  await fig.locator("svg").scrollIntoViewIfNeeded();
-  const box = (await fig.locator("svg").boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
-  await expect(fig.locator(".wx-tip")).toBeVisible();
-  await expect(fig.locator(".wx-tip")).toContainText("high");
+  // Read the date using the project's input method.
+  const observed = plot.locator('.wx-hit[data-k="observed"]').nth(10);
+  if (testInfo.project.name === "phone") {
+    await observed.tap();
+  } else {
+    await observed.hover();
+  }
+  const tip = fig.locator(".wx-tip");
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText("high");
+  await page.keyboard.press("Escape");
+  await expect(tip).toBeHidden();
 });
 
 test("About says the site is free, built from public data, and a personal project", async ({ page }) => {

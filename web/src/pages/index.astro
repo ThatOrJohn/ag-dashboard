@@ -1,5 +1,5 @@
 ---
-// Texas: the statewide this-week digest and the way into every district (featured ones first).
+// Texas: the statewide this-week digest and the way into every district.
 import Base from "../layouts/Base.astro";
 import AsOf from "../components/AsOf.astro";
 import CropCard from "../components/CropCard.astro";
@@ -11,13 +11,12 @@ import MarketCard from "../components/MarketCard.astro";
 import ScrewwormCard from "../components/ScrewwormCard.astro";
 import WaterCard from "../components/WaterCard.astro";
 import { loadLatest } from "../lib/data";
-import { change, countWord, day, href, inches, pct } from "../lib/format";
+import { change, day, href, inches, pct } from "../lib/format";
 
 const L = loadLatest();
 const S = L.sources;
 const tx = L.texas;
-const homes = L.districts.filter((d) => d.home);
-const others = L.districts.filter((d) => !d.home);
+const districts = L.districts.toSorted((a, b) => a.name.localeCompare(b.name, "en"));
 const fipsOf = (slug: string) => Object.entries(L.counties).filter(([, c]) => c.district === slug).map(([f]) => f);
 const statewide = L.markets.filter((m) => m.scope === "statewide");
 const anyStale = Object.entries(S).some(([key, source]) => !["screwworm", "boll_weevil", "twdb_groundwater", "usgs_streamflow"].includes(key) && source.stale);
@@ -47,12 +46,7 @@ const pests = [
       <h1>Texas agriculture this week</h1>
       <Headline headline={tx.headline} sources={S} asof={L.asof} topics={otherTopics?.length ? otherTopics : undefined} limit={1} />
       <Conditions asof={L.asof} drought={drought} burnBans={burnBans} pests={pests} />
-      <details class="district-picker">
-        <summary>Choose a district</summary>
-        <nav aria-label="All Texas districts">
-          <ul>{L.districts.map((d) => <li><a href={href(`district/${d.slug}/`)}>{d.name}</a></li>)}</ul>
-        </nav>
-      </details>
+      <a class="district-jump" href="#districts-h">Compare Texas districts</a>
     </div>
     <DroughtMap counties={L.counties} showDrought={!S.usdm.stale} title="Texas counties" link={(f) => {
       const d = L.counties[f]?.district;
@@ -90,21 +84,28 @@ const pests = [
     {tx.water?.map((card) => <WaterCard card={card} source={S[card.source]} level={2} />)}
   </div>
 
-  <section aria-labelledby="districts-h">
-    <h2 id="districts-h">Featured districts</h2>
-    <p class="muted">{`These ${countWord(homes.length)} NASS agricultural statistics districts are the ones I started with. Every district has the same full view, with a card for every county: the other ${countWord(others.length)} are in the table below, or pick a county on the map. District figures are my own totals of county data, weighted by land area.`}</p>
-    <div class="grid">
-      {homes.map((d) => (
-        <a class="card" href={href(`district/${d.slug}/`)} style="text-decoration:none;color:inherit">
-          <h3>{d.name}</h3>
-          {d.drought && <p>{`${pct(d.drought.now.d1)} in drought`}{d.drought.week_ago ? `, ${change(d.drought.now.d1, d.drought.week_ago.d1)} from last week` : ""}</p>}
-          <dl class="kv">
-            {d.rain_7d_in != null && (<><dt>Rain, last 7 days</dt><dd>{inches(d.rain_7d_in)}</dd></>)}
-            {d.burn_bans != null && (<><dt>Counties with a burn ban</dt><dd>{`${d.burn_bans} of ${d.counties}`}</dd></>)}
-          </dl>
-        </a>
-      ))}
+  <section id="rest-h" aria-labelledby="districts-h">
+    <h2 id="districts-h">Texas districts</h2>
+    <p class="muted">Select a district for its local conditions and county details. <span class="district-scroll-hint">Scroll the table sideways for more columns.</span></p>
+    <div class="table-wrap district-table" tabindex="0" role="region" aria-label="District comparison (scrolls sideways on small screens)">
+      <table>
+        <caption class="sr-only">Weekly conditions by NASS agricultural statistics district</caption>
+        <thead><tr><th scope="col">District</th><th class="n" scope="col">In drought (D1+)</th><th class="n" scope="col">vs last week</th><th class="n" scope="col">{`Rain, 7 days to ${day(S.nclimgrid.as_of, L.asof)}`}</th><th class="n" scope="col">Rain vs normal, 30 days</th><th class="n" scope="col">Counties with burn bans</th></tr></thead>
+        <tbody>
+          {districts.map((d) => (
+            <tr>
+              <th scope="row"><a href={href(`district/${d.slug}/`)}>{d.name}</a></th>
+              <td class="n">{d.drought ? pct(d.drought.now.d1) : "n/a"}</td>
+              <td class="n">{d.drought?.week_ago ? change(d.drought.now.d1, d.drought.week_ago.d1) : "n/a"}</td>
+              <td class="n">{inches(d.rain_7d_in)}</td>
+              <td class="n">{d.rain_vs_normal?.pct != null ? `${d.rain_vs_normal.pct}%` : "n/a"}</td>
+              <td class="n">{d.burn_bans != null ? `${d.burn_bans} of ${d.counties}` : "n/a"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
+    <p class="asof">Drought: {S.usdm.name}, map of {day(S.usdm.as_of)}. Rain: NOAA nClimGrid-Daily county averages through {day(S.nclimgrid.as_of)} (NOAA publishes about a week late). District drought and rain figures are weighted by county land area. Rain normals are for 1991–2020.</p>
   </section>
 
   <section aria-labelledby="crops-h">
@@ -132,60 +133,34 @@ const pests = [
 
   {tx.screwworm && S.screwworm && <ScrewwormCard card={tx.screwworm} source={S.screwworm} asof={L.asof} />}
 
-  <section aria-labelledby="rest-h">
-    <h2 id="rest-h">Every other district</h2>
-    <div class="table-wrap" tabindex="0" role="region" aria-label="Other districts this week (scrolls sideways on small screens)">
-      <table>
-        <caption class="sr-only">Other NASS districts this week; each name links to its district page</caption>
-        <thead><tr><th scope="col">District</th><th class="n" scope="col">In drought (D1+)</th><th class="n" scope="col">vs last week</th><th class="n" scope="col">{`Rain, 7 days to ${day(S.nclimgrid.as_of, L.asof)}`}</th><th class="n" scope="col">Rain vs normal, 30 days</th><th class="n" scope="col">Burn bans</th></tr></thead>
-        <tbody>
-          {others.map((d) => (
-            <tr>
-              <th scope="row"><a href={href(`district/${d.slug}/`)}>{d.name}</a></th>
-              <td class="n">{d.drought ? pct(d.drought.now.d1) : "n/a"}</td>
-              <td class="n">{d.drought?.week_ago ? change(d.drought.now.d1, d.drought.week_ago.d1) : "n/a"}</td>
-              <td class="n">{inches(d.rain_7d_in)}</td>
-              <td class="n">{d.rain_vs_normal?.pct != null ? `${d.rain_vs_normal.pct}%` : "n/a"}</td>
-              <td class="n">{d.burn_bans != null ? `${d.burn_bans} of ${d.counties}` : "n/a"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-    <p class="asof">Drought: {S.usdm.name}, map of {day(S.usdm.as_of)}. Rain: NOAA nClimGrid-Daily county averages through {day(S.nclimgrid.as_of)} (NOAA publishes about a week late); normal is 1991–2020. Our county-to-district totals.</p>
-  </section>
 </Base>
 
 <style>
-  .district-picker { position: relative; width: fit-content; margin-top: 1.25rem; }
-  .district-picker summary {
+  .district-jump {
+    display: inline-flex;
+    align-items: center;
     min-height: 44px;
-    padding: .6rem .8rem;
+    margin-top: 1rem;
+    padding: .5rem .8rem;
     border: 1px solid var(--rule);
     border-radius: var(--radius);
     font-weight: 600;
-    cursor: pointer;
   }
-  .district-picker summary:hover { background: var(--paper-2); }
-  .district-picker ul {
-    position: absolute;
-    z-index: 2;
-    width: max-content;
-    max-height: min(20rem, 45svh);
-    overflow-y: auto;
-    margin: .25rem 0 0;
-    padding: .25rem;
-    list-style: none;
-    border: 1px solid var(--rule);
-    border-radius: var(--radius);
-    background: var(--paper);
+  .district-jump:hover { background: var(--paper-2); }
+  #districts-h { scroll-margin-top: 1rem; }
+  .district-table table { min-width: 42rem; }
+  .district-table thead { background: var(--paper-2); }
+  .district-table td { white-space: nowrap; }
+  .district-table th:first-child {
+    position: sticky;
+    left: 0;
+    width: 9rem;
+    border-inline-end: 1px solid var(--rule-2);
   }
-  .district-picker a {
-    display: block;
-    min-height: 44px;
-    padding: .6rem .75rem;
-    line-height: 1.5;
-    color: var(--ink);
+  .district-table thead th:first-child { background: var(--paper-2); }
+  .district-table tbody th { background: var(--paper); }
+  .district-scroll-hint { display: none; }
+  @media (max-width: 720px) {
+    .district-scroll-hint { display: inline; }
   }
-  .district-picker a:hover, .district-picker a:focus-visible { background: var(--paper-2); }
 </style>
