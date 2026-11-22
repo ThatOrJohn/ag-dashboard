@@ -14,6 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from . import store
 from .config import Region
 
 VARS = ("hi_c", "lo_c", "rain_mm")
@@ -79,10 +80,9 @@ class Accumulator:
         self.months.add(key)
 
     def save(self, region: Region) -> None:
-        d = _dir(region)
-        d.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(d / "accum.npz", geos=np.array(self.geos), sum=self.sum, n=self.n,
-                            monthly=self.monthly, months=np.array(sorted(self.months)))
+        with store.atomic_write(_dir(region) / "accum.npz") as pending:
+            np.savez_compressed(pending, geos=np.array(self.geos), sum=self.sum, n=self.n,
+                                monthly=self.monthly, months=np.array(sorted(self.months)))
 
     def smoothed(self) -> np.ndarray:
         """county × var × day: windowed sum / windowed count, wrapping around the year."""
@@ -99,11 +99,13 @@ def write(region: Region, acc: Accumulator) -> None:
     g, v, d = np.meshgrid(np.arange(len(acc.geos)), np.arange(3), np.arange(366), indexing="ij")
     df = pd.DataFrame({"geo": np.array(acc.geos)[g.ravel()], "var": np.array(VARS)[v.ravel()],
                        "doy": d.ravel().astype(np.int16), "value": sm.ravel().astype(np.float32)})
-    df.dropna().to_parquet(_dir(region) / "daily.parquet", index=False)
     gi, yi, mi = np.meshgrid(np.arange(len(acc.geos)), np.arange(LAST - FIRST + 1), np.arange(12), indexing="ij")
     mr = pd.DataFrame({"geo": np.array(acc.geos)[gi.ravel()], "year": (yi.ravel() + FIRST).astype(np.int16),
                        "month": (mi.ravel() + 1).astype(np.int8), "rain_mm": acc.monthly.ravel().astype(np.float32)})
-    mr.dropna().to_parquet(_dir(region) / "monthly_rain.parquet", index=False)
+    with store.atomic_write(_dir(region) / "monthly_rain.parquet") as pending:
+        mr.dropna().to_parquet(pending, index=False)
+    with store.atomic_write(_dir(region) / "daily.parquet") as pending:
+        df.dropna().to_parquet(pending, index=False)
 
 
 def monthly_rain(region: Region) -> pd.DataFrame | None:

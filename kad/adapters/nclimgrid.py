@@ -123,6 +123,7 @@ def fetch(region: Region, *, deadline: float | None = None):
     problems: list[str] = []
     fails = 0
     added = 0
+    saved = 0
     # A few months at a time in parallel: NCEI serves static files; keep it polite.
     with ThreadPoolExecutor(max_workers=4) as pool:
         for i in range(0, len(todo), 4):
@@ -141,8 +142,9 @@ def fetch(region: Region, *, deadline: float | None = None):
             if fails >= 3 and added == 0:
                 problems.append("three months failed in a row with nothing fetched; stopping until next run")
                 break
-            if added and added % 48 == 0:
-                acc.save(region)                         # checkpoint every ~4 years
+            if added - saved >= 12:
+                acc.save(region)
+                saved = added
     acc.save(region)
     complete = len(acc.months) == (LAST - FIRST + 1) * 12
     log.info("nclimgrid: %d months this run, %d of %d in", added, len(acc.months), (LAST - FIRST + 1) * 12)

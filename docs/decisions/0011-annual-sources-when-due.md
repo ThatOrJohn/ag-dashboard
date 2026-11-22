@@ -13,9 +13,10 @@ run should spend. The owner wants a failed run to show at a glance which sources
 - Every regular run (twice daily, on push) calls `kad annual` logic: a source is **due** when it has no
   successful fetch within `refresh_days` (regions/tx.yaml: Census 90, NASS county 30, CDL 30, RAP 16).
   Not due = skipped in milliseconds. Whichever run comes next catches up after missed crons.
-- Adapters return `(rows, complete, problems)` and stop at a shared deadline (`--budget`, 8 minutes).
-  Success is recorded only when complete; a failure or partial run records nothing, so the next run
-  retries or continues from what is already in the store.
+- The runner divides `--budget` (8 minutes by default) among due sources and passes unused time to later
+  sources. The CLI stops a source process 10 seconds after its deadline if a request is still running.
+  CDL, RAP, and normals save progress while fetching. Only a complete refresh updates the source's
+  success timestamp, so a later run continues from the checkpoint after a failure or timeout.
 - Three consecutive failures with nothing fetched means the service is down: stop and report, instead of
   spending the budget on retries.
 - Each run ends with a per-source report (kad/report.py): a table in the run summary (ok, failed, stale,

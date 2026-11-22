@@ -91,7 +91,7 @@ def cmd_ingest(region, args):
 
 def cmd_annual(region, args):
     annual.run_due(region, budget_s=args.budget, force=args.force,
-                   only=args.only.split(",") if args.only else None, try_=_try)
+                   only=args.only.split(",") if args.only else None, try_=_try, isolate=True)
 
 
 def cmd_build(region, args):
@@ -125,8 +125,8 @@ def main(argv=None) -> int:
     ap.add_argument("--region", default="tx")
     ap.add_argument("--asof", help="build as of this date (testing), YYYY-MM-DD")
     ap.add_argument("--force", action="store_true", help="refresh annual sources even if not due and reload NASS and USGS history on ingest")
-    ap.add_argument("--only", help="annual: comma-separated source keys (census,nass_county,cdl,rap)")
-    ap.add_argument("--budget", type=float, default=480, help="annual: seconds this run may spend")
+    ap.add_argument("--only", help="annual: comma-separated source keys (census,nass_county,cdl,rap,normals)")
+    ap.add_argument("--budget", type=float, default=480, help="annual: seconds divided among due sources, before shutdown grace")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     load_env()
