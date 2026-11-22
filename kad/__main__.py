@@ -4,7 +4,8 @@
   python -m kad ingest     pull recent data from every weekly/daily source
   python -m kad annual     run the annual sources that are due (--force: all; --only census,cdl)
   python -m kad build      write web/public/data/<region>/*.json from the local store only (fast)
-  python -m kad run        ingest + annual (when due) + build + run report (what CI runs)
+  python -m kad run        ingest + harvest outlook + annual (when due) + build + run report (what CI runs)
+  python -m kad harvest-backtest  compare the cotton forecast and seasonal baseline on saved observations
   python -m kad check      health check CI runs: fail if the core weekly sources have gone stale
 
 Every source is independent: if one is down, the rest still update, and the page hides that source's
@@ -13,11 +14,12 @@ section rather than showing old numbers. Each run ends with a per-source report 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from datetime import date, timedelta
 
-from . import annual, store
+from . import annual, harvest, store
 from .config import load_env, load_region
 from .report import REPORT, plain_error
 
@@ -99,7 +101,6 @@ def cmd_build(region, args):
 
 def cmd_check(region, args) -> int:
     """Fail if a core weekly source (drought, NASS crop progress) is stale: the schedule or a source stalled."""
-    import json
     import os
     from .config import SITE_OUT
     latest = json.loads((SITE_OUT / region.id / "latest.json").read_text())
@@ -117,7 +118,7 @@ def cmd_check(region, args) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="kad")
-    ap.add_argument("command", choices=["backfill", "ingest", "annual", "build", "run", "check"])
+    ap.add_argument("command", choices=["backfill", "ingest", "annual", "build", "run", "check", "harvest-backtest"])
     ap.add_argument("--region", default="tx")
     ap.add_argument("--asof", help="build as of this date (testing), YYYY-MM-DD")
     ap.add_argument("--force", action="store_true", help="refresh annual sources even if not due and reload NASS history on ingest")
@@ -129,9 +130,14 @@ def main(argv=None) -> int:
     region = load_region(args.region)
     if args.command == "check":
         return cmd_check(region, args)
+    if args.command == "harvest-backtest":
+        print(json.dumps(harvest.backtest(harvest.observations(region)), indent=2))
+        return 0
     out = None
     if args.command == "run":
         cmd_ingest(region, args)
+        if region.id == "tx":
+            _try("cotton_harvest", harvest.refresh, region)
         cmd_annual(region, args)
         out = cmd_build(region, args)
     elif args.command == "build":

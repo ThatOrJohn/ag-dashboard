@@ -4,6 +4,7 @@
 import type { ConditionCard, ProgressCard, Source } from "../lib/types";
 import { CROPS, STAGES, change, day, pct } from "../lib/format";
 import AsOf from "./AsOf.astro";
+import HarvestOutlook from "./HarvestOutlook.astro";
 
 interface Props { crop: string; progress?: ProgressCard; condition: ConditionCard; source: Source; asof: string; title?: string }
 const { crop, progress, condition, source, asof, title } = Astro.props;
@@ -24,6 +25,7 @@ const name = title ?? CROPS[crop] ?? crop;
       </table>
     </div>
   )}
+  {progress?.harvest_outlook && <HarvestOutlook outlook={progress.harvest_outlook} asof={asof} />}
   {progress && progress.status === "out_of_season" && (
     <p class="muted">{`Progress reports are done for the season. Last report: ${day(progress.last_report, asof)}.`}</p>
   )}

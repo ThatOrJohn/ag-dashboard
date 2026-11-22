@@ -1,0 +1,71 @@
+---
+import type { HarvestOutlook } from "../lib/types";
+import { day, pct, pulled } from "../lib/format";
+
+interface Props { outlook: HarvestOutlook; asof: string }
+const { active, accuracy, history } = Astro.props.outlook;
+const { asof } = Astro.props;
+const estimatedRange = (range: [number, number]) => `${range[0]}–${range[1]}%`;
+---
+<div class="harvest-outlook">
+  {active && (
+    <>
+      <h4>Texas cotton harvest outlook</h4>
+      <p><strong>About {pct(active.estimate)} harvested</strong> for the week ending {day(active.target_week, asof)}.
+        {active.range && ` Estimated range ${estimatedRange(active.range)}.`}
+      </p>
+      <p class="muted">My estimate, issued {pulled(active.issued_at)}. USDA reported {pct(active.input_pct)}
+        harvested for the week ending {day(active.input_week, asof)}.</p>
+    </>
+  )}
+  <details>
+    <summary>Texas cotton forecast accuracy</summary>
+    {accuracy ? (
+      <>
+        <p>Across {accuracy.count} scored {accuracy.count === 1 ? "forecast" : "forecasts"}, my estimates missed by
+          {accuracy.mae.toFixed(1)} percentage points on average. Using the typical weekly gain missed by
+          {accuracy.baseline_mae.toFixed(1)} points.</p>
+        {accuracy.bias !== 0 && (
+          <p>The estimates averaged {Math.abs(accuracy.bias).toFixed(1)} points {accuracy.bias > 0 ? "high" : "low"}.</p>
+        )}
+        {accuracy.range_count > 0 && (
+          <p>USDA’s result fell within the estimated range {accuracy.in_range} of {accuracy.range_count} times.</p>
+        )}
+      </>
+    ) : <p>Accuracy will appear after USDA reports a forecasted week.</p>}
+    {history.length > 0 && (
+      <div class="table-wrap">
+        <table>
+          <caption class="sr-only">Texas cotton harvest forecast history</caption>
+          <thead>
+            <tr><th scope="col">Week ending</th><th scope="col" class="n">Estimate</th>
+              <th scope="col" class="n">Range</th><th scope="col" class="n">USDA result</th></tr>
+          </thead>
+          <tbody>
+            {history.map((row) => (
+              <tr>
+                <th scope="row">{day(row.target_week, asof)}</th>
+                <td class="n">{row.estimate.toFixed(1)}%</td>
+                <td class="n">{row.range ? estimatedRange(row.range) : "—"}</td>
+                <td class="n">{row.actual === null ? "Unscored" : pct(row.actual)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </details>
+</div>
+<style>
+  .harvest-outlook {
+    border-block-start: 1px solid var(--rule);
+    margin-block: 0.75rem;
+    padding-block-start: 0.75rem;
+  }
+  h4 { margin: 0; }
+  summary {
+    cursor: pointer;
+    min-block-size: 44px;
+    align-content: center;
+  }
+</style>

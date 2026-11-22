@@ -22,12 +22,26 @@ export interface DroughtSummary {
 
 export type SeasonStatus = "fresh" | "out_of_season" | "stale";
 
+interface HarvestEstimate {
+  target_week: string;
+  issued_at: string;
+  estimate: number;
+  range: [number, number] | null;
+}
+
+export interface HarvestOutlook {
+  active: (HarvestEstimate & { input_week: string; input_pct: number }) | null;
+  accuracy: { count: number; mae: number; bias: number; baseline_mae: number; range_count: number; in_range: number } | null;
+  history: (HarvestEstimate & { actual: number | null })[];
+}
+
 export interface ProgressCard {
   status: SeasonStatus;
   last_report: string | null;
   level: "state";
   week_ending?: string;
   stages?: { stage: string; pct: number; last_week: number | null; last_year: number | null; avg_5yr: number | null }[];
+  harvest_outlook?: HarvestOutlook;
 }
 
 export interface ConditionCard {

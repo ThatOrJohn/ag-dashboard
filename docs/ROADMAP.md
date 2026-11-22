@@ -22,6 +22,8 @@
   ([0021](decisions/0021-screwworm-detections.md)).
 - Cotton boll weevil monitoring and crop-specific AgriLife pest resources
   ([0022](decisions/0022-crop-pest-monitoring.md)).
+- Texas cotton harvest outlook with an estimate for the next USDA report and a public accuracy history
+  ([0023](decisions/0023-texas-cotton-harvest-outlook.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next

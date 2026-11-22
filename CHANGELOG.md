@@ -3,6 +3,8 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- Cotton shows an estimate for the next statewide harvest report in season. The accuracy panel compares
+  past estimates and their ranges with USDA results and a typical-week baseline.
 - Cotton shows weekly boll weevil trapping and treatment by reporting area. Cotton, Corn & Sorghum,
   and Wheat & Small Grains link to crop-specific pest alerts and scouting guides.
 - The Texas overview shows confirmed New World screwworm cases and recent county detections, with

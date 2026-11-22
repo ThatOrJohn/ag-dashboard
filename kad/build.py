@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from . import annual_build as ab
-from . import headline, normals, store
+from . import harvest, headline, normals, store
 from .adapters.ams import SHEEP_GOAT_SERIES
 from .config import SITE_OUT, Region
 
@@ -508,6 +508,10 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     for crop in CROPS:
         crops[crop] = {"progress": progress_card(region, nass, crop, asof_ts),
                        "condition": condition_card(region, nass, crop, asof_ts)}
+    cotton = crops["cotton"]["progress"]
+    outlook = harvest.site_data(region, asof_ts, input_week=cotton.get("week_ending"))
+    if outlook is not None:
+        cotton["harvest_outlook"] = outlook
     pasture = condition_card(region, nass, "pasture", asof_ts)
 
     # Burn bans: the KMZ's Last-Modified is the figure's date.
