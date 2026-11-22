@@ -1,99 +1,98 @@
 ---
-// Cattle story visual: a price tag per weight class that swings when the price moves, and a pen per class with
-// one cow icon for every 25 head sold that week. Prices and head counts are always written out.
 import { formatStoryValue, type Story } from "../../lib/stories/model";
 
 interface Props { story: Story }
 const { story } = Astro.props;
-const PER_ICON = 25, MAX_ICONS = 48;
-const v0 = story.frames[0].values;
+const columns = 12;
+const rows = 4;
+const slots = columns * rows;
 const classes = [{ name: "500–599 lb steers", price: 0, head: 2 }, { name: "700–799 lb steers", price: 1, head: 3 }];
-const icons = (h: number | null) => Math.min(MAX_ICONS, Math.round((h ?? 0) / PER_ICON));
+const maxHead = Math.max(...story.frames.flatMap(({ values }) => classes.map(({ head }) => values[head] ?? 0)));
+const perIcon = 25 * Math.max(1, Math.ceil(maxHead / (slots * 25)));
+const frames = story.frames.map(({ values }, index) => classes.map(({ price, head }) => {
+  const current = values[price];
+  const previous = story.frames[index - 1]?.values[price];
+  const change = current != null && previous != null ? Math.round((current - previous) * 100) / 100 : 0;
+  return {
+    price: formatStoryValue(current, "usd_cwt"),
+    head: formatStoryValue(values[head], "head"),
+    icons: Math.round((values[head] ?? 0) / perIcon),
+    change: change ? `${change > 0 ? "+" : "−"}$${Math.abs(change).toFixed(2)}` : "",
+  };
+}));
 ---
-<div class="cattle" data-per={PER_ICON} data-max={MAX_ICONS}>
+<div class="cattle" data-cattle={JSON.stringify(frames)}>
   <svg width="0" height="0" class="defs" aria-hidden="true">
     <symbol id="cow" viewBox="0 0 32 22">
       <path d="M7 6h15c2 0 3 1 4 2l2-1 2-3 1 1-1 3 1 1-1 3-2 1v3h-2v5h-2v-5H11v5H9v-5H7l-1-2-3 4-1-1 3-5z" />
       <path d="M26 5l1-3 1 1-1 2zM29 5l2-2 0 2-1 1z" />
     </symbol>
   </svg>
-  {classes.map(({ name, price, head }, i) => (
-    <section class="pen" data-class={i} aria-label={name}>
-      <div class="tag" data-tag>
+  {classes.map(({ name }, i) => (
+    <section class="pen" data-class aria-label={name}>
+      <div class="tag">
         <span class="tag-name">{name}</span>
-        <span class="num tag-price" data-story-share>{formatStoryValue(v0[price], "usd_cwt")}</span>
-        <span class="tag-unit">per hundredweight <span data-move></span><span class="sr-only"> from the prior week</span></span>
+        <span class="num tag-price" data-story-share>{frames[0][i].price}</span>
+        <div class="tag-detail">
+          <span>per <abbr title="hundredweight">cwt</abbr></span>
+          <span><span data-move></span><span class="sr-only" data-move-label hidden> from prior sale</span></span>
+        </div>
       </div>
-      <div class="herd" aria-hidden="true" data-herd>
-        {Array.from({ length: icons(v0[head]) }, () => <svg class="cow"><use href="#cow" /></svg>)}
-      </div>
-      <p class="head"><span class="num" data-head>{formatStoryValue(v0[head], "head")}</span> head sold</p>
+      <svg class="herd" viewBox={`0 0 ${columns * 36 + 4} ${rows * 26 + 4}`} aria-hidden="true">
+        {Array.from({ length: slots }, (_, slot) => (
+          <use class:list={["cow", { filled: slot < frames[0][i].icons }]} href="#cow"
+            x={4 + (slot % columns) * 36} y={4 + Math.floor(slot / columns) * 26} width="32" height="22" />
+        ))}
+      </svg>
+      <p class="head"><span class="num" data-head>{frames[0][i].head}</span> head sold</p>
     </section>
   ))}
+  <p class="herd-key">Each cow represents about {perIcon} head sold.</p>
 </div>
 
 <script>
   const player = document.getElementById("story-player");
-  const root = player?.querySelector<HTMLElement>(".cattle");
+  const root = player?.querySelector<HTMLElement>("[data-cattle]");
   if (player && root) {
-    const per = Number(root.dataset.per), max = Number(root.dataset.max);
-    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
-    const pens = [...root.querySelectorAll<HTMLElement>("[data-class]")];
-    const num = (t: string) => Number(t.replace(/[^\d.]/g, ""));
-    let prev = 0;
+    const frames: { price: string; head: string; icons: number; change: string }[][] = JSON.parse(root.dataset.cattle!);
+    const pens = [...root.querySelectorAll("[data-class]")].map((pen) => ({
+      price: pen.querySelector<HTMLElement>("[data-story-share]")!,
+      head: pen.querySelector<HTMLElement>("[data-head]")!,
+      move: pen.querySelector<HTMLElement>("[data-move]")!,
+      moveLabel: pen.querySelector<HTMLElement>("[data-move-label]")!,
+      icons: pen.querySelectorAll(".cow"),
+    }));
     player.addEventListener("storyframe", (e) => {
       const { index } = (e as CustomEvent<{ index: number }>).detail;
-      const text = frames[index].text;
       pens.forEach((pen, i) => {
-        const priceText = text[i], headText = text[i + 2];
-        // Change from the prior week's sale, whichever frame was showing before.
-        const before = index > 0 ? num(frames[index - 1].text[i]) : NaN, now = num(priceText);
-        pen.querySelector<HTMLElement>("[data-story-share]")!.textContent = priceText;
-        pen.querySelector<HTMLElement>("[data-head]")!.textContent = headText;
-        const move = pen.querySelector<HTMLElement>("[data-move]")!;
-        const delta = Number.isNaN(before) || Number.isNaN(now) ? 0 : now - before;
-        move.textContent = delta > 0 ? `▲ $${delta.toFixed(2)}` : delta < 0 ? `▼ $${Math.abs(delta).toFixed(2)}` : "";
-        move.className = delta > 0 ? "up" : delta < 0 ? "down" : "";
-        const tag = pen.querySelector<HTMLElement>("[data-tag]")!;
-        tag.classList.remove("swing");
-        if (delta && index !== prev) { void tag.offsetWidth; tag.classList.add("swing"); }
-        const herd = pen.querySelector<HTMLElement>("[data-herd]")!;
-        const want = Math.min(max, Math.round((num(headText) || 0) / per));
-        while (herd.children.length > want) herd.lastElementChild!.remove();
-        while (herd.children.length < want) {
-          const cow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-          cow.setAttribute("class", "cow arrive");
-          const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-          use.setAttribute("href", "#cow");
-          cow.append(use);
-          herd.append(cow);
-        }
+        const frame = frames[index][i];
+        pen.price.textContent = frame.price;
+        pen.head.textContent = frame.head;
+        pen.move.textContent = frame.change;
+        pen.moveLabel.hidden = !frame.change;
+        pen.icons.forEach((icon, slot) => icon.classList.toggle("filled", slot < frame.icons));
       });
-      prev = index;
     });
   }
 </script>
 
 <style>
-  .cattle { grid-area: visual; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 3vw, 2.5rem); padding: .75rem clamp(1rem, 3vw, 2rem) 1.25rem; }
+  .cattle { grid-area: visual; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem clamp(.5rem, 2vw, 1.5rem); padding: .65rem clamp(.65rem, 2vw, 1.5rem); }
   .defs { position: absolute; }
-  .pen { display: grid; gap: .75rem; align-content: start; }
+  .pen { display: grid; grid-template-rows: subgrid; grid-row: span 5; }
   .tag {
-    justify-self: start; display: grid; gap: .1rem; padding: .7rem 1.1rem .7rem 1.6rem; position: relative;
-    background: var(--amber-tint); color: var(--amber-ink); border-radius: 6px 14px 14px 6px; transform-origin: 0 50%;
+    display: grid; grid-template-rows: subgrid; grid-row: span 3; gap: 0;
+    padding: .45rem .55rem; background: var(--amber-tint); color: var(--amber-ink); border-radius: var(--radius);
   }
-  .tag::before { content: ""; position: absolute; left: .55rem; top: 50%; width: .5rem; height: .5rem; margin-top: -.25rem; border-radius: 50%; background: var(--paper); }
-  .tag.swing { animation: swing .6s ease-out; }
-  .tag-name { font-weight: 600; font-size: .9rem; }
-  .tag-price { font-family: var(--font-serif); font-size: clamp(1.8rem, 4.5vw, 2.6rem); line-height: 1.05; }
-  .tag-unit { font-size: .8rem; }
-  .tag-unit .up, .tag-unit .down { margin-left: .35rem; font-family: var(--font-mono); font-weight: 600; }
-  .herd { display: flex; flex-wrap: wrap; gap: 4px 6px; min-height: 5.5rem; align-content: flex-start; padding: .6rem; border: 2px solid var(--rule); border-radius: var(--radius); background: var(--paper-2); }
-  .cow { width: 30px; height: 21px; fill: var(--ink-2); }
-  .cow.arrive { animation: arrive .4s ease-out; }
-  .head { margin: 0; color: var(--ink-2); }
+  .tag-name { font-weight: 600; font-size: .85rem; }
+  .tag-price { font-family: var(--font-serif); font-size: clamp(1.4rem, 4.8vw, 2.5rem); line-height: 1.1; }
+  .tag-detail { display: flex; justify-content: space-between; gap: .25rem; font-size: .75rem; }
+  .tag-detail > span { white-space: nowrap; }
+  [data-move] { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .herd { display: block; width: 100%; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper-2); }
+  .cow { fill: var(--ink-2); opacity: 0; transition: opacity .18s ease-out; }
+  .cow.filled { opacity: 1; }
+  .head, .herd-key { margin: 0; color: var(--ink-2); font-size: .85rem; }
   .head .num { color: var(--ink); font-weight: 600; }
-  @keyframes swing { 30% { transform: rotate(-5deg); } 65% { transform: rotate(3deg); } }
-  @keyframes arrive { from { transform: translateX(-10px); opacity: 0; } }
-  @media (max-width: 560px) { .cattle { grid-template-columns: 1fr; } .cow { width: 22px; height: 16px; } }
+  .herd-key { grid-column: 1 / -1; font-size: .75rem; }
 </style>

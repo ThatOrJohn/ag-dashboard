@@ -18,7 +18,7 @@ export function buildCattleStory({ data, latest }: StoryContext): Story | null {
   const hi = p.indexOf(Math.max(...p));
   const lo = p.indexOf(Math.min(...p));
   const chapters: { frame: number; label: string; caption: string }[] = [
-    { frame: 0, label: "Start", caption: `${label(0)}: 500–599 lb feeder steers bring ${usd(p[0])} per hundredweight, about $${perHead(p[0]).toLocaleString("en-US")} for a 550 lb calf. Each cow icon stands for 25 head sold in that class that week.` },
+    { frame: 0, label: "Start", caption: `At ${usd(p[0])} per hundredweight, a 550 lb steer was worth about $${perHead(p[0]).toLocaleString("en-US")}.` },
     { frame: hi, label: "Top price", caption: `${label(hi)}: ${usd(p[hi])} per hundredweight, the highest week in this run, about $${perHead(p[hi]).toLocaleString("en-US")} a calf.` },
     { frame: lo, label: "Lowest", caption: `${label(lo)}: ${usd(p[lo])}, the lowest week in this run.` },
     { frame: last, label: "Latest sale", caption: `${label(last)}: ${usd(p[last])}, ${p[last] >= p[0] ? "up" : "down"} ${usd(Math.abs(p[last] - p[0]))} from the first week shown.` },
@@ -40,8 +40,8 @@ export function buildCattleStory({ data, latest }: StoryContext): Story | null {
     topic: "Cattle",
     period: `${day(weeks[0].date)} – ${day(weeks[last].date)}`,
     title: "A year of Texas calf prices",
-    description: `${weeks.length} weekly sales of feeder steers across Texas auctions, from ${usd(p[lo])} to ${usd(p[hi])} per hundredweight for 500–599 lb calves.`,
-    metric: "Feeder steers, Texas weekly auction summary",
+    description: `${weeks.length} weeks of Texas auction prices and head counts for two feeder steer weight classes.`,
+    metric: "Texas feeder steer auctions",
     frameLabel: "Sale week",
     series: [
       { name: "500–599 lb, $/cwt", unit: "usd_cwt" }, { name: "700–799 lb, $/cwt", unit: "usd_cwt" },

@@ -15,7 +15,7 @@ const title = story?.title ?? fallback.title;
 ---
 <Base title={title + " · Stories · Texas Ag Dashboard"} description={story?.description ?? fallback.description} current="stories" shareImage={"story-" + Astro.params.slug}>
   <article>
-    <header class="story-heading">
+    <header class:list={["story-heading", { "cattle-heading": story?.visual.kind === "cattle" }]}>
       <p class="story-crumbs">
         <a class="story-back" href={href("stories/")}>All stories</a>
         <span class="eyebrow">{story ? story.topic + " · " + story.period : fallback.topic}</span>
@@ -34,6 +34,12 @@ const title = story?.title ?? fallback.title;
   .story-crumbs .eyebrow { margin: 0; }
   .story-back { display: inline-flex; min-height: 44px; align-items: center; }
   .story-heading { margin-bottom: 1.5rem; }
+  @media (max-width: 999px) {
+    :global(main:has(.cattle-heading)) { padding-top: .5rem; }
+    .cattle-heading { margin-bottom: .65rem; }
+    .cattle-heading h1 { font-size: clamp(1.65rem, 5vw, 2.25rem); margin-bottom: .2em; }
+    .cattle-heading .lede { font-size: .95rem; margin: 0; }
+  }
   /* Desktop: a compact heading so the whole player, controls included, fits on one screen. */
   @media (min-width: 1000px) {
     :global(main:has(#story-player)) { padding-top: .5rem; }

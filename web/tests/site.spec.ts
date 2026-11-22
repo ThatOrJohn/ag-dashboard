@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { loadDistrict, loadLatest } from "../src/lib/data";
 import { buildStories, cottonHeadline, cottonStorySlug, droughtStorySlug, droughtStoryTitle, formatStoryValue } from "../src/lib/stories";
+import { cattleStorySlug } from "../src/lib/stories/cattle";
 import { turningPoints } from "../src/lib/stories/drought";
 import type { ProgressCard } from "../src/lib/types";
 
@@ -226,6 +227,32 @@ test("on a laptop screen every story's player and controls fit without scrolling
     const box = (await controls.boundingBox())!;
     expect(box.y + box.height, slug).toBeLessThanOrEqual(800);
   }
+});
+
+test("the calf replay keeps its tags, pens and controls in place across sale weeks", async ({ page }, testInfo) => {
+  const story = buildStories().find(({ slug }) => slug === cattleStorySlug)?.story;
+  test.skip(!story, "The calf story requires current auction data");
+  const viewport = testInfo.project.name === "phone" ? { width: 390, height: 760 } : { width: 1024, height: 768 };
+  await page.setViewportSize(viewport);
+  await page.goto(`stories/${cattleStorySlug}/`);
+  const controls = page.locator("[data-story-controls]");
+  await expect(controls).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+
+  const layouts = await page.locator("#story-player").evaluate((player) => {
+    const slider = player.querySelector<HTMLInputElement>("[data-story-slider]")!;
+    const tracked = [...player.querySelectorAll(".tag, .herd, [data-story-controls], .stl")];
+    return Array.from({ length: Number(slider.max) + 1 }, (_, frame) => {
+      slider.valueAsNumber = frame;
+      slider.dispatchEvent(new Event("input"));
+      return tracked.map((element) => element.getBoundingClientRect().toJSON());
+    });
+  });
+  for (const [frame, layout] of layouts.entries()) {
+    expect(layout, `sale week ${frame + 1}`).toEqual(layouts[0]);
+  }
+  const box = (await controls.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
 });
 
 test("every story builder keeps its captions and table rows in range", () => {

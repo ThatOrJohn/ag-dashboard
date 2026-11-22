@@ -33,6 +33,7 @@ const config = {
 const first = { ...frames[0], caption: captions[frames[0].c] };
 const tableRows = (story.tableFrames ?? frames.map((_, i) => i)).map((i) => frames[i]);
 const layout = ["drought", "census"].includes(story.visual.kind) ? "layout-map" : "layout-wide";
+const isCattle = story.visual.kind === "cattle";
 const source = latest.sources[story.source];
 const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name }] : []);
 ---
@@ -50,7 +51,12 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
     <time class="story-date" data-story-date datetime={first.date} hidden={!first.date}>{first.date && first.label}</time>
     <span class="story-date" data-story-label hidden={!!first.date}>{!first.date && first.label}</span>
     <h2 id="story-metric">{story.metric}</h2>
-    <p class="story-caption" data-story-caption>{first.caption}</p>
+    {isCattle ? (
+      <div class="caption-stack">
+        <p class="story-caption" data-story-caption>{first.caption}</p>
+        {captions.map((text) => <p class="story-caption caption-space" aria-hidden="true">{text}</p>)}
+      </div>
+    ) : <p class="story-caption" data-story-caption>{first.caption}</p>}
     <p class="sr-only" role="status" data-story-announcement></p>
   </section>
   <div class="story-controls" data-story-controls hidden>
@@ -266,6 +272,16 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   .story-table table { margin-bottom: .75rem; }
   .story-table th.n { font-family: inherit; }
   .story-table td, .story-table th { padding-inline: clamp(.25rem, 1.25vw, .5rem); }
+  /* Size the caption to the longest wrapped chapter so playback never moves the controls. */
+  .caption-stack { display: grid; }
+  .caption-stack .story-caption { grid-area: 1 / 1; min-height: 0; font-size: .95rem; }
+  .caption-space { visibility: hidden; }
+  .kind-cattle .story-panel { padding: .65rem 1rem .35rem; }
+  .kind-cattle .story-panel h2 { margin: .15rem 0 .3rem; }
+  .kind-cattle .story-controls:not([hidden]) { gap: .4rem; padding: .35rem 1rem .6rem; }
+  @media (max-width: 999px) {
+    .story-stage.kind-cattle { grid-template-areas: "panel" "visual" "controls" "timeline"; }
+  }
   /* Desktop: the visual (and its timeline) on the left; date, caption, readout and controls in a column on the
      right, so the player fits on one screen. Visuals cap their height with --vis-max. */
   @media (min-width: 1000px) {
@@ -295,6 +311,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
       border-left: 1px solid var(--rule);
     }
     .story-stage.layout-wide .story-controls:not([hidden]) { border-top: 0; }
+    .story-stage.kind-cattle .story-controls:not([hidden]) { align-content: start; }
     .story-stage.layout-map .story-controls:not([hidden]) { border-left: 0; }
     .timeline { gap: .75rem; }
     .chapters { gap: .35rem; }
