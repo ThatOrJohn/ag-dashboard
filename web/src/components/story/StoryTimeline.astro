@@ -1,0 +1,116 @@
+---
+// A strip chart of a story's whole run under its visual: areas, lines or bars from the frame values, a cursor on
+// the current frame, chapter dots, and tap or drag to jump. Purely a view of the table's figures (aria-hidden).
+import type { Story, StoryTimeline } from "../../lib/stories/model";
+
+interface Props { story: Story; timeline: StoryTimeline }
+const { story, timeline } = Astro.props;
+const TW = 720, TH = 140, PAD = { l: 48, r: 10, t: 10, b: 22 };
+const n = story.frames.length;
+const x = (i: number) => PAD.l + (i / Math.max(1, n - 1)) * (TW - PAD.l - PAD.r);
+const scale = (v: number) => (timeline.log ? Math.log10(Math.max(v, timeline.min)) : v);
+const lo = scale(timeline.min), hi = scale(timeline.max);
+const y = (v: number) => PAD.t + (1 - (scale(Math.min(Math.max(v, timeline.min), timeline.max)) - lo) / (hi - lo)) * (TH - PAD.t - PAD.b);
+const base = TH - PAD.b;
+const pts = (k: number) => story.frames.flatMap(({ values }, i) => (values[k] == null ? [] : [[x(i), y(values[k]!)] as const]));
+const linePath = (k: number) => {
+  let d = "", gap = true;
+  story.frames.forEach(({ values }, i) => {
+    const v = values[k];
+    if (v == null) { gap = true; return; }
+    d += (gap ? "M" : "L") + x(i).toFixed(1) + "," + y(v).toFixed(1);
+    gap = false;
+  });
+  return d;
+};
+const areaPath = (k: number) => {
+  const p = pts(k);
+  return p.length ? `M${p[0][0].toFixed(1)},${base}` + p.map(([a, b]) => `L${a.toFixed(1)},${b.toFixed(1)}`).join("") + `L${p.at(-1)![0].toFixed(1)},${base}Z` : "";
+};
+const barW = Math.max(1, (TW - PAD.l - PAD.r) / n - 0.6);
+const barsPath = (k: number) => story.frames.map(({ values }, i) => {
+  const v = values[k];
+  if (v == null || v <= timeline.min) return "";
+  const top = y(v);
+  return `M${(x(i) - barW / 2).toFixed(1)},${base}V${top.toFixed(1)}h${barW.toFixed(1)}V${base}Z`;
+}).join("");
+const lead = timeline.series[0].index;
+const xs = story.frames.map((_, i) => Number(x(i).toFixed(1)));
+const ys = story.frames.map(({ values }) => (values[lead] == null ? null : Number(y(values[lead]!).toFixed(1))));
+---
+<figure class="stl" data-xs={JSON.stringify(xs)} data-ys={JSON.stringify(ys)}>
+  <svg viewBox={`0 0 ${TW} ${TH}`} aria-hidden="true" data-stl-track>
+    {timeline.ticks.map(({ value, label }) => (
+      <g><line class="grid" x1={PAD.l} x2={TW - PAD.r} y1={y(value)} y2={y(value)} /><text class="tick" x={PAD.l - 6} y={y(value) + 4} text-anchor="end">{label}</text></g>
+    ))}
+    {timeline.periods.map(({ frame, label }) => (
+      <g><line class="period" x1={x(frame)} x2={x(frame)} y1={PAD.t} y2={base} /><text class="tick" x={x(frame) + 3} y={TH - 6}>{label}</text></g>
+    ))}
+    {timeline.series.map(({ index, mark, tone }) => (
+      mark === "area" ? <><path class={`area t-${tone}`} d={areaPath(index)} /><path class={`line t-${tone}`} d={linePath(index)} /></>
+      : mark === "bars" ? <path class={`bars t-${tone}`} d={barsPath(index)} />
+      : <path class={`line t-${tone}`} d={linePath(index)} />
+    ))}
+    {story.chapters.map(({ frame }) => ys[frame] != null && <circle class="chapter" cx={xs[frame]} cy={ys[frame]!} r="4" />)}
+    <g class="cursor" data-stl-cursor>
+      <line x1={xs[0]} x2={xs[0]} y1={PAD.t - 4} y2={base} />
+      <circle cx={xs[0]} cy={ys[0] ?? base} r="5" data-stl-dot />
+    </g>
+  </svg>
+  <figcaption class="stl-key">
+    {timeline.series.map(({ label, tone, mark }) => <span><i class={`k-${mark} t-${tone}`}></i>{label}</span>)}
+    <span class="muted">{timeline.note} · tap to jump</span>
+  </figcaption>
+</figure>
+
+<script>
+  const player = document.getElementById("story-player");
+  const root = player?.querySelector<HTMLElement>(".stl");
+  if (player && root) {
+    const xs: number[] = JSON.parse(root.dataset.xs!);
+    const ys: (number | null)[] = JSON.parse(root.dataset.ys!);
+    const cursor = root.querySelector<SVGGElement>("[data-stl-cursor]")!;
+    const dot = root.querySelector<SVGCircleElement>("[data-stl-dot]")!;
+    const track = root.querySelector<SVGSVGElement>("[data-stl-track]")!;
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      cursor.style.transform = `translateX(${xs[index] - xs[0]}px)`;
+      dot.style.display = ys[index] == null ? "none" : "";
+      if (ys[index] != null) dot.setAttribute("cy", String(ys[index]));
+    });
+    const jump = (ev: PointerEvent) => {
+      const box = track.getBoundingClientRect();
+      const vx = ((ev.clientX - box.left) / box.width) * 720;
+      let best = 0;
+      xs.forEach((v, i) => { if (Math.abs(v - vx) < Math.abs(xs[best] - vx)) best = i; });
+      player.dispatchEvent(new CustomEvent("storyseek", { detail: best }));
+    };
+    track.addEventListener("pointerdown", (ev) => { jump(ev); track.setPointerCapture(ev.pointerId); });
+    track.addEventListener("pointermove", (ev) => { if (track.hasPointerCapture(ev.pointerId)) jump(ev); });
+  }
+</script>
+
+<style>
+  .stl { grid-area: timeline; margin: 0; padding: .75rem clamp(1rem, 3vw, 2rem) .5rem; border-top: 1px solid var(--rule); }
+  .stl svg { display: block; width: 100%; height: auto; cursor: pointer; touch-action: pan-y; }
+  .grid { stroke: var(--rule-2); stroke-width: 1; }
+  .period { stroke: var(--rule); stroke-dasharray: 3 3; }
+  .tick { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-3); }
+  .t-amber { --tone: color-mix(in oklab, var(--amber) 75%, var(--ink)); }
+  .t-danger { --tone: var(--danger); }
+  .t-green { --tone: var(--green); }
+  .t-orange { --tone: var(--orange); }
+  .t-ink { --tone: var(--ink-2); }
+  .area { fill: var(--tone); opacity: .22; }
+  .line { fill: none; stroke: var(--tone); stroke-width: 2; stroke-linejoin: round; }
+  .bars { fill: var(--tone); }
+  .chapter { fill: var(--paper); stroke: var(--ink-2); stroke-width: 1.5; }
+  .cursor { transition: transform .15s linear; }
+  .cursor line { stroke: var(--accent); stroke-width: 2; }
+  .cursor circle { fill: var(--accent); stroke: var(--paper); stroke-width: 2; transition: cy .15s linear; }
+  .stl-key { display: flex; flex-wrap: wrap; gap: .25rem 1rem; font-size: .8rem; color: var(--ink-2); margin-top: .35rem; }
+  .stl-key span { display: inline-flex; align-items: center; gap: .4rem; }
+  .stl-key i { display: inline-block; width: 14px; }
+  .k-line, .k-area { height: 0; border-top: 2px solid var(--tone); }
+  .k-bars { height: 10px; border-radius: 2px; background: var(--tone); }
+</style>

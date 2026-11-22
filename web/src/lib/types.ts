@@ -240,4 +240,14 @@ export interface StoryData {
     weeks: { date: string; map: string; state?: DroughtLevels }[];   // map: one char per county, "-", "0"–"4" or "?"
   } | null;
   cotton: { seasons: { year: number; reports: { date: string; pct: number }[] }[] } | null;
+  reservoirs?: { through: string; months: { month: string; pct: number }[] } | null;
+  wells?: { id: string; name: string; aquifer: string | null; district: string | null; url: string | null;
+            winters: { year: number; depth_ft: number }[] }[] | null;
+  river?: { id: string; name: string; url: string | null; through: string; provisional_from: string | null;
+            months: { month: string; cfs: number }[] }[] | null;
+  cattle?: { report: string; weeks: { date: string; s500: number | null; s700: number | null; h500: number | null; h700: number | null }[] } | null;
+  /** counties: FIPS → [farms year 1, farms year 2, land in farms year 1, land in farms year 2] */
+  census?: { years: [number, number]; counties: Record<string, (number | null)[]> } | null;
+  rain?: { counties: string[]; classes: number[];
+           days: { date: string; map: string; mean_in: number | null; max: { fips: string; in: number } | null }[] } | null;
 }

@@ -1,0 +1,68 @@
+---
+// Reservoir story visual: a lake behind a dam in cross-section. The valley is a V, so the water's area grows
+// with the square of its depth; drawing depth as the square root of percent full keeps the area proportional.
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+
+interface Props { story: Story }
+const { story } = Astro.props;
+const W = 720, H = 270, TOP = 46, BOT = 238, XL = 40, XR = 600, XB = 330;
+const level = (pct: number) => BOT - (BOT - TOP) * Math.sqrt(Math.max(0, Math.min(100, pct)) / 100);
+const water = (pct: number) => {
+  const y = level(pct), t = (BOT - y) / (BOT - TOP);
+  return `${(XB - (XB - XL) * t).toFixed(1)},${y.toFixed(1)} ${(XB + (XR - XB) * t).toFixed(1)},${y.toFixed(1)} ${XB},${BOT}`;
+};
+const first = story.frames[0].values[0] ?? 0;
+const ticks = [25, 50, 75, 100];
+---
+<div class="res" data-geo={JSON.stringify({ TOP, BOT, XL, XR, XB })}>
+  <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+    <path class="land" d={`M0,${TOP - 6}H${XL}L${XB},${BOT}L${XR},${TOP - 6}H${W}V${H}H0Z`} />
+    <polygon class="water" points={water(first)} data-water />
+    <line class="surface" x1={XL} x2={XR} y1={level(first)} y2={level(first)} data-surface />
+    <line class="full" x1={XL} x2={XR} y1={TOP} y2={TOP} />
+    <text class="full-label" x={XL + 6} y={TOP - 8}>Full</text>
+    <path class="dam" d={`M${XR - 4},${TOP - 18}h22l34,${BOT - TOP + 26}h-56Z`} />
+    {ticks.map((t) => (
+      <g><line class="tick" x1={XR + 18} x2={XR + 28} y1={level(t)} y2={level(t)} /><text class="tick-label" x={XR + 60} y={level(t) + 4}>{t}%</text></g>
+    ))}
+  </svg>
+  <p class="res-readout"><span class="num" data-story-share>{formatStoryValue(first, "percent")}</span> full</p>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const root = player?.querySelector<HTMLElement>(".res");
+  if (player && root) {
+    const { TOP, BOT, XL, XR, XB } = JSON.parse(root.dataset.geo!);
+    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const poly = root.querySelector<SVGPolygonElement>("[data-water]")!;
+    const surface = root.querySelector<SVGLineElement>("[data-surface]")!;
+    const share = root.querySelector<HTMLElement>("[data-story-share]")!;
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      const pct = Math.max(0, Math.min(100, parseFloat(frames[index].text[0]) || 0));
+      const y = BOT - (BOT - TOP) * Math.sqrt(pct / 100), t = (BOT - y) / (BOT - TOP);
+      const l = XB - (XB - XL) * t, r = XB + (XR - XB) * t;
+      poly.setAttribute("points", `${l.toFixed(1)},${y.toFixed(1)} ${r.toFixed(1)},${y.toFixed(1)} ${XB},${BOT}`);
+      surface.setAttribute("x1", l.toFixed(1)); surface.setAttribute("x2", r.toFixed(1));
+      surface.setAttribute("y1", y.toFixed(1)); surface.setAttribute("y2", y.toFixed(1));
+      share.textContent = frames[index].text[0];
+    });
+  }
+</script>
+
+<style>
+  .res { grid-area: visual; position: relative; padding: .5rem clamp(1rem, 3vw, 2rem) 1rem; background: linear-gradient(var(--paper), var(--paper-2)); }
+  .res svg { display: block; width: 100%; height: auto; }
+  .land { fill: var(--paper-3); }
+  .water { fill: color-mix(in oklab, var(--green) 70%, var(--paper)); }
+  .surface { stroke: var(--green); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 14 6; animation: lap 2.4s linear infinite; }
+  .full { stroke: var(--ink-3); stroke-dasharray: 4 4; }
+  .full-label, .tick-label { font-family: var(--font-mono); font-size: 12px; fill: var(--ink-3); }
+  .dam { fill: var(--ink-3); }
+  .tick { stroke: var(--paper); stroke-width: 2; }
+  .tick-label { text-anchor: start; }
+  .res-readout { position: absolute; left: clamp(1rem, 3vw, 2rem); bottom: 1.25rem; margin: 0; color: var(--ink-2); }
+  .res-readout .num { font-family: var(--font-serif); font-size: clamp(2.2rem, 6vw, 3.75rem); line-height: 1; color: var(--ink); margin-right: .25rem; }
+  @keyframes lap { to { stroke-dashoffset: -40; } }
+</style>

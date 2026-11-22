@@ -1,0 +1,74 @@
+---
+// River story visual: the Brazos from above. Channel width follows the log of the month's flow (a dry month is a
+// thread, a flood fills the floodplain) and the current lines move faster with more water. A faint wider band shows
+// the typical width for that calendar month. Figures are always written beside it.
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+
+interface Props { story: Story }
+const { story } = Astro.props;
+if (story.visual.kind !== "river") throw new Error("RiverFlow needs a river story");
+const LO = 100, HI = 100_000, WMIN = 3, WMAX = 118;
+const width = (q: number) => WMIN + ((Math.log10(Math.min(Math.max(q, LO), HI)) - 2) / 3) * (WMAX - WMIN);
+const course = "M-20,130 C90,60 170,70 250,125 S410,205 490,135 S640,70 740,120";
+const [q0, t0] = story.frames[0].values as [number, number];
+---
+<div class="river" data-scale={JSON.stringify({ LO, HI, WMIN, WMAX })}>
+  <svg viewBox="0 0 720 250" aria-hidden="true">
+    <rect class="plain" width="720" height="250" />
+    {[[60, 30], [210, 205], [380, 40], [560, 215], [660, 30], [120, 210], [470, 30]].map(([x, y]) => (
+      <g class="tree" transform={`translate(${x},${y})`}><circle r="9" /><circle cx="10" cy="4" r="7" /></g>
+    ))}
+    <path class="typical" d={course} style={{ strokeWidth: width(t0) + 4 }} data-typical />
+    <path class="channel" d={course} style={{ strokeWidth: width(q0) }} data-channel />
+    <path class="current" d={course} data-current />
+  </svg>
+  <dl class="river-readout">
+    <div><dt>This month</dt><dd class="num" data-story-share>{formatStoryValue(q0, "cfs")}</dd></div>
+    <div><dt><span class="k-typ" aria-hidden="true"></span>Typical for the month</dt><dd class="num" data-typical-text>{formatStoryValue(t0, "cfs")}</dd></div>
+    <div><dt>Compared with typical</dt><dd class="num" data-ratio>{(q0 / t0).toFixed(1)}×</dd></div>
+  </dl>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const root = player?.querySelector<HTMLElement>(".river");
+  if (player && root) {
+    const { LO, HI, WMIN, WMAX } = JSON.parse(root.dataset.scale!);
+    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const width = (q: number) => WMIN + ((Math.log10(Math.min(Math.max(q, LO), HI)) - 2) / 3) * (WMAX - WMIN);
+    const channel = root.querySelector<SVGPathElement>("[data-channel]")!;
+    const typical = root.querySelector<SVGPathElement>("[data-typical]")!;
+    const current = root.querySelector<SVGPathElement>("[data-current]")!;
+    const num = (t: string) => Number(t.replace(/[^\d.]/g, ""));
+    const set = (index: number) => {
+      const [qt, tt] = frames[index].text;
+      const q = num(qt), t = num(tt);
+      channel.style.strokeWidth = width(q).toFixed(1);
+      typical.style.strokeWidth = (width(t) + 4).toFixed(1);
+      // Faster current with more water: 6 s for a trickle down to under a second in flood.
+      current.style.animationDuration = (6 - ((Math.log10(Math.max(q, LO)) - 2) / 3) * 5.3).toFixed(2) + "s";
+      current.style.opacity = q < 400 ? "0.25" : "";
+      root.querySelector<HTMLElement>("[data-story-share]")!.textContent = qt;
+      root.querySelector<HTMLElement>("[data-typical-text]")!.textContent = tt;
+      root.querySelector<HTMLElement>("[data-ratio]")!.textContent = (q / t).toFixed(1) + "×";
+    };
+    set(0);
+    player.addEventListener("storyframe", (e) => set((e as CustomEvent<{ index: number }>).detail.index));
+  }
+</script>
+
+<style>
+  .river { grid-area: visual; padding: .5rem clamp(1rem, 3vw, 2rem) 1rem; }
+  .river svg { display: block; width: 100%; height: auto; border-radius: var(--radius); }
+  .plain { fill: color-mix(in oklab, var(--green-tint) 60%, var(--paper-2)); }
+  .tree circle { fill: color-mix(in oklab, var(--green) 45%, var(--paper-2)); }
+  .channel, .typical, .current { fill: none; stroke-linecap: round; }
+  .channel { stroke: color-mix(in oklab, var(--green) 75%, var(--paper)); transition: stroke-width .12s linear; }
+  .typical { stroke: var(--ink-3); opacity: .28; transition: stroke-width .12s linear; }
+  .current { stroke: var(--paper); stroke-width: 1.5; stroke-dasharray: 10 22; opacity: .8; animation: flow 3s linear infinite; }
+  .k-typ { display: inline-block; width: 14px; height: 8px; margin-right: .35rem; border-radius: 2px; background: var(--ink-3); opacity: .45; }
+  .river-readout { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: .75rem 0 0; }
+  .river-readout dt { font-size: .82rem; color: var(--ink-2); }
+  .river-readout dd { margin: 0; font-size: clamp(1.05rem, 2.4vw, 1.35rem); font-weight: 600; }
+  @keyframes flow { to { stroke-dashoffset: -64; } }
+</style>

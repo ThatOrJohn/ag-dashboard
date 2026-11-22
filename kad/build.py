@@ -643,7 +643,10 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     out = SITE_OUT / region.id
     (out / "districts").mkdir(parents=True, exist_ok=True)
     (out / "latest.json").write_text(json.dumps(latest, separators=(",", ":")))
-    story_data = stories.site_data(region, w_all, nass, drought_ok=drought_ok, nass_ok=nass_ok)
+    story_data = stories.site_data(
+        region, w_all, nass, drought_ok=drought_ok, nass_ok=nass_ok, fresh=fresh,
+        frames={"ams": ams, "census": census, "nclimgrid": nc,
+                **{k: upto(store.read_obs(region, k)) for k in ("twdb_reservoirs", "twdb_groundwater", "usgs_streamflow")}})
     (out / "stories.json").write_text(json.dumps(story_data, separators=(",", ":")))
 
     for d in region.districts:

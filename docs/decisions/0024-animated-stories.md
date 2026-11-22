@@ -25,6 +25,15 @@ labeled with the period it covers.
 - County categories use the same rule as the dashboard's maps (the worst class covering half the county), so
   the story and the map agree.
 
+- Each series is downsampled to what its animation needs: reservoir storage and river flow to monthly means,
+  wells to one winter median a year (summer pumping swings would hide the trend), daily rain to six classes.
+- Reservoirs start in 1950. Earlier statewide percentages mostly reflect reservoirs being built and filled,
+  which would read as drought. The 1950s drought of record is still included.
+- The Census has two years, so its story steps through one comparison instead of inventing years in between.
+- Water is drawn in the rain green, not blue, because the palette keeps its one blue for links, focus and
+  "you are here".
+- Captions only say what the data shows. Causes, such as why the 2025 cotton reports stopped, are left out.
+
 ## Consequences
 - New stories take a builder, a visual component and, if the history isn't published, a `stories.json`
   entry. Long series such as reservoirs (1933 on) should be downsampled before they go into the file.

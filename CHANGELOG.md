@@ -3,10 +3,16 @@
 User-visible changes, newest first.
 
 ## Unreleased
-- New Stories section with animated replays. Watch two years of weekly Drought Monitor maps recolor every
-  Texas county, with chapters at the turning points. Race every Texas cotton harvest since 2021 with a
-  harvester in each season's lane. Watch three district rain gauges fill day by day through five weeks of
-  fall rain.
+- New Stories section with animated replays, each with chapters, a table of every figure and its sources:
+  - Two years of weekly Drought Monitor maps recoloring every Texas county.
+  - Every day of this year's rain, county by county.
+  - Every Texas cotton harvest since 2021, raced side by side with a harvester in each season's lane.
+  - Texas reservoirs month by month since 1950, as a lake that fills and drains.
+  - Three Ogallala monitoring wells, one winter at a time.
+  - The Brazos at Richmond through floods and droughts since 1991.
+  - A year of feeder steer prices, with price tags and a pen of cattle sold each week.
+  - Texas farms by county, 2017 to 2022 Census of Agriculture.
+  - Five weeks of fall rain filling three district rain gauges.
 - Fixed dark-mode drought colors: abnormally dry and moderate drought showed as green and exceptional
   drought as purple. The scale now runs from amber through orange to red as intended.
 - About the data explains how to identify published figures, dashboard summaries, and dashboard forecasts.

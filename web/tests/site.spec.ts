@@ -202,6 +202,31 @@ test("the cotton story races each season and is featured only when the pace diff
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Stories");
 });
 
+for (const { slug, story } of buildStories()) {
+  if (!story || story.visual.kind === "drought") continue;
+  test(`the ${slug} story's readout follows every chapter`, async ({ page }) => {
+    await page.goto(`stories/${slug}/`);
+    const stage = page.locator("#story-player");
+    for (const { frame, label } of story.chapters) {
+      await stage.getByRole("group", { name: "Story chapters" }).getByRole("button", { name: label, exact: true }).click();
+      await expect(stage.getByRole("slider")).toHaveValue(String(frame));
+      await expect(stage.locator("[data-story-share]").first()).toHaveText(formatStoryValue(story.frames[frame].values[0], story.series[0].unit));
+      await expect(stage.locator("[data-story-caption]")).toHaveText(story.frames[frame].caption);
+    }
+  });
+}
+
+test("every story builder keeps its captions and table rows in range", () => {
+  for (const { story } of buildStories()) {
+    if (!story) continue;
+    expect(story.chapters.length).toBeGreaterThan(0);
+    for (const { frame } of story.chapters) expect(frame).toBeLessThan(story.frames.length);
+    for (const i of story.tableFrames ?? []) expect(i).toBeLessThan(story.frames.length);
+    for (const f of story.frames) expect(f.values).toHaveLength(story.series.length);
+    expect(story.frames.every((f) => f.caption.length > 0)).toBe(true);
+  }
+});
+
 test("the cotton headline requires fresh harvest figures and a five-point gap", () => {
   const snapshot = loadLatest();
   snapshot.sources.nass.stale = false;

@@ -1,0 +1,87 @@
+---
+// Rain-map story visual: every county shaded by that day's rain, one day per frame, with the statewide average,
+// the running total and the wettest county written beside it. One green ramp, light to dark (brighter in dark
+// mode), with the legend giving each class in inches.
+import { countyPaths } from "../../lib/geo";
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+import type { Latest } from "../../lib/types";
+
+interface Props { story: Story; latest: Latest }
+const { story, latest } = Astro.props;
+if (story.visual.kind !== "rainmap") throw new Error("RainMap needs a rainmap story");
+const { fips, maps, classes, tops } = story.visual;
+const W = 520, H = 500;
+const { counties, borders } = countyPaths(null, W, H, (f) => latest.counties[f]?.district ?? "");
+const index = new Map(fips.map((f, i) => [f, i]));
+const cls = (c: string | undefined) => (c === undefined || c === "?" ? "rn" : "r" + c);
+const bounds = [0, ...classes];
+const legend = bounds.map((b, i) => ({
+  cls: "r" + i,
+  label: i === 0 ? "Dry" : i === bounds.length - 1 ? `${b}″ or more` : `${b}–${bounds[i + 1]}″`,
+}));
+const v0 = story.frames[0].values;
+---
+<figure class="rm-map" data-maps={JSON.stringify(maps)}>
+  <svg viewBox={`-4 -4 ${W + 8} ${H + 8}`} role="img" aria-labelledby="rm-title">
+    <title id="rm-title">Texas counties shaded by the day's rain. The day's figures are beside the map and in the table below.</title>
+    <g class="rm-counties">
+      {counties.map(({ fips: f, d }) => { const i = index.get(f) ?? -1; return <path class={cls(maps[0][i])} data-i={i} d={d} />; })}
+    </g>
+    <path class="rm-borders" d={borders} />
+  </svg>
+</figure>
+<div class="rm-readout" data-tops={JSON.stringify(tops)}>
+  <p class="rm-big"><span class="num" data-story-share>{formatStoryValue(v0[0], "inches")}</span> Texas average that day</p>
+  <p class="rm-sub">Wettest: <span data-top>{tops[0] ?? "—"}</span>, <span class="num" data-top-in>{formatStoryValue(v0[2], "inches")}</span></p>
+  <p class="rm-sub">So far this year: <span class="num" data-total>{formatStoryValue(v0[1], "inches")}</span></p>
+  <ul class="dlegend rm-legend" aria-label="Map key">
+    {legend.map(({ cls: c, label }) => <li><span class={`sw ${c}`} aria-hidden="true"></span>{label}</li>)}
+  </ul>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const fig = player?.querySelector<HTMLElement>(".rm-map");
+  if (player && fig) {
+    const maps: string[] = JSON.parse(fig.dataset.maps!);
+    const readout = player.querySelector<HTMLElement>(".rm-readout")!;
+    const tops: (string | null)[] = JSON.parse(readout.dataset.tops!);
+    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const paths = [...fig.querySelectorAll<SVGPathElement>(".rm-counties path")];
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      const map = maps[index];
+      paths.forEach((p) => {
+        const c = map[Number(p.dataset.i)];
+        const next = c === undefined || c === "?" ? "rn" : "r" + c;
+        if (p.getAttribute("class") !== next) p.setAttribute("class", next);
+      });
+      const [avg, total, top] = frames[index].text;
+      readout.querySelector<HTMLElement>("[data-story-share]")!.textContent = avg;
+      readout.querySelector<HTMLElement>("[data-total]")!.textContent = total;
+      readout.querySelector<HTMLElement>("[data-top]")!.textContent = tops[index] ?? "—";
+      readout.querySelector<HTMLElement>("[data-top-in]")!.textContent = top;
+    });
+  }
+</script>
+
+<style>
+  .rm-map { grid-area: map; margin: 0; padding: clamp(.75rem, 2.5vw, 1.75rem); background: var(--paper-2); display: grid; align-content: center; }
+  .rm-map svg { display: block; width: 100%; max-width: 34rem; height: auto; margin-inline: auto; }
+  .rm-counties path { stroke: var(--paper-2); stroke-width: .45; transition: fill .1s linear; }
+  .rm-borders { fill: none; stroke: var(--ink); stroke-opacity: .45; stroke-width: .8; pointer-events: none; }
+  .rn { fill: var(--paper-3); background: var(--paper-3); }
+  .r0 { fill: var(--paper); background: var(--paper); }
+  .r1 { --c: color-mix(in oklab, var(--green) 22%, var(--paper)); }
+  .r2 { --c: color-mix(in oklab, var(--green) 45%, var(--paper)); }
+  .r3 { --c: color-mix(in oklab, var(--green) 70%, var(--paper)); }
+  .r4 { --c: var(--green); }
+  .r5 { --c: color-mix(in oklab, var(--green) 60%, var(--ink)); }
+  .r1, .r2, .r3, .r4, .r5 { fill: var(--c); background: var(--c); }
+  .rm-readout { grid-area: readout; padding: .25rem clamp(1rem, 3vw, 2rem) 1.25rem; align-self: start; }
+  .rm-big { margin: 0 0 .35rem; color: var(--ink-2); }
+  .rm-big .num { display: block; font-family: var(--font-serif); font-size: clamp(2.6rem, 6vw, 4rem); line-height: 1; color: var(--ink); }
+  .rm-sub { margin: .2rem 0; color: var(--ink-2); }
+  .rm-sub .num, .rm-sub [data-top] { color: var(--ink); font-weight: 600; }
+  .rm-legend { margin-top: .75rem; }
+</style>

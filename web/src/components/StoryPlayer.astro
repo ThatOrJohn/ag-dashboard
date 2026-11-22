@@ -5,9 +5,16 @@
 import { href } from "../lib/format";
 import { chapterHoldMs, formatStoryValue, type Story } from "../lib/stories/model";
 import type { Latest } from "../lib/types";
+import CattleMarket from "./story/CattleMarket.astro";
+import CensusDots from "./story/CensusDots.astro";
 import DroughtFlipbook from "./story/DroughtFlipbook.astro";
 import HarvestRace from "./story/HarvestRace.astro";
 import RainGauges from "./story/RainGauges.astro";
+import RainMap from "./story/RainMap.astro";
+import Reservoir from "./story/Reservoir.astro";
+import RiverFlow from "./story/RiverFlow.astro";
+import StoryTimeline from "./story/StoryTimeline.astro";
+import Wells from "./story/Wells.astro";
 
 interface Props {
   story: Story;
@@ -15,21 +22,32 @@ interface Props {
 }
 
 const { story, latest } = Astro.props;
+// Captions repeat across frames (each is its chapter's narration), so they travel once and frames point at them.
+const captions = [...new Set(story.frames.map(({ caption }) => caption))];
 const frames = story.frames.map(({ label, date, caption, values }) => ({
-  label, date, caption, text: values.map((v, i) => formatStoryValue(v, story.series[i].unit)),
+  label, date, c: captions.indexOf(caption), text: values.map((v, i) => formatStoryValue(v, story.series[i].unit)),
 }));
 const config = {
-  frames, names: story.series.map(({ name }) => name), frameMs: story.frameMs, holdMs: chapterHoldMs,
+  frames, captions, names: story.series.map(({ name }) => name), frameMs: story.frameMs, holdMs: chapterHoldMs,
   chapters: story.chapters.map(({ frame }) => frame),
 };
-const first = frames[0];
+const first = { ...frames[0], caption: captions[frames[0].c] };
+const tableRows = (story.tableFrames ?? frames.map((_, i) => i)).map((i) => frames[i]);
+const layout = ["drought", "rainmap", "census"].includes(story.visual.kind) ? "layout-map" : "layout-wide";
 const source = latest.sources[story.source];
 const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name }] : []);
 ---
-<div class={"story-stage kind-" + story.visual.kind} id="story-player" data-story={JSON.stringify(config)}>
+<div class={`story-stage ${layout} kind-${story.visual.kind}`} id="story-player" data-story={JSON.stringify(config)}>
   {story.visual.kind === "drought" && <DroughtFlipbook story={story} latest={latest} />}
   {story.visual.kind === "rain" && <RainGauges story={story} />}
   {story.visual.kind === "harvest" && <HarvestRace story={story} />}
+  {story.visual.kind === "reservoir" && <Reservoir story={story} />}
+  {story.visual.kind === "wells" && <Wells story={story} />}
+  {story.visual.kind === "river" && <RiverFlow story={story} />}
+  {story.visual.kind === "cattle" && <CattleMarket story={story} />}
+  {story.visual.kind === "census" && <CensusDots story={story} latest={latest} />}
+  {story.visual.kind === "rainmap" && <RainMap story={story} latest={latest} />}
+  {story.timeline && <StoryTimeline story={story} timeline={story.timeline} />}
   <section class="story-panel" aria-labelledby="story-metric">
     <time class="story-date" data-story-date datetime={first.date} hidden={!first.date}>{first.date && first.label}</time>
     <span class="story-date" data-story-label hidden={!!first.date}>{!first.date && first.label}</span>
@@ -66,7 +84,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
         <caption class="sr-only">{story.metric}</caption>
         <thead><tr><th scope="col">{story.frameLabel}</th>{story.series.map(({ name }) => <th scope="col" class="n">{name}</th>)}</tr></thead>
         <tbody>
-          {frames.map(({ date, label, text }) => (
+          {tableRows.map(({ date, label, text }) => (
             <tr>
               <th scope="row">{date ? <time datetime={date}>{label}</time> : label}</th>
               {text.map((t) => <td class="n">{t}</td>)}
@@ -87,7 +105,8 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
 
 <script>
   interface Config {
-    frames: { label: string; date?: string; caption: string; text: string[] }[];
+    frames: { label: string; date?: string; c: number; text: string[] }[];
+    captions: string[];
     names: string[];
     frameMs: number;
     holdMs: number;
@@ -95,7 +114,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   }
 
   const player = document.getElementById("story-player")!;
-  const { frames, names, frameMs, holdMs, chapters: chapterFrames }: Config = JSON.parse(player.dataset.story!);
+  const { frames, captions, names, frameMs, holdMs, chapters: chapterFrames }: Config = JSON.parse(player.dataset.story!);
   const q = <T extends HTMLElement>(s: string) => player.querySelector<T>(s)!;
   const controls = q("[data-story-controls]");
   const play = q<HTMLButtonElement>("[data-story-play]");
@@ -120,7 +139,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
     }
     label.hidden = !!next.date;
     label.textContent = next.label;
-    if (caption.textContent !== next.caption) caption.textContent = next.caption;
+    if (caption.textContent !== captions[next.c]) caption.textContent = captions[next.c];
     slider.valueAsNumber = frame;
     slider.setAttribute("aria-valuetext", next.label);
     chapters.forEach((c) => c.setAttribute("aria-pressed", String(Number(c.dataset.storyWeek) === frame)));
@@ -130,7 +149,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   function announce() {
     const current = frames[frame];
     const summary = current.text.map((t, i) => names[i] + " " + t);
-    announcement.textContent = current.label + ". " + summary.join(", ") + ". " + current.caption;
+    announcement.textContent = current.label + ". " + summary.join(", ") + ". " + captions[current.c];
   }
 
   function setPlaying(on: boolean) {
@@ -194,14 +213,14 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
     background: var(--paper);
   }
   /* Each visual's parts join this grid directly (display: contents) and are placed by area. */
-  .story-stage.kind-drought {
+  .story-stage.layout-map {
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
     grid-template-rows: auto 1fr auto auto;
     grid-template-areas: "map panel" "map readout" "timeline timeline" "controls controls";
   }
-  .story-stage.kind-rain, .story-stage.kind-harvest {
+  .story-stage.layout-wide {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "panel" "visual" "controls";
+    grid-template-areas: "panel" "visual" "timeline" "controls";
   }
   .story-panel { grid-area: panel; padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 2rem) .5rem; }
   .story-date { display: block; font-family: var(--font-mono); font-size: clamp(1.05rem, 2vw, 1.3rem); color: var(--ink); }
@@ -250,7 +269,7 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   .story-table th.n { font-family: inherit; }
   .story-table td, .story-table th { padding-inline: clamp(.25rem, 1.25vw, .5rem); }
   @media (max-width: 760px) {
-    .story-stage.kind-drought {
+    .story-stage.layout-map {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: none;
       grid-template-areas: "panel" "map" "readout" "timeline" "controls";

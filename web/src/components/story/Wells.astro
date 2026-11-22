@@ -1,0 +1,129 @@
+---
+// Wells story visual: a slice of ground with one shaft per well on a shared depth scale. Water fills each shaft
+// from the water table down; a windmill turns at the top while playback runs (decoration only).
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+
+interface Props { story: Story }
+const { story } = Astro.props;
+if (story.visual.kind !== "wells") throw new Error("Wells needs a wells story");
+const { maxDepth, first } = story.visual;
+const W = 720, H = 360, SURF = 70, BOT = 345;
+const yOf = (ft: number) => SURF + (ft / maxDepth) * (BOT - SURF);
+const n = story.series.length;
+const cx = (i: number) => 130 + i * ((W - 200) / Math.max(1, n - 1));
+const v0 = story.frames[0].values;
+const ticks = Array.from({ length: Math.floor(maxDepth / 100) + 1 }, (_, k) => k * 100);
+---
+<div class="wells" data-geo={JSON.stringify({ SURF, BOT, maxDepth })} data-first={JSON.stringify(first)}>
+  <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+    <rect class="ground" x="0" y={SURF} width={W} height={H - SURF} />
+    <line class="surface-line" x1="0" x2={W} y1={SURF} y2={SURF} />
+    {ticks.map((t) => <g><line class="tick" x1="0" x2="34" y1={yOf(t)} y2={yOf(t)} /><text class="tick-label" x="38" y={yOf(t) + 4}>{t} ft</text></g>)}
+    {story.series.map((_, i) => {
+      const d = v0[i];
+      return (
+        <g data-well={i} class:list={["well", { idle: d == null }]}>
+          <rect class="aquifer" x={cx(i) - 60} y={d == null ? BOT : yOf(d)} width="120" height={d == null ? 0 : BOT - yOf(d)} data-aquifer />
+          <rect class="drop" x={cx(i) - 60} y={first[i] ? yOf(first[i]!.depth) : BOT} width="120" height="0" data-drop />
+          <rect class="casing" x={cx(i) - 8} y={SURF} width="16" height={BOT - SURF} />
+          <rect class="water" x={cx(i) - 5} y={d == null ? BOT : yOf(d)} width="10" height={d == null ? 0 : BOT - yOf(d)} data-water />
+          <line class="table" x1={cx(i) - 60} x2={cx(i) + 60} y1={d == null ? BOT : yOf(d)} y2={d == null ? BOT : yOf(d)} data-table />
+          <line class="start" x1={cx(i) - 60} x2={cx(i) + 60} y1={first[i] ? yOf(first[i]!.depth) : BOT} y2={first[i] ? yOf(first[i]!.depth) : BOT} data-start />
+          <g class="mill" transform={`translate(${cx(i)},${SURF})`}>
+            <path class="tower" d="M-10,0L-2,-46H2L10,0Z" />
+            <g class="blades" style="transform-origin: 0px -48px">
+              {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => <path class="blade" d="M0,-48L-3,-68H3Z" transform={`rotate(${a} 0 -48)`} />)}
+            </g>
+            <path class="vane" d="M2,-48h20l4,-6v12l-4,-6" />
+          </g>
+        </g>
+      );
+    })}
+  </svg>
+  <ul class="well-cards" role="list">
+    {story.series.map(({ name }, i) => (
+      <li>
+        <span class="well-name">{name}</span>
+        <span class="num" data-story-share>{formatStoryValue(v0[i], "feet")}</span>
+        <span class="well-note" data-note>{v0[i] == null ? (first[i] ? `Record starts ${first[i]!.year}` : "No reading") : "to water, the first winter on record"}</span>
+      </li>
+    ))}
+  </ul>
+  <p class="wells-key"><span class="k-water" aria-hidden="true"></span>Water in the well <span class="k-start" aria-hidden="true"></span>Water table in the well’s first winter <span class="k-drop" aria-hidden="true"></span>Drop since then</p>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const root = player?.querySelector<HTMLElement>(".wells");
+  if (player && root) {
+    const { SURF, BOT, maxDepth } = JSON.parse(root.dataset.geo!);
+    const first: ({ year: number; depth: number } | null)[] = JSON.parse(root.dataset.first!);
+    const frames: { label: string; text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const wells = [...root.querySelectorAll<SVGGElement>("[data-well]")];
+    const cards = [...root.querySelectorAll<HTMLElement>(".well-cards li")];
+    const yOf = (ft: number) => SURF + (ft / maxDepth) * (BOT - SURF);
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      const year = Number(frames[index].label.replace(/\D/g, ""));
+      wells.forEach((g, i) => {
+        const text = frames[index].text[i];
+        const ft = parseFloat(text.replace(/,/g, ""));
+        const has = !Number.isNaN(ft);
+        const y = has ? yOf(ft) : BOT;
+        g.classList.toggle("idle", !has);
+        for (const sel of ["[data-water]", "[data-aquifer]"]) {
+          const r = g.querySelector<SVGRectElement>(sel)!;
+          r.setAttribute("y", y.toFixed(1)); r.setAttribute("height", (BOT - y).toFixed(1));
+        }
+        const drop = g.querySelector<SVGRectElement>("[data-drop]")!;
+        const y0 = first[i] ? yOf(first[i]!.depth) : BOT;
+        drop.setAttribute("height", has && y > y0 ? (y - y0).toFixed(1) : "0");
+        const t = g.querySelector<SVGLineElement>("[data-table]")!;
+        t.setAttribute("y1", y.toFixed(1)); t.setAttribute("y2", y.toFixed(1));
+        cards[i].querySelector<HTMLElement>("[data-story-share]")!.textContent = text;
+        const f = first[i];
+        const note = cards[i].querySelector<HTMLElement>("[data-note]")!;
+        if (!f || year < f.year) note.textContent = f ? `Record starts ${f.year}` : "No reading";
+        else if (!has) note.textContent = "No winter reading";
+        else if (year === f.year) note.textContent = "to water, the first winter on record";
+        else {
+          const d = Math.round(ft - f.depth);
+          note.textContent = d === 0 ? `Same as ${f.year}` : `${d > 0 ? "Down" : "Up"} ${Math.abs(d)} ft since ${f.year}`;
+        }
+      });
+    });
+  }
+</script>
+
+<style>
+  .wells { grid-area: visual; padding: .5rem clamp(1rem, 3vw, 2rem) 1rem; }
+  .wells svg { display: block; width: 100%; height: auto; }
+  .ground { fill: color-mix(in oklab, var(--amber-tint) 70%, var(--paper-3)); }
+  .surface-line { stroke: var(--ink-3); stroke-width: 2; }
+  .tick { stroke: var(--rule); }
+  .tick-label { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-3); }
+  .aquifer { fill: color-mix(in oklab, var(--green) 25%, transparent); transition: y .5s ease-out, height .5s ease-out; }
+  .drop { fill: color-mix(in oklab, var(--orange) 35%, transparent); transition: height .5s ease-out; }
+  .casing { fill: var(--paper); stroke: var(--ink-3); stroke-width: 2; }
+  .water { fill: var(--green); transition: y .5s ease-out, height .5s ease-out; }
+  .table { stroke: var(--green); stroke-width: 2; stroke-dasharray: 6 4; transition: y1 .5s ease-out, y2 .5s ease-out; }
+  .start { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 2 3; }
+  .well.idle .table, .well.idle .start { visibility: hidden; }
+  .well.idle .mill { opacity: .35; }
+  .tower { fill: none; stroke: var(--ink-2); stroke-width: 2; }
+  .blade { fill: var(--ink-2); }
+  .vane { fill: var(--ink-3); }
+  :global(.is-playing) .well:not(.idle) .blades { animation: spin 1.6s linear infinite; }
+  .well-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: .5rem 0 0; padding: 0; list-style: none; text-align: center; }
+  .well-cards li { display: grid; gap: .1rem; }
+  .well-name { font-weight: 600; }
+  .well-cards .num { font-size: clamp(1.1rem, 2.6vw, 1.45rem); font-weight: 600; }
+  .well-note { font-size: .82rem; color: var(--ink-2); }
+  .wells-key { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .75rem 0 0; font-size: .8rem; color: var(--ink-2); }
+  .wells-key span { display: inline-block; width: 18px; }
+  .k-water { height: 10px; background: var(--green); border-radius: 2px; }
+  .k-drop { margin-left: .75rem; height: 10px; border-radius: 2px; background: color-mix(in oklab, var(--orange) 35%, transparent); }
+  .k-start { margin-left: .75rem; border-top: 2px dashed var(--ink); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 560px) { .well-cards { font-size: .85rem; } }
+</style>

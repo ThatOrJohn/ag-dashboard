@@ -1,0 +1,92 @@
+---
+// Census story visual: a dot per county at its center, area proportional to farms. Steps grow or shrink the dots
+// between census years, leave the earlier size as an outline, and mark counties that lost or gained farms
+// (with a minus or plus as well as color). The readout names the biggest changes in text.
+import { countyPaths } from "../../lib/geo";
+import { formatStoryValue, type Story } from "../../lib/stories/model";
+import type { Latest } from "../../lib/types";
+
+interface Props { story: Story; latest: Latest }
+const { story, latest } = Astro.props;
+if (story.visual.kind !== "census") throw new Error("CensusDots needs a census story");
+const { fips, farms, years, steps } = story.visual;
+const W = 520, H = 500;
+const { counties, borders } = countyPaths(null, W, H, (f) => latest.counties[f]?.district ?? "");
+const at = new Map(counties.map((c) => [c.fips, c]));
+const most = Math.max(...farms.flatMap(([a, b]) => [a ?? 0, b ?? 0]));
+const R = 17;
+const r = (v: number | null) => (R * Math.sqrt((v ?? 0) / most)).toFixed(2);
+const dots = fips.flatMap((f, i) => {
+  const c = at.get(f);
+  return c ? [{ f, i, cx: c.cx.toFixed(1), cy: c.cy.toFixed(1), a: farms[i][0], b: farms[i][1] }] : [];
+});
+const v0 = story.frames[0].values;
+const name = (f: string) => latest.counties[f]?.name ?? f;
+const change = dots.map((d) => ({ name: name(d.f), d: (d.b ?? 0) - (d.a ?? 0) }));
+const top = (sign: 1 | -1) => change.filter((x) => x.d * sign > 0).sort((a, b) => sign * (b.d - a.d)).slice(0, 5);
+---
+<figure class="cd-map" data-steps={JSON.stringify(steps)} data-r={JSON.stringify(dots.map((d) => [r(d.a), r(d.b)]))}>
+  <svg viewBox={`-4 -4 ${W + 8} ${H + 8}`} role="img" aria-label={`Texas counties as dots sized by number of farms, ${years[0]} and ${years[1]}. The readout lists the largest changes.`}>
+    <path class="cd-state" d={counties.map((c) => c.d).join("")} />
+    <path class="cd-borders" d={borders} />
+    <g class="cd-ghosts">{dots.map((d) => <circle cx={d.cx} cy={d.cy} r={r(d.a)} />)}</g>
+    <g class="cd-dots">{dots.map((d) => <circle cx={d.cx} cy={d.cy} r={r(d.a)} class={(d.b ?? 0) < (d.a ?? 0) ? "loss" : (d.b ?? 0) > (d.a ?? 0) ? "gain" : ""} />)}</g>
+    <g class="cd-signs" aria-hidden="true">{dots.map((d) => <text x={d.cx} y={Number(d.cy) + 3.5} class={(d.b ?? 0) < (d.a ?? 0) ? "loss" : (d.b ?? 0) > (d.a ?? 0) ? "gain" : ""}>{(d.b ?? 0) < (d.a ?? 0) ? "−" : (d.b ?? 0) > (d.a ?? 0) ? "+" : ""}</text>)}</g>
+  </svg>
+</figure>
+<div class="cd-readout">
+  <p class="cd-big"><span class="num" data-story-share>{formatStoryValue(v0[0], "count")}</span> farms and ranches</p>
+  <p class="cd-sub">Average farm: <span class="num" data-avg>{formatStoryValue(v0[2], "count")}</span> acres</p>
+  <div class="cd-lists">
+    <div><h3><span class="k loss" aria-hidden="true">−</span>Biggest losses</h3><ol>{top(-1).map((x) => <li>{x.name} <span class="num">−{Math.abs(x.d).toLocaleString("en-US")}</span></li>)}</ol></div>
+    <div><h3><span class="k gain" aria-hidden="true">+</span>Biggest gains</h3><ol>{top(1).map((x) => <li>{x.name} <span class="num">+{x.d.toLocaleString("en-US")}</span></li>)}</ol></div>
+  </div>
+</div>
+
+<script>
+  const player = document.getElementById("story-player");
+  const fig = player?.querySelector<HTMLElement>(".cd-map");
+  if (player && fig) {
+    const steps: { year: 0 | 1; highlight: "none" | "loss" | "gain" }[] = JSON.parse(fig.dataset.steps!);
+    const radii: [string, string][] = JSON.parse(fig.dataset.r!);
+    const frames: { text: string[] }[] = JSON.parse(player.dataset.story!).frames;
+    const dots = [...fig.querySelectorAll<SVGCircleElement>(".cd-dots circle")];
+    const readout = player.querySelector<HTMLElement>(".cd-readout")!;
+    player.addEventListener("storyframe", (e) => {
+      const { index } = (e as CustomEvent<{ index: number }>).detail;
+      const { year, highlight } = steps[index];
+      dots.forEach((c, i) => c.setAttribute("r", radii[i][year]));
+      fig.dataset.year = String(year);
+      fig.dataset.highlight = highlight;
+      readout.dataset.highlight = highlight;
+      readout.querySelector<HTMLElement>("[data-story-share]")!.textContent = frames[index].text[0];
+      readout.querySelector<HTMLElement>("[data-avg]")!.textContent = frames[index].text[2];
+    });
+  }
+</script>
+
+<style>
+  .cd-map { grid-area: map; margin: 0; padding: clamp(.75rem, 2.5vw, 1.75rem); background: var(--paper-2); display: grid; align-content: center; }
+  .cd-map svg { display: block; width: 100%; max-width: 34rem; height: auto; margin-inline: auto; }
+  .cd-state { fill: var(--paper); }
+  .cd-borders { fill: none; stroke: var(--rule); stroke-width: .8; }
+  .cd-ghosts circle { fill: none; stroke: var(--ink-3); stroke-width: .8; stroke-dasharray: 2 2; opacity: 0; transition: opacity .4s; }
+  .cd-map[data-year="1"] .cd-ghosts circle { opacity: 1; }
+  .cd-dots circle { fill: color-mix(in oklab, var(--ink-2) 55%, transparent); stroke: var(--paper); stroke-width: .6; transition: r .9s ease-in-out, fill .4s; }
+  .cd-map[data-highlight="loss"] .cd-dots circle:not(.loss), .cd-map[data-highlight="gain"] .cd-dots circle:not(.gain) { fill: color-mix(in oklab, var(--ink-3) 25%, transparent); }
+  .cd-map[data-highlight="loss"] .cd-dots circle.loss { fill: var(--orange); }
+  .cd-map[data-highlight="gain"] .cd-dots circle.gain { fill: var(--green); }
+  .cd-signs text { font: 700 9px var(--font-sans); text-anchor: middle; fill: var(--paper); opacity: 0; transition: opacity .4s; pointer-events: none; }
+  .cd-map[data-highlight="loss"] .cd-signs text.loss, .cd-map[data-highlight="gain"] .cd-signs text.gain { opacity: 1; }
+  .cd-readout { grid-area: readout; padding: .25rem clamp(1rem, 3vw, 2rem) 1.25rem; align-self: start; }
+  .cd-big { margin: 0 0 .35rem; color: var(--ink-2); }
+  .cd-big .num { display: block; font-family: var(--font-serif); font-size: clamp(2.6rem, 6vw, 4rem); line-height: 1; color: var(--ink); }
+  .cd-sub .num { font-weight: 600; color: var(--ink); }
+  .cd-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: .9rem; }
+  .cd-lists h3 { font-size: .9rem; margin: 0 0 .35rem; display: flex; align-items: center; gap: .4rem; }
+  .cd-lists ol { margin: 0; padding-left: 1.2rem; color: var(--ink-2); }
+  .cd-lists .num { color: var(--ink); }
+  .k { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; color: var(--paper); font-weight: 700; font-size: .8rem; }
+  .k.loss { background: var(--orange); } .k.gain { background: var(--green); }
+  .cd-readout[data-highlight="loss"] .cd-lists > div:last-child, .cd-readout[data-highlight="gain"] .cd-lists > div:first-child { opacity: .45; }
+</style>

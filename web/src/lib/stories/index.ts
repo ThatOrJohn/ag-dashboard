@@ -4,15 +4,23 @@ import { loadLatest, loadStoryData } from "../data";
 import { cottonStory } from "./cotton";
 import { droughtStory } from "./drought";
 import type { Story, StoryEntry, StoryFallback } from "./model";
+import { cattleStory } from "./cattle";
+import { censusStory } from "./census";
 import { rainStory } from "./rain";
+import { rainMapStory } from "./rainmap";
+import { reservoirStory } from "./reservoirs";
+import { riverStory } from "./river";
+import { wellsStory } from "./wells";
 
 export * from "./model";
 export { cottonHeadline, cottonStorySlug } from "./cotton";
 export { droughtStorySlug, droughtStoryTitle } from "./drought";
 export { rainStorySlug } from "./rain";
 
-export const storyEntries: readonly StoryEntry[] = [droughtStory, cottonStory, rainStory];
-export const storiesDescription = "Animated replays of Texas drought, rain and harvests, built from public data.";
+export const storyEntries: readonly StoryEntry[] = [
+  droughtStory, rainMapStory, cottonStory, reservoirStory, wellsStory, riverStory, cattleStory, censusStory, rainStory,
+];
+export const storiesDescription = "Animated replays of Texas drought, rain, water, harvests, cattle prices and farms, built from public data.";
 
 export interface BuiltStory { slug: string; story: Story | null; fallback: StoryFallback; featured: boolean }
 

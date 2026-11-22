@@ -1,9 +1,17 @@
 """Store → web/public/data/<region>/stories.json: the history the animated stories replay (docs/decisions/0024).
 
-  drought   every county's Drought Monitor category for each of the last 104 weekly maps, plus the official
-            statewide percentages. One character per county per week keeps two years of maps small.
-  cotton    statewide percent of cotton harvested for each fall report (Aug.–Nov., the same reports the
-            harvest outlook uses), grouped by season.
+  drought     every county's Drought Monitor category for each of the last 104 weekly maps, plus the official
+              statewide percentages. One character per county per week keeps two years of maps small.
+  cotton      statewide percent of cotton harvested for each fall report (Aug.–Nov., the same reports the
+              harvest outlook uses), grouped by season.
+  reservoirs  statewide storage, monthly mean percent full, from 1950 (earlier years mostly reflect reservoirs
+              still being built and filled).
+  wells       each configured well's winter depth to water (Jan.–March median), one value per year.
+  river       each configured stream gauge's monthly mean flow.
+  cattle      the statewide weekly auction's feeder steer prices and head counts.
+  census      farms and land in farms by county for each Census of Agriculture year in the store.
+  rain        this year's daily county rain as a one-character class per county, with the statewide average
+              and the wettest county each day.
 
 A stale source leaves its story out (null), like any other section.
 """
@@ -62,6 +70,128 @@ def cotton_seasons(nass: pd.DataFrame, region: Region) -> dict | None:
     return {"seasons": seasons}
 
 
-def site_data(region: Region, w: pd.DataFrame, nass: pd.DataFrame, *, drought_ok: bool, nass_ok: bool) -> dict:
-    return {"drought": drought_weeks(w, region) if drought_ok else None,
-            "cotton": cotton_seasons(nass, region) if nass_ok and not nass.empty else None}
+RESERVOIRS_FROM = 1950
+# Daily rain classes, inches: the upper bound of each class ("0" is dry, under a hundredth).
+RAIN_CLASSES = (0.01, 0.25, 0.5, 1.0, 2.0)
+
+
+def reservoir_months(res: pd.DataFrame, site: str = "statewide") -> dict | None:
+    s = res[(res["geo"] == site) & (res["var"] == "percent_full")].set_index("date")["value"].sort_index()
+    s = s[s.index.year >= RESERVOIRS_FROM]
+    if s.empty:
+        return None
+    m = s.resample("MS").mean().dropna()
+    return {"through": _iso(s.index.max()),
+            "months": [{"month": d.strftime("%Y-%m"), "pct": round(float(v), 1)} for d, v in m.items()]}
+
+
+def well_winters(gw: pd.DataFrame, sites: list[dict]) -> list[dict]:
+    out = []
+    for site in sites:
+        s = gw[(gw["geo"] == site["id"]) & (gw["var"] == "depth_ft")].set_index("date")["value"].sort_index()
+        winter = s[s.index.month <= 3]
+        if winter.empty:
+            continue
+        years = winter.groupby(winter.index.year).median()
+        out.append({"id": site["id"], "name": site.get("name", site["id"]), "aquifer": site.get("aquifer"),
+                    "district": site.get("district"), "url": site.get("url"),
+                    "winters": [{"year": int(y), "depth_ft": round(float(v), 1)} for y, v in years.items()]})
+    return out
+
+
+def river_months(flow: pd.DataFrame, sites: list[dict]) -> list[dict]:
+    out = []
+    for site in sites:
+        rows = flow[flow["geo"] == site["id"]]
+        q = rows[rows["var"] == "discharge_cfs"].set_index("date")["value"].sort_index()
+        if q.empty:
+            continue
+        flag = rows[rows["var"] == "unapproved"].set_index("date")["value"]
+        provisional = flag[flag > 0].index.min() if not flag.empty and (flag > 0).any() else None
+        m = q.resample("MS").mean().dropna()
+        if len(m) and q[q.index < m.index[0] + pd.offsets.MonthBegin(1)].size < 20:
+            m = m.iloc[1:]            # a first month with only a few days of record isn't a monthly average
+        out.append({"id": site["id"], "name": site.get("name", site["id"]), "url": site.get("url"),
+                    "through": _iso(q.index.max()), "provisional_from": _iso(provisional) if provisional is not None else None,
+                    "months": [{"month": d.strftime("%Y-%m"), "cfs": round(float(v))} for d, v in m.items()]})
+    return out
+
+
+def cattle_weeks(ams: pd.DataFrame, report: str) -> dict | None:
+    rows = ams[ams["geo"] == f"ams:{report}"]
+    if rows.empty:
+        return None
+    p = rows.pivot_table(index="date", columns="var", values="value").sort_index()
+    cols = {"steers:500": "s500", "steers:700": "s700", "steers:500:head": "h500", "steers:700:head": "h700"}
+    weeks = []
+    for d, r in p.iterrows():
+        if pd.isna(r.get("steers:500")) and pd.isna(r.get("steers:700")):
+            continue
+        weeks.append({"date": _iso(d), **{k: (None if pd.isna(r.get(c)) else round(float(r[c]), 2)) for c, k in cols.items()}})
+    return {"report": report, "weeks": weeks} if weeks else None
+
+
+def census_counties(census: pd.DataFrame, region: Region) -> dict | None:
+    rows = census[census["var"].isin(["farms", "land_in_farms_acres"])]
+    if rows.empty:
+        return None
+    years = sorted(rows["date"].dt.year.unique())[-2:]
+    if len(years) < 2:
+        return None
+    p = rows.assign(y=rows["date"].dt.year).pivot_table(index="geo", columns=["var", "y"], values="value")
+    counties = {}
+    for c in region.counties:
+        if c.fips not in p.index:
+            continue
+        r = p.loc[c.fips]
+        vals = [r.get(("farms", y)) for y in years] + [r.get(("land_in_farms_acres", y)) for y in years]
+        counties[c.fips] = [None if v is None or pd.isna(v) else int(v) for v in vals]
+    return {"years": [int(y) for y in years], "counties": counties}
+
+
+def rain_class(inches: float) -> str:
+    return str(sum(inches >= b for b in RAIN_CLASSES))
+
+
+def rain_days(nc: pd.DataFrame, region: Region, area: dict[str, float]) -> dict | None:
+    rain = nc[nc["var"] == "rain_mm"] if not nc.empty else nc
+    if rain.empty:
+        return None
+    year = rain["date"].max().year
+    rain = rain[rain["date"].dt.year == year]
+    fips = [c.fips for c in region.counties]
+    wide = rain.pivot_table(index="date", columns="geo", values="value").sort_index() / 25.4
+    weights = pd.Series(area).reindex(wide.columns).fillna(0)
+    days = []
+    for d, row in wide.iterrows():
+        have = row.dropna()
+        mean = (have * weights[have.index]).sum() / weights[have.index].sum() if not have.empty else None
+        top = have.idxmax() if not have.empty else None
+        days.append({"date": _iso(d),
+                     "map": "".join(rain_class(row[f]) if f in row.index and not pd.isna(row[f]) else "?" for f in fips),
+                     "mean_in": None if mean is None else round(float(mean), 2),
+                     "max": None if top is None else {"fips": top, "in": round(float(have[top]), 2)}})
+    return {"counties": fips, "classes": list(RAIN_CLASSES), "days": days}
+
+
+def site_data(region: Region, w: pd.DataFrame, nass: pd.DataFrame, *, drought_ok: bool, nass_ok: bool,
+              fresh=None, frames: dict | None = None) -> dict:
+    """`frames` holds the other store frames (already cut at the as-of date); `fresh` says which are current."""
+    f = frames or {}
+    ok = (lambda key: fresh is not None and key in fresh.sources and not fresh.sources[key]["stale"])
+    empty = pd.DataFrame(columns=["geo", "var", "date", "value"])
+    get = (lambda key: f.get(key) if f.get(key) is not None else empty)
+    area = {c.fips: c.land_sqmi for c in region.counties}
+    statewide_ams = next((r["slug"] for r in region.source("ams").get("reports", []) if r.get("scope") == "statewide"), "1955")
+    return {
+        "drought": drought_weeks(w, region) if drought_ok else None,
+        "cotton": cotton_seasons(nass, region) if nass_ok and not nass.empty else None,
+        "reservoirs": reservoir_months(get("twdb_reservoirs")) if ok("twdb_reservoirs") else None,
+        "wells": well_winters(get("twdb_groundwater"), region.source("twdb_groundwater").get("sites", []))
+        if ok("twdb_groundwater") else None,
+        "river": river_months(get("usgs_streamflow"), region.source("usgs_streamflow").get("sites", []))
+        if ok("usgs_streamflow") else None,
+        "cattle": cattle_weeks(get("ams"), str(statewide_ams)) if ok("ams") else None,
+        "census": census_counties(get("census"), region) if ok("census") else None,
+        "rain": rain_days(get("nclimgrid"), region, area) if ok("nclimgrid") else None,
+    }
