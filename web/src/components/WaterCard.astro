@@ -1,0 +1,54 @@
+---
+import AsOf from "./AsOf.astro";
+import { day } from "../lib/format";
+import type { Source, WaterIndicator } from "../lib/types";
+
+interface Props {
+  card: WaterIndicator;
+  source: Source;
+  level?: 2 | 3;
+}
+
+const { card, source, level = 3 } = Astro.props;
+const Heading = level === 2 ? "h2" : "h3";
+const number = (value: number, digits: number) => value.toLocaleString("en-US", { maximumFractionDigits: digits });
+const levelChange = (then: number) => {
+  const change = Math.round((then - card.value) * 100) / 100;
+  return change === 0 ? "Unchanged" : `${number(Math.abs(change), 2)} ft ${change > 0 ? "higher" : "lower"}`;
+};
+const note = card.kind === "groundwater" ? "provisional"
+  : card.kind === "streamflow" ? (card.provisional ? "provisional" : "USGS approved")
+  : "published storage estimate";
+---
+<div>
+  <Heading>{card.name}</Heading>
+  {card.kind === "reservoir" && (
+    <>
+      <p class="big">{card.value.toFixed(1)}% full</p>
+      <p>Conservation storage at monitored water supply reservoirs.</p>
+      {card.year_ago && <p>{card.year_ago.value.toFixed(1)}% full on {day(card.year_ago.date)}.</p>}
+    </>
+  )}
+  {card.kind === "groundwater" && (
+    <>
+      <p class="big">{number(card.value, 2)} ft</p>
+      <p>Depth to water at the daily high. {card.aquifer} Aquifer, well {card.id}.</p>
+      {(card.year_ago || card.five_years_ago) && (
+        <dl class="kv">
+          {card.year_ago && <><dt>vs. {day(card.year_ago.date)}</dt><dd>{levelChange(card.year_ago.value)}</dd></>}
+          {card.five_years_ago && <><dt>vs. {day(card.five_years_ago.date)}</dt><dd>{levelChange(card.five_years_ago.value)}</dd></>}
+        </dl>
+      )}
+    </>
+  )}
+  {card.kind === "streamflow" && (
+    <>
+      <p class="big">{number(card.value, 1)} cfs</p>
+      <p>Seven-day average flow at the gauge, in cubic feet per second.</p>
+      {card.percentile !== null && (
+        <p>Seasonal percentile <strong>{card.percentile}/100</strong> against {card.baseline_years.join("–")} at this gauge. Low percentiles indicate unusually low flow.</p>
+      )}
+    </>
+  )}
+  <AsOf source={{ ...source, url: card.url }} date={card.date} note={note} />
+</div>

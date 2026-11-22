@@ -9,6 +9,7 @@ import DroughtMap from "../components/DroughtMap.astro";
 import Headline from "../components/Headline.astro";
 import MarketCard from "../components/MarketCard.astro";
 import ScrewwormCard from "../components/ScrewwormCard.astro";
+import WaterCard from "../components/WaterCard.astro";
 import { loadLatest } from "../lib/data";
 import { change, countWord, day, href, inches, pct } from "../lib/format";
 
@@ -19,7 +20,7 @@ const homes = L.districts.filter((d) => d.home);
 const others = L.districts.filter((d) => !d.home);
 const fipsOf = (slug: string) => Object.entries(L.counties).filter(([, c]) => c.district === slug).map(([f]) => f);
 const statewide = L.markets.filter((m) => m.scope === "statewide");
-const anyStale = Object.entries(S).some(([key, source]) => !["screwworm", "boll_weevil"].includes(key) && source.stale);
+const anyStale = Object.entries(S).some(([key, source]) => !["screwworm", "boll_weevil", "twdb_groundwater", "usgs_streamflow"].includes(key) && source.stale);
 const drought = S.usdm.stale ? null : tx.drought;
 const burnBans = S.burn_bans.stale ? null : tx.burn_bans;
 const otherTopics = tx.headline?.items?.filter(({ topic }) => topic !== "drought" && topic !== "burn_bans").map(({ topic }) => topic);
@@ -86,6 +87,7 @@ const pests = [
         <AsOf source={S.burn_bans} label="Updated" note="county judges set bans; check yours before burning" />
       </section>
     )}
+    {tx.water?.map((card) => <WaterCard card={card} source={S[card.source]} level={2} />)}
   </div>
 
   <section aria-labelledby="districts-h">

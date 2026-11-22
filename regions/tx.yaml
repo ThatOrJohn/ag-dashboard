@@ -143,6 +143,28 @@ sources:
     license: Public domain (NOAA)
     max_age_days: 4
 
+  twdb_reservoirs:
+    name: TWDB reservoir storage
+    url: https://waterdatafortexas.org/reservoirs/download
+    max_age_days: 4
+    sites:
+      - { id: statewide, name: Texas reservoirs, url: 'https://waterdatafortexas.org/reservoirs/statewide' }
+      - { id: brazos, name: Brazos River basin reservoirs, district: upper-coast, url: 'https://waterdatafortexas.org/reservoirs/basin/brazos' }
+  twdb_groundwater:
+    name: TWDB groundwater monitoring
+    url: https://waterdatafortexas.org/groundwater/download
+    max_age_days: 7
+    sites:
+      - { id: '0260303', name: Dallam County well, district: northern-high-plains, aquifer: Ogallala, url: 'https://waterdatafortexas.org/groundwater/well/0260303' }
+      - { id: '1151403', name: Hale County well, district: northern-high-plains, aquifer: Ogallala, url: 'https://waterdatafortexas.org/groundwater/well/1151403' }
+      - { id: '1051909', name: Bailey County well, district: southern-high-plains, aquifer: Ogallala, url: 'https://waterdatafortexas.org/groundwater/well/1051909' }
+  usgs_streamflow:
+    name: USGS Water Data for the Nation
+    url: https://api.waterdata.usgs.gov/
+    max_age_days: 4
+    sites:
+      - { id: USGS-08114000, name: Brazos River at Richmond, district: upper-coast, url: 'https://waterdata.usgs.gov/monitoring-location/USGS-08114000/' }
+
   # Annual sources run when due, from any regular run (docs/decisions/0011): due = no successful fetch
   # within refresh_days. max_age_days is measured from the figure's year (Jan 1), so it allows for release lag.
   census:

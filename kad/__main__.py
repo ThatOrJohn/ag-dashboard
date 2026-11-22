@@ -57,11 +57,14 @@ def cmd_backfill(region, args):
 
 
 def cmd_ingest(region, args):
-    from .adapters import ams, boll_weevil, burnbans, nass, nclimgrid, nws, screwworm, stage4, usdm
+    from .adapters import ams, boll_weevil, burnbans, nass, nclimgrid, nws, screwworm, stage4, usdm, water
     if region.source("screwworm"):
         _try("screwworm", screwworm.refresh, region)
     if region.source("boll_weevil"):
         _try("boll_weevil", boll_weevil.refresh, region)
+    for source in water.SOURCES:
+        if region.source(source):
+            _try(source, water.refresh, region, source, force=args.force)
     _save(region, "usdm", _try("usdm", usdm.fetch, region))
     _save(region, "nass", _try("nass", nass.weekly, region, years_back=5 if args.force else None))
     res = _try("ams", ams.fetch, region)
@@ -121,7 +124,7 @@ def main(argv=None) -> int:
     ap.add_argument("command", choices=["backfill", "ingest", "annual", "build", "run", "check", "harvest-backtest"])
     ap.add_argument("--region", default="tx")
     ap.add_argument("--asof", help="build as of this date (testing), YYYY-MM-DD")
-    ap.add_argument("--force", action="store_true", help="refresh annual sources even if not due and reload NASS history on ingest")
+    ap.add_argument("--force", action="store_true", help="refresh annual sources even if not due and reload NASS and USGS history on ingest")
     ap.add_argument("--only", help="annual: comma-separated source keys (census,nass_county,cdl,rap)")
     ap.add_argument("--budget", type=float, default=480, help="annual: seconds this run may spend")
     args = ap.parse_args(argv)

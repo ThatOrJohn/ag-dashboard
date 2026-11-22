@@ -132,7 +132,17 @@ export interface Persona {
   pest_resources?: { label: string; url: string }[];
 }
 
-export type SourceKey = "usdm" | "nass" | "ams" | "burn_bans" | "nws" | "census" | "nass_county" | "rap" | "cdl" | "nclimgrid" | "normals" | "stage4" | "screwworm" | "boll_weevil";
+type WaterSource = "twdb_reservoirs" | "twdb_groundwater" | "usgs_streamflow";
+export type SourceKey = "usdm" | "nass" | "ams" | "burn_bans" | "nws" | "census" | "nass_county" | "rap" | "cdl" | "nclimgrid" | "normals" | "stage4" | "screwworm" | "boll_weevil" | WaterSource;
+
+type WaterComparison = { date: string; value: number };
+export type WaterIndicator = {
+  id: string; name: string; url: string; date: string; value: number; source: WaterSource;
+} & (
+  | { kind: "reservoir"; year_ago: WaterComparison | null }
+  | { kind: "groundwater"; aquifer: string; year_ago: WaterComparison | null; five_years_ago: WaterComparison | null }
+  | { kind: "streamflow"; percentile: number | null; baseline_years: [number, number]; baseline_count: number; provisional: boolean }
+);
 
 export interface BollWeevilReport {
   report_url: string;
@@ -182,6 +192,7 @@ export interface Latest {
     pasture: ConditionCard;
     screwworm?: ScrewwormCard | null;
     boll_weevil?: BollWeevilReport | null;
+    water?: WaterIndicator[];
     headline?: Headline;
     headline_all?: Headline;
   };
@@ -216,6 +227,7 @@ export interface DistrictFile {
   drought_history: ({ date: string } & Partial<DroughtLevels>)[];
   weather?: WeatherStrip | null;
   season_rain?: SeasonRain | null;
+  water?: WaterIndicator[];
   counties: ({ fips: string; annual?: CountyAnnual } & CountyCard)[];
   markets: MarketCard[];
   annual?: DistrictAnnual;

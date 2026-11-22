@@ -11,6 +11,7 @@ import DroughtMap from "../../components/DroughtMap.astro";
 import Headline from "../../components/Headline.astro";
 import MarketCard from "../../components/MarketCard.astro";
 import WeatherStrip from "../../components/WeatherStrip.astro";
+import WaterCard from "../../components/WaterCard.astro";
 import SeasonRain from "../../components/SeasonRain.astro";
 import { loadDistrict, loadLatest } from "../../lib/data";
 import { category, categoryName, change, day, href, inches, pct } from "../../lib/format";
@@ -107,6 +108,15 @@ const pests = screwworm && detection ? [{
             <AsOf source={S.burn_bans} label="Updated" />
           </div>
         )}
+      </div>
+    </section>
+  )}
+
+  {(D.water?.length ?? 0) > 0 && (
+    <section aria-labelledby="water-h">
+      <h2 id="water-h">Water conditions</h2>
+      <div class="condition-details">
+        {D.water?.map((card) => <WaterCard card={card} source={S[card.source]} />)}
       </div>
     </section>
   )}

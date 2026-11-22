@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from . import annual_build as ab
-from . import harvest, headline, normals, store
+from . import harvest, headline, normals, store, water
 from .adapters.ams import SHEEP_GOAT_SERIES
 from .config import SITE_OUT, Region
 
@@ -539,6 +539,8 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
     rain = rain_by_county(nc) if rain_ok else {}
     ahead = forecast_rain_by_county(fc, asof_ts)
 
+    state_water, district_water = water.cards(region, fresh)
+
     # Markets
     fresh.mark("ams", ams["date"].max() if not ams.empty else None)
     markets = market_cards(region, ams, notes, fresh)
@@ -598,7 +600,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
         "burn_bans": {"count": sum(v.get("burn_ban", False) for v in counties.values()), "of": len(counties)}
         if bans_ok else None,
         "crops": crops, "pasture": pasture, "screwworm": screwworm_card(region, fresh),
-        "boll_weevil": boll_weevil_card(region, fresh),
+        "boll_weevil": boll_weevil_card(region, fresh), "water": state_water,
     }
     statewide = next((m for m in markets if m["scope"] == "statewide"), None)
     texas["headline"] = headline.texas(texas, statewide)
@@ -655,6 +657,7 @@ def build(region: Region, asof: date | None = None, failures: list[str] | None =
             "drought_history": drought_history(w, d_area) if drought_ok else [],
             "weather": weather_strip(nc, fc, d_area, asof_ts, nm=nm, est=est) if rain_ok else None,
             "season_rain": season_rain(nc, nm, monthly, d_area) if rain_ok else None,
+            "water": district_water.get(d["slug"], []),
             "counties": sorted(({"fips": f, **counties[f], "annual": annual_cards[f]} for f in d_area),
                                key=lambda x: x["name"]),
             "markets": [m for m in markets if m["scope"] == "statewide" or m.get("district") == d["slug"]],

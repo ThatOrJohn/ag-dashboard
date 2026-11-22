@@ -91,6 +91,18 @@ const homes = L.districts.filter((d) => d.home).map((d) => d.name);
       Forecast Centers, which I average over each county. It fills the days NOAA's county averages haven't
       reached yet and is always labeled an estimate. It often runs a little wetter than those averages, so it
       never goes into a "vs normal" figure, and NOAA's numbers replace it when they come out. Public domain.</li>
+    <li><strong><a href="https://waterdatafortexas.org/reservoirs/methodology">TWDB reservoir storage</a></strong>.
+      Percent full is conservation storage divided by conservation capacity for the monitored water supply
+      reservoirs in Texas or the named basin. The year-ago figure uses the same calendar date.</li>
+    <li><strong><a href="https://waterdatafortexas.org/groundwater/download">TWDB monitoring wells</a></strong>.
+      The shallowest depth recorded that day gives the daily high water level at the named well. Comparisons
+      use the nearest reading within two weeks of the one- and five-year anniversaries. Higher water means a
+      shallower depth. Each provisional reading describes conditions at one well.</li>
+    <li><strong><a href="https://api.waterdata.usgs.gov/">USGS river flow</a></strong>.
+      I average seven consecutive daily discharge readings and rank the result against the same seven-day
+      window in 1991–2020 at that gauge. At least 20 years with complete windows are needed. February 29 uses
+      the February 28 baseline. River flow measures conditions at the gauge. Check with your water authority
+      for irrigation allocations or restrictions.</li>
   </ul>
   <p>Once a year, on the county cards and district pages:</p>
   <ul>
