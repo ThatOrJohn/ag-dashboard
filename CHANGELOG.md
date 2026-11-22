@@ -3,6 +3,12 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- Flyovers: map tours that fly between places and stop where the data picks out something worth seeing.
+  Texas has a tour of this week's conditions across its districts, and every district has a profile tour of
+  its counties and a this-week tour. A dotted route links numbered stops; the camera pulls back between
+  stops and settles in, a small plane inks each leg as it goes, and each stop lights up with its figures.
+- The Stories page splits flyovers from replays. Flyovers sit in their own band with a route map on each card
+  and a pick-a-district map whose labels no longer get covered by neighboring districts.
 - New Stories section with animated replays, each with chapters, a table of every figure and its sources:
   - Two years of weekly Drought Monitor maps recoloring every Texas county.
   - Every Texas cotton harvest since 2021, raced side by side with a harvester in each season's lane.

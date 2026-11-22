@@ -13,13 +13,15 @@ const stateNames = new Map(states.features.map(({ id, properties }) => [String(i
 export const stateName = (fips: string) => stateNames.get(fips) ?? fips;
 
 /** SVG paths for counties in a state fitted to width × height, plus group
- *  borders: the outer edge and every edge between counties in different groups (districts). */
+ *  borders: the outer edge and every edge between counties in different groups (districts).
+ *  `fit` frames a subset (a district) while still drawing every kept county around it. */
 export function countyPaths(stateFips: string, keep: Set<string> | null, width: number, height: number,
-                            groupOf: (fips: string) => string) {
+                            groupOf: (fips: string) => string, fit?: Set<string>) {
   const inSet = (id: string) => id.startsWith(stateFips) && (!keep || keep.has(id));
   const feats = counties.features.filter(({ id }) => inSet(String(id)));
   if (!stateFips || !feats.length) return { shapes: [], borders: "" };
-  const collection: FeatureCollection<Geometry> = { type: "FeatureCollection", features: feats };
+  const framed = fit ? feats.filter(({ id }) => fit.has(String(id))) : feats;
+  const collection: FeatureCollection<Geometry> = { type: "FeatureCollection", features: framed.length ? framed : feats };
   const [lon, lat] = geoCentroid(collection);
   const proj = geoConicEqualArea().parallels([lat - 4, lat + 4]).rotate([-lon, 0])
     .fitSize([width, height], collection);

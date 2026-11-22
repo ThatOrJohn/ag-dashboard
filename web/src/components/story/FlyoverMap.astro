@@ -1,6 +1,9 @@
 ---
-import { countyPaths, placeLabels, stateName, statePaths } from "../../lib/geo";
-import type { FlyoverIcon, FlyoverStop } from "../../lib/stories/flyover";
+// The flyover camera (decision 0027): one build-time SVG whose viewBox flies between stops. A dotted route
+// links numbered waypoints; the leg just flown inks in behind a small plane. Without JavaScript the whole-area
+// map shows the full route and every waypoint, and the stop cards carry every figure.
+import { flyoverGeometry, pinPaths, surveyGrid } from "../../lib/stories/flyoverMap";
+import type { FlyoverStop } from "../../lib/stories/flyover";
 import type { StoryDisplayContext } from "../../lib/stories/model";
 
 interface Props {
@@ -8,142 +11,285 @@ interface Props {
   context: StoryDisplayContext;
 }
 
-const { stops, context: { area, counties } } = Astro.props;
+const { stops, context } = Astro.props;
+const { area } = context;
 const width = 640, height = 500;
-const { shapes, borders } = area.level === "us" ? statePaths(width, height)
-  : countyPaths(area.stateFips, new Set(Object.keys(counties).filter((fips) =>
-    area.level === "state" || counties[fips].district === area.id)), width, height, (fips) => counties[fips].district);
-const byFips = new Map(shapes.map((shape) => [shape.fips, shape]));
-const ids = new Map(stops.slice(1, -1).flatMap(({ fips }, i) => fips.map((id) => [id, i + 1])));
-const pinPaths: Record<FlyoverIcon, string> = {
-  cotton: "M12 19v3m0-3c-3 0-8-3-8-7a4 4 0 0 1 4-4 4 4 0 0 1 8 0 4 4 0 0 1 4 4c0 4-5 7-8 7Z",
-  cattle: "M4 9 1 5l6 2h10l6-2-3 4-3 2-1 7-2 3h-4l-2-3-1-7-3-2Zm5 7h6",
-  water: "M12 2C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-13Z",
-  well: "M3 10h18L12 3 3 10Zm3 0v11m12-11v11M4 21h16m-8-11v6m-3 0h6v5H9z",
-  rain: "M8 9v12h8V9M7 9h10m-9 5h4m-4 3h4M12 2l-2 4h4z",
-};
-
-type Box = [number, number, number, number];
-const whole: Box = [-16, -12.5, width * 1.05, height * 1.05];
-const scenes = stops.map(({ fips, pin }, index) => {
-  const selected = fips.map((id) => byFips.get(id)).filter((shape) => shape != null);
-  const extent = selected.reduce(([left, top, right, bottom], { bounds: [[x0, y0], [x1, y1]] }) =>
-    [Math.min(left, x0), Math.min(top, y0), Math.max(right, x1), Math.max(bottom, y1)],
-    [Infinity, Infinity, -Infinity, -Infinity]);
-  const [left, top, right, bottom] = extent;
-  const scale = selected.length ? Math.max((right - left) / width, (bottom - top) / height, .07) * 1.3 : 1.05;
-  const w = width * scale, h = height * scale;
-  const box: Box = selected.length ? [(left + right - w) / 2, (top + bottom - h) / 2, w, h] : whole;
-  const marker = pin && byFips.get(pin.fips);
-  const names = (selected.length ? selected : shapes).map((shape) => ({
-    ...shape, text: area.level === "us" ? stateName(shape.fips) : counties[shape.fips]?.name ?? "",
-  })).filter(({ fips, text }) => text && fips !== pin?.fips);
-  const size = 17 * scale;
-  const fit = placeLabels(names, size, undefined, scale);
-  return {
-    index, box,
-    labels: names.flatMap(({ fips, cx, cy, text }) => {
-      const factor = fit.get(fips);
-      return factor ? [{ cx, cy, text, size: size * factor }] : [];
-    }),
-    marker: marker && pin ? { ...pin, x: marker.cx, y: marker.cy, scale: scale * 1.5 } : null,
-  };
-});
+const { shapes, borders, points, legs, boxes, whole, scenes } = flyoverGeometry(stops, context, width, height, { surroundings: true });
+const grid = surveyGrid(width, height);
+const last = stops.length - 1;
+const steps = stops.map(({ name }, i) => [i === 0 ? "Overview" : i === last ? "Finish" : `Stop ${i} of ${last - 1}`, name]);
+const r = (n: number) => n.toFixed(1);
 ---
-<svg class="flyover-map" data-flyover-map data-boxes={JSON.stringify(scenes.map(({ box }) => box))}
-  viewBox={whole.join(" ")} role="img" aria-label={`Map of ${area.name}`}>
-  {shapes.map(({ fips, d }) => (
-    <path class="county" d={d} data-stop={ids.get(fips)}><title>{area.level === "us" ? stateName(fips) : counties[fips]?.name}</title></path>
-  ))}
-  <path class="border" d={borders} />
-  {scenes.map(({ index, labels, marker }) => (
-    <g class:list={["scene", { current: index === 0 }]} data-flyover-scene>
-      {labels.map(({ cx, cy, text, size }) => (
-        <text class="county-name" x={cx} y={cy} font-size={size} stroke-width={size * .22}
-          text-anchor="middle" dominant-baseline="middle">{text}</text>
-      ))}
-      {marker && (
-        <g transform={`translate(${marker.x} ${marker.y}) scale(${marker.scale})`} class={`pin pin-${marker.icon}`}>
-          <title>{marker.label}</title>
-          <circle r="16" />
-          <path d={pinPaths[marker.icon]} transform="translate(-12 -12)" />
-        </g>
-      )}
+<div class="flyover-frame" data-flyover-frame>
+  <svg class="flyover-map" data-flyover-map data-boxes={JSON.stringify(boxes)} data-width={width}
+    viewBox={whole.join(" ")} style={`--z: ${(whole[2] / 600).toFixed(4)}`} role="img" aria-label={`Map of ${area.name} with the tour route`}>
+    <path class="grid" d={grid.coarse} />
+    <path class="grid fine" d={grid.fine} />
+    {shapes.map(({ d, inArea, stop, name }) => inArea
+      ? <path class="county" d={d} data-stop={stop}><title>{name}</title></path>
+      : <path class="county context" d={d} />)}
+    <path class="border" d={borders} />
+    {scenes.map(({ spot }, i) => <path class:list={["spot", { current: i === 0 }]} d={spot} data-flyover-spot />)}
+    <g class="route">
+      {legs.map(({ d }) => <path class="leg" d={d} />)}
+      {legs.map(({ d, from }) => <path class="leg-done" d={d} pathLength="1" data-leg={from} />)}
     </g>
-  ))}
-</svg>
+    <g class="waypoints">
+      {points.map((point, i) => point && (
+        <g class="wp" data-wp={i} transform={`translate(${r(point[0])} ${r(point[1])})`}>
+          <g class="wp-mark">
+            <circle class="pulse" r="11" />
+            <circle class="dot" r="11" />
+            <text class="wp-num" text-anchor="middle" dy=".36em">{i}</text>
+          </g>
+        </g>
+      ))}
+    </g>
+    {scenes.map(({ index, labels, marker }) => (
+      <g class:list={["scene", { current: index === 0 }]} data-flyover-scene>
+        {labels.map(({ cx, cy, text, size, stop }) => (
+          <text class:list={["county-name", { "stop-name": stop }]} x={r(cx)} y={r(cy)} font-size={r(size)} stroke-width={r(size * .24)}
+            text-anchor="middle" dominant-baseline="middle">{text}</text>
+        ))}
+        {marker && (
+          <g transform={`translate(${r(marker.x)} ${r(marker.y)}) scale(${marker.scale.toFixed(3)})`} class={`pin pin-${marker.icon}`}>
+            <g class="pin-body">
+              <circle class="halo" r="22" />
+              <circle r="16" />
+              <path d={pinPaths[marker.icon]} transform="translate(-12 -12)" />
+              <text class="pin-label" x="22" dy=".35em" stroke-width="3.5">{marker.label}</text>
+            </g>
+          </g>
+        )}
+      </g>
+    ))}
+    <g class="plane" data-flyover-plane visibility="hidden">
+      <g class="plane-mark"><path d="M11 0-7-7.5-3.5 0-7 7.5Z" /></g>
+    </g>
+  </svg>
+  <p class="hud" data-flyover-hud data-steps={JSON.stringify(steps)} aria-hidden="true" hidden>
+    <span class="hud-step" data-hud-step>{steps[0][0]}</span><span data-hud-name>{steps[0][1]}</span>
+  </p>
+  <svg class="compass" viewBox="-12 -16 24 30" aria-hidden="true">
+    <path d="M0-11 4 4 0 1-4 4Z" /><text y="13" text-anchor="middle">N</text>
+  </svg>
+</div>
 
 <script>
+  type Box = [number, number, number, number];
   const map = document.querySelector<SVGSVGElement>("[data-flyover-map]");
   if (map) {
+    const frame = map.closest<HTMLElement>("[data-flyover-frame]")!;
     const player = map.closest("#story-player")!;
-    const boxes: number[][] = JSON.parse(map.dataset.boxes!);
+    const boxes: Box[] = JSON.parse(map.dataset.boxes!);
+    const width = Number(map.dataset.width);
     const shapes = map.querySelectorAll<SVGPathElement>("[data-stop]");
     const scenes = map.querySelectorAll("[data-flyover-scene]");
+    const spots = map.querySelectorAll("[data-flyover-spot]");
+    const legs = [...map.querySelectorAll<SVGPathElement>("[data-leg]")];
+    const waypoints = map.querySelectorAll<SVGGElement>("[data-wp]");
+    const plane = map.querySelector<SVGGElement>("[data-flyover-plane]")!;
+    const hud = frame.querySelector<HTMLElement>("[data-flyover-hud]")!;
+    const steps: [string, string][] = JSON.parse(hud.dataset.steps!);
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     let current = 0;
     let animation = 0;
 
-    function showScene(index: number) {
-      scenes[index].classList.add("current");
+    // --z is user units per screen pixel, so route strokes and waypoints keep one size at every zoom and width.
+    let pixels = { width: map.clientWidth, height: map.clientHeight };
+    function scaleMarks(w: number, h: number) {
+      const perPixel = Math.max(w / (pixels.width || width), h / (pixels.height || width));
+      map!.style.setProperty("--z", perPixel.toFixed(4));
     }
+    function setView([x, y, w, h]: number[]) {
+      map!.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+      scaleMarks(w, h);
+    }
+    new ResizeObserver(() => {
+      pixels = { width: map.clientWidth, height: map.clientHeight };
+      scaleMarks(map.viewBox.baseVal.width, map.viewBox.baseVal.height);
+    }).observe(map);
+
+    /** Legs up to `index` are inked; the one being flown (if any) is drawn to `progress`. */
+    function inkRoute(index: number, flying?: { leg: number; progress: number }) {
+      for (const leg of legs) {
+        const from = Number(leg.dataset.leg);
+        const offset = flying?.leg === from ? 1 - flying.progress : from + 1 <= index ? 0 : 1;
+        leg.style.strokeDashoffset = String(offset);
+      }
+    }
+
+    function arrive(index: number) {
+      scenes[index].classList.add("current");
+      spots[index].classList.add("current");
+      waypoints.forEach((wp) => wp.classList.toggle("current", Number(wp.dataset.wp) === index));
+      plane.setAttribute("visibility", "hidden");
+      map!.classList.remove("flying");
+      inkRoute(index);
+    }
+
+    function depart(index: number) {
+      scenes[current].classList.remove("current");
+      spots[current].classList.remove("current");
+      waypoints.forEach((wp) => {
+        const n = Number(wp.dataset.wp);
+        wp.classList.remove("current");
+        wp.classList.toggle("done", n < index);
+      });
+      shapes.forEach((shape) => shape.classList.toggle("selected", Number(shape.dataset.stop) === index));
+      map!.classList.toggle("at-stop", shapes.length > 0 && [...shapes].some((shape) => Number(shape.dataset.stop) === index));
+      hud.querySelector("[data-hud-step]")!.textContent = steps[index][0];
+      hud.querySelector("[data-hud-name]")!.textContent = steps[index][1];
+    }
+
+    const center = ([x, y, w, h]: number[]) => [x + w / 2, y + h / 2];
+    const easeInOut = (t: number) => t < .5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
     reduced.addEventListener("change", ({ matches }) => {
       if (!matches) return;
       cancelAnimationFrame(animation);
-      map.setAttribute("viewBox", boxes[current].join(" "));
-      showScene(current);
+      setView(boxes[current]);
+      arrive(current);
     });
 
     player.addEventListener("storyframe", (event) => {
       const { index } = (event as CustomEvent<{ index: number }>).detail;
       if (index === current) return;
       cancelAnimationFrame(animation);
-      scenes[current].classList.remove("current");
+      // Entrance animations run only once the reader has moved, so the first stop is fully drawn on load.
+      (player as HTMLElement).dataset.moved = "";
+      const previous = current;
+      depart(index);
       current = index;
-      shapes.forEach((shape) => shape.classList.toggle("selected", Number(shape.dataset.stop) === index));
       const target = boxes[index];
       const view = map.viewBox.baseVal;
       const start = [view.x, view.y, view.width, view.height];
       if (reduced.matches || start.every((value, i) => value === target[i])) {
-        map.setAttribute("viewBox", target.join(" "));
-        showScene(index);
+        setView(target);
+        arrive(index);
         return;
       }
+      // A van Wijk-style arc, simplified: the camera pulls back mid-flight in proportion to the distance
+      // travelled, then settles in on the next stop. Longer hops take a little longer.
+      const [x0, y0] = center(start), [x1, y1] = center(target);
+      const distance = Math.hypot(x1 - x0, y1 - y0);
+      const lift = Math.min(.9, distance / Math.max(start[2], target[2]) * .6);
+      const duration = Math.min(1700, 850 + distance / width * 700 + Math.abs(Math.log(target[2] / start[2])) * 160);
+      const leg = index === previous + 1 ? legs.find((path) => Number(path.dataset.leg) === previous) : undefined;
+      const length = leg?.getTotalLength() ?? 0;
+      map.classList.add("flying");
       const began = performance.now();
       function fly(now: number) {
-        const elapsed = Math.min(1, (now - began) / 650);
-        const ease = elapsed * elapsed * (3 - 2 * elapsed);
-        map!.setAttribute("viewBox", start.map((value, i) => value + (target[i] - value) * ease).join(" "));
-        if (elapsed < 1) animation = requestAnimationFrame(fly);
-        else showScene(index);
+        const t = Math.min(1, (now - began) / duration);
+        const e = easeInOut(t);
+        const zoom = 1 + lift * Math.sin(Math.PI * e);
+        const w = (start[2] + (target[2] - start[2]) * e) * zoom;
+        const h = (start[3] + (target[3] - start[3]) * e) * zoom;
+        const cx = x0 + (x1 - x0) * e, cy = y0 + (y1 - y0) * e;
+        setView([cx - w / 2, cy - h / 2, w, h]);
+        if (leg) {
+          const at = leg.getPointAtLength(e * length);
+          const ahead = leg.getPointAtLength(Math.min(length, e * length + 1));
+          const behind = leg.getPointAtLength(Math.max(0, e * length - 1));
+          const angle = Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180 / Math.PI;
+          plane.setAttribute("transform", `translate(${at.x} ${at.y}) rotate(${angle})`);
+          plane.setAttribute("visibility", "visible");
+          inkRoute(previous, { leg: previous, progress: e });
+        }
+        if (t < 1) animation = requestAnimationFrame(fly);
+        else arrive(index);
       }
       animation = requestAnimationFrame(fly);
     });
+
+    hud.hidden = false;
   }
 </script>
 
 <style>
-  .flyover-map {
+  .flyover-frame {
     grid-area: map;
+    position: relative;
+    min-width: 0;
+    min-height: min(78vw, var(--vis-max, 32rem));
+    overflow: hidden;
+    background: var(--fly-sea);
+    /* Three steps from the "sea" to the tour's own land, so the area lifts off its surroundings in both themes. */
+    --fly-sea: var(--paper-3);
+    --fly-context: var(--paper-2);
+    --fly-land: var(--paper);
+  }
+  :global(.dark) .flyover-frame { --fly-sea: var(--paper); --fly-context: var(--paper-2); --fly-land: var(--rule-2); }
+  /* Absolutely placed so the map fills its grid row without the row growing to fit the map. */
+  .flyover-map {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
-    height: min(78vw, var(--vis-max, 32rem));
-    background: var(--paper-2);
+    height: 100%;
   }
-  .county, .border { vector-effect: non-scaling-stroke; }
-  .county { fill: var(--paper); stroke: var(--rule); stroke-width: .55; }
-  .county.selected { fill: var(--amber-tint); stroke: var(--amber); stroke-width: .8; }
-  .border { fill: none; stroke: var(--ink-2); stroke-width: .85; pointer-events: none; }
+  .grid, .county, .border, .spot { vector-effect: non-scaling-stroke; }
+  .grid { fill: none; stroke: var(--rule); stroke-width: .6; opacity: .55; }
+  .grid.fine { opacity: .3; }
+  .county { fill: var(--fly-land); stroke: var(--rule); stroke-width: .5; transition: opacity .6s, fill .6s; }
+  .county.context { fill: var(--fly-context); stroke: none; }
+  .at-stop .county:not(.selected, .context) { opacity: .55; }
+  .county.selected { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1; }
+  .border { fill: none; stroke: var(--ink-3); stroke-width: .9; pointer-events: none; }
+  .spot { display: none; fill: none; stroke: var(--accent); stroke-width: 8; stroke-opacity: .25; stroke-linejoin: round; pointer-events: none; }
+  .spot.current { display: block; }
+
+  /* Route widths scale with the camera (--z), so they stay the same on screen at every zoom. */
+  .route path { fill: none; stroke-linecap: round; pointer-events: none; }
+  .leg { stroke: var(--ink-2); stroke-width: calc(var(--z) * 2.5px); stroke-dasharray: 0 calc(var(--z) * 7px); opacity: .85; }
+  .leg-done { stroke: var(--accent); stroke-width: calc(var(--z) * 3.2px); stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+
+  .wp-mark { transform: scale(var(--z)); }
+  .wp .dot { fill: var(--fly-land); stroke: var(--ink-2); stroke-width: 1.75; }
+  .wp-num { fill: var(--ink-2); font: 600 11.5px var(--font-mono); pointer-events: none; }
+  .wp.done .dot { fill: var(--accent-tint); stroke: var(--accent); }
+  .wp.done .wp-num { fill: var(--accent-ink); }
+  .wp.current .dot { fill: var(--accent); stroke: var(--fly-land); stroke-width: 2; }
+  .wp.current .wp-num { fill: var(--fly-land); }
+  .pulse { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .wp.current .pulse { opacity: .5; transform: scale(1.6); }
+  .flying .wp.current .pulse { opacity: 0; }
+
   .scene { display: none; }
   .scene.current { display: block; }
-  .county-name { fill: var(--ink); stroke: var(--paper); paint-order: stroke; pointer-events: none; font-weight: 600; }
-  .pin { color: var(--ink); }
+  .flying .scene { display: none; }
+  .county-name { fill: var(--ink); stroke: var(--fly-land); paint-order: stroke; pointer-events: none; font-weight: 600; }
+  .stop-name { fill: var(--ink-2); stroke: var(--fly-sea); letter-spacing: .02em; }
+  .pin { color: var(--accent-ink); }
   .pin-water, .pin-well, .pin-rain { color: var(--green-ink); }
-  .pin circle { fill: var(--paper); stroke: currentColor; stroke-width: 1.1; }
+  .pin circle { fill: var(--fly-land); stroke: currentColor; stroke-width: 1.6; }
+  .pin .halo { fill: none; stroke-width: 1; opacity: .35; }
   .pin path { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .pin-label { fill: currentColor; stroke: var(--fly-land); paint-order: stroke; font: 600 12px var(--font-sans); }
+
+  .plane-mark { transform: scale(var(--z)); }
+  .plane path { fill: var(--accent); stroke: var(--fly-land); stroke-width: 1.5; stroke-linejoin: round; }
+
+  .hud {
+    position: absolute; top: .75rem; left: .75rem; margin: 0; max-width: calc(100% - 1.5rem);
+    display: flex; gap: .6rem; align-items: baseline; padding: .35rem .65rem;
+    font: 500 .72rem/1.3 var(--font-mono); letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-2); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius);
+    pointer-events: none;
+  }
+  .hud[hidden] { display: none; }
+  .hud-step { color: var(--accent-ink); font-weight: 600; white-space: nowrap; }
+  .compass { position: absolute; right: .75rem; bottom: .65rem; width: 1.4rem; pointer-events: none; }
+  .compass path { fill: var(--ink-3); }
+  .compass text { fill: var(--ink-3); font: 600 8px var(--font-mono); }
+
   @media (prefers-reduced-motion: no-preference) {
-    .scene.current .pin { animation: appear .18s ease-out; }
-    @keyframes appear { from { opacity: 0; } }
+    .wp.current .pulse { animation: pulse 1.8s ease-out infinite; }
+    @keyframes pulse { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(2.4); } }
+    :global([data-moved]) .scene.current .pin-body { animation: drop .45s cubic-bezier(.3, 1.5, .5, 1) both; transform-box: fill-box; transform-origin: center bottom; }
+    @keyframes drop { from { opacity: 0; transform: translateY(-14px) scale(.6); } }
+    :global([data-moved]) .scene.current .county-name { animation: fade .5s .1s ease-out both; }
+    :global([data-moved]) .spot.current { animation: fade .6s ease-out both; }
+    @keyframes fade { from { opacity: 0; } }
   }
 </style>

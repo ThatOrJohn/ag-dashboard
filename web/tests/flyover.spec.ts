@@ -55,7 +55,7 @@ test("the weekly flyover holds and zooms between chapters and returns to the ove
   await expect(map).not.toHaveAttribute("viewBox", whole!);
   await expect(map.locator("path.selected").first()).toBeAttached();
   await buttons.last().click();
-  await page.clock.runFor(700);
+  await page.clock.runFor(1800);   // the longest flight is 1.7 s
   await expect(map).toHaveAttribute("viewBox", whole!);
   await expect(page.getByRole("button", { name: "Replay", exact: true })).toBeVisible();
 });

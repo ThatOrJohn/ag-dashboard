@@ -8,14 +8,19 @@ interface Props {
   sources: StoryDisplayContext["sources"];
 }
 const { stops, sources } = Astro.props;
+const last = stops.length - 1;
 ---
 <ol class="stop-cards" role="list" aria-label="Flyover stops">
-  {stops.map(({ name, caption, tiles }) => (
+  {stops.map(({ name, caption, tiles }, i) => (
     <li data-flyover-card>
+      <p class="step">
+        <span class:list={["badge", { edge: i === 0 || i === last }]} aria-hidden="true">{i === 0 || i === last ? "◎" : i}</span>
+        {i === 0 ? "Overview" : i === last ? "Finish" : `Stop ${i} of ${last - 1}`}
+      </p>
       <h2>{name}</h2>
       <dl class="tiles">
-        {tiles.map(({ label, value, source, date, note }) => (
-          <div>
+        {tiles.map(({ label, value, source, date, note }, n) => (
+          <div style={`--n: ${n}`}>
             <dt>{label}</dt>
             <dd class="value">{value}</dd>
             <dd class="credit">
@@ -25,7 +30,7 @@ const { stops, sources } = Astro.props;
           </div>
         ))}
       </dl>
-      <p data-story-caption>{caption}</p>
+      <p class="caption" data-story-caption>{caption}</p>
     </li>
   ))}
 </ol>
@@ -35,14 +40,32 @@ const { stops, sources } = Astro.props;
   :global(.story-stage:not([data-ready])) .stop-cards li + li {
     margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--rule);
   }
+  .step {
+    display: flex; align-items: center; gap: .5rem; margin: 0 0 .35rem;
+    font: 500 .75rem var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink);
+  }
+  .badge {
+    display: inline-grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 50%;
+    background: var(--accent); color: var(--paper); font-weight: 600; letter-spacing: 0;
+  }
+  .badge.edge { background: var(--accent-tint); color: var(--accent-ink); }
   h2 { font-size: clamp(1.25rem, 2.5vw, 1.7rem); margin: 0 0 .6rem; }
   .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: 0 0 .65rem; }
-  .tiles > div { background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--radius); padding: .5rem .65rem; }
+  .tiles > div {
+    background: var(--paper-2); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    border-radius: var(--radius); padding: .5rem .65rem;
+  }
   dt { font-size: .85rem; line-height: 1.2; }
   dd { margin: 0; }
   .value { font: 600 clamp(1rem, 2vw, 1.35rem)/1.25 var(--font-mono); margin: .25rem 0; }
   .credit { font-size: .75rem; line-height: 1.35; color: var(--ink-2); }
   .credit a { line-height: inherit; align-content: center; vertical-align: middle; }
-  p { margin: 0; color: var(--ink-2); }
+  .caption { margin: 0; color: var(--ink-2); }
   @media (min-width: 1000px) { .stop-cards { padding: 1rem 1.5rem .5rem; } }
+  /* Each stop's card re-enters when it is shown: heading first, then the tiles one after another. */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.story-stage[data-moved]) li:not([hidden]) :is(.step, h2, .caption) { animation: rise .4s ease-out both; }
+    :global(.story-stage[data-moved]) li:not([hidden]) .tiles > div { animation: rise .45s calc(.08s + var(--n) * .07s) ease-out both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  }
 </style>

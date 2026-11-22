@@ -81,3 +81,24 @@ The player uses the same build-time boundaries for each stop and places labels a
 view. It holds for 2.6 seconds per chapter. The whole-area map, ordered stop cards and figures table
 are rendered in HTML and SVG. The national tour remains pending the national data set in 0026.
 See the [architecture guide](../ARCHITECTURE.md#from-json-to-pages) for the data inputs and freshness rules.
+
+## Addendum: making flyovers look like tours (2026-11-22)
+
+The first build read as a slideshow. The flyover cards on the Stories index looked like the replay cards,
+and the map was a flat outline with a 650 ms pan and an amber highlight. Changes:
+
+- **Two bands on the index.** Flyovers and replays are different things: one is a place, the other a measure
+  over time. Flyovers get their own band with a route thumbnail on each card (the same build-time geometry
+  as the player). The pick-a-district map sits inside that band.
+- **Accent, not amber, for the stop.** Amber is a data color (the drought scale starts there), so an amber
+  county in a drought tour looked like a drought reading. `tokens.css` reserves the accent for "you are
+  here", which is what a stop is.
+- **A visible route.** Numbered waypoints at each stop's area-weighted centroid, with curved dotted legs.
+  The leg just flown inks in behind a small plane. Without JavaScript the whole route and every waypoint
+  still draw on the overview map.
+- **Camera arc.** The viewBox pulls back mid-flight in proportion to the distance, then settles in (a simple
+  form of van Wijk and Nuij's smooth zoom-and-pan). Flights take 0.85–1.7 s, inside the 2.6 s hold.
+- **Surroundings.** A district map draws the nearby counties faintly, so zooming out shows where the
+  district sits instead of an empty field.
+- **Every icon is labeled.** Pins carry their text label on the map, not only a title tooltip.
+

@@ -7,8 +7,10 @@ interface Props {
   region: string;
   name: string;
   tours: { name: string; id: string; profile?: BuiltStory; weekly?: BuiltStory }[];
+  level?: 2 | 3 | 4;
 }
-const { region, name, tours } = Astro.props;
+const { region, name, tours, level = 2 } = Astro.props;
+const Heading = `h${level}` as const;
 const first = tours[0]?.profile ?? tours[0]?.weekly;
 const area = first?.area;
 const counties = first?.context.counties ?? {};
@@ -26,50 +28,64 @@ const areas = [...groups].map(([id, group]) => {
     text: districts.get(id)?.name ?? "",
   };
 });
-const sizes = placeLabels(areas.filter(({ text }) => text).map((item) => ({ ...item, fips: item.id })), 16);
+const sizes = placeLabels(areas.filter(({ text }) => text).map((item) => ({ ...item, fips: item.id })), 15);
 ---
 <section class="district-tours" aria-labelledby={`${region}-district-tours`}>
-  <h2 id={`${region}-district-tours`}>Pick a district in {name}</h2>
+  <Heading id={`${region}-district-tours`}>Pick a district in {name}</Heading>
+  <p class="hint">Every district has a profile tour of its counties and a tour of this week’s conditions.</p>
   <div class="district-picker">
     <svg viewBox={`-10 -10 ${width + 20} ${height + 20}`} role="group" aria-label={`${name} district tours map`}>
-      {areas.map(({ id, d, cx, cy, text }) => {
+      {areas.map(({ id, d }) => {
         const tour = districts.get(id);
         const primary = tour?.profile ?? tour?.weekly;
-        const size = sizes.get(id) ?? 0;
         return primary ? (
           <a href={href(`stories/${primary.path}/`)} aria-label={`Take the ${tour?.name} tour`}>
             <title>{tour?.name}</title>
             <path d={d} />
-            {size > 0 && <text class="map-label" x={cx} y={cy} font-size={16 * size}
-              text-anchor="middle" dominant-baseline="middle">{text}</text>}
           </a>
         ) : <path d={d} />;
       })}
       <path class="borders" d={borders} />
+      {/* Labels sit above every district so a neighbor drawn later never covers one. */}
+      <g aria-hidden="true">
+        {areas.map(({ id, cx, cy, text }) => {
+          const size = sizes.get(id) ?? 0;
+          return size > 0 && <text class="map-label" x={cx} y={cy} font-size={15 * size}
+            text-anchor="middle" dominant-baseline="middle">{text}</text>;
+        })}
+      </g>
     </svg>
     <ul>{tours.map(({ name, profile, weekly }) => (
       <li>
-        {profile && <a href={href(`stories/${profile.path}/`)}>{name} profile</a>}
-        {profile && weekly && " · "}
-        {weekly && <a href={href(`stories/${weekly.path}/`)} aria-label={`${name} this week`}>{profile ? "This week" : `${name} this week`}</a>}
+        <span class="name">{name}</span>
+        {profile && <a href={href(`stories/${profile.path}/`)} aria-label={`${name} profile`}>Profile</a>}
+        {weekly && <a href={href(`stories/${weekly.path}/`)} aria-label={`${name} this week`}>This week</a>}
       </li>
     ))}</ul>
   </div>
 </section>
 
 <style>
-  .district-tours { margin-top: 1.5rem; }
-  .district-tours h2 { margin-bottom: .5rem; }
+  .district-tours { margin-top: 1.75rem; }
+  .district-tours :is(h2, h3, h4) { margin-bottom: .2rem; font-size: 1.2rem; }
+  .hint { margin: 0 0 .75rem; color: var(--ink-2); font-size: .92rem; }
   .district-picker { display: grid; gap: 1rem; align-items: center; }
-  svg { display: block; width: min(100%, 29rem); margin-inline: auto; }
-  path { fill: var(--paper-3); vector-effect: non-scaling-stroke; }
-  a path { fill: var(--paper-2); }
+  svg {
+    display: block; width: min(100%, 30rem); margin-inline: auto; border-radius: var(--radius);
+  }
+  path { fill: var(--paper-3); vector-effect: non-scaling-stroke; transition: fill .2s; }
+  a path { fill: var(--paper-2); stroke: var(--rule); stroke-width: .5; }
   a:is(:focus, :hover) path { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 2px; }
-  .borders { fill: none; stroke: var(--ink-2); stroke-width: .65; pointer-events: none; }
+  a:focus { outline: none; }
+  .borders { fill: none; stroke: var(--ink-3); stroke-width: .9; pointer-events: none; }
   .map-label { fill: var(--ink); stroke: var(--paper); stroke-width: 3; paint-order: stroke; pointer-events: none; font-weight: 600; }
-  ul { list-style: none; padding: 0; margin: 0; }
-  li { padding: .32rem 0; }
+  ul { list-style: none; padding: 0; margin: 0; columns: 2 14rem; column-gap: 1.5rem; }
+  li { display: flex; align-items: center; gap: .5rem; break-inside: avoid; border-bottom: 1px solid var(--rule-2); }
+  .name { flex: 1; min-width: 0; font-size: .92rem; }
+  li a {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0 .35rem; font-size: .85rem;
+  }
   @media (min-width: 800px) {
-    .district-picker { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; }
+    .district-picker { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1.5rem; }
   }
 </style>

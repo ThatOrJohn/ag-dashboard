@@ -1,17 +1,30 @@
 ---
 import Base from "../../layouts/Base.astro";
 import DistrictTourMap from "../../components/story/DistrictTourMap.astro";
+import FlyoverCard from "../../components/story/FlyoverCard.astro";
 import { href } from "../../lib/format";
 import { buildStories, profileTourSlug, storiesDescription, type BuiltStory, type Story } from "../../lib/stories";
 
-const groups = new Map<string, { name: string; cards: { story: Story; path: string; featured: boolean }[] }>();
+// Two kinds of story, shown as two bands: flyovers (map tours of places, 0027) and replays (one measure
+// animated over time, 0024). Flyovers get a route thumbnail so the difference shows before anyone reads.
+interface Area {
+  name: string;
+  tours: BuiltStory[];
+  replays: { story: Story; path: string; featured: boolean }[];
+}
+const areas = new Map<string, Area>();
 const districtTours = new Map<string, Map<string, { name: string; id: string; profile?: BuiltStory; weekly?: BuiltStory }>>();
+const areaFor = (id: string, name: string) => {
+  const area = areas.get(id) ?? { name, tours: [], replays: [] };
+  areas.set(id, area);
+  return area;
+};
 for (const built of buildStories()) {
   const { area, story, path, featured, slug } = built;
   if (area.level !== "district") {
-    const group = groups.get(area.id) ?? { name: area.name, cards: [] };
-    if (story) group.cards.push({ story, path, featured });
-    groups.set(area.id, group);
+    const group = areaFor(area.id, area.name);
+    if (story?.visual.kind === "flyover") group.tours.push(built);
+    else if (story) group.replays.push({ story, path, featured });
   } else if (story?.visual.kind === "flyover") {
     const tours = districtTours.get(area.stateId) ?? new Map();
     const district = tours.get(area.id) ?? { name: area.name, id: area.id };
@@ -19,72 +32,124 @@ for (const built of buildStories()) {
     else district.weekly = built;
     tours.set(area.id, district);
     districtTours.set(area.stateId, tours);
-    if (featured) groups.get(area.stateId)?.cards.push({ story, path, featured });
+    if (featured) areas.get(area.stateId)?.tours.push(built);
   }
 }
-for (const [id, { cards }] of groups) if (!cards.length && !districtTours.has(id)) groups.delete(id);
-const hasChoices = groups.size > 1;
+for (const [id, { tours, replays }] of areas) if (!tours.length && !replays.length && !districtTours.has(id)) areas.delete(id);
+const hasChoices = areas.size > 1;
+// Heading levels shift down one when several areas each get their own h2.
+const base = hasChoices ? 3 : 2;
 ---
 <Base title="Stories · Texas Ag Dashboard" description={storiesDescription} current="stories">
   <header class="collection-heading">
     <h1>Stories</h1>
-    <p class="lede">Explore the dashboard’s public data with map tours and animated replays.</p>
+    <p class="lede">Explore the dashboard’s public data two ways: <strong>flyovers</strong> tour the map and stop
+      on the places worth a look, and <strong>replays</strong> animate one measure over weeks or years.</p>
   </header>
   {hasChoices && (
     <nav class="area-nav" aria-label="Story areas">
-      <ul>{[...groups].map(([id, { name }]) => <li><a href={`#${id}`}>{name}</a></li>)}</ul>
+      <ul>{[...areas].map(([id, { name }]) => <li><a href={`#${id}`}>{name}</a></li>)}</ul>
     </nav>
   )}
-  {[...groups].map(([id, { name, cards }]) => {
-    const featured = cards.filter((card) => card.featured);
-    const rest = cards.filter((card) => !card.featured);
-    const tours = [...(districtTours.get(id)?.values() ?? [])].sort((a, b) => a.name.localeCompare(b.name));
-    const sections = [
+  {[...areas].map(([id, { name, tours, replays }]) => {
+    const featured = replays.filter((card) => card.featured);
+    const rest = replays.filter((card) => !card.featured);
+    const picks = [...(districtTours.get(id)?.values() ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+    const Section = `h${base}` as const;
+    const Group = hasChoices ? "h4" : "h3";
+    const Card = hasChoices ? "h5" : "h4";
+    const groups = [
       { key: "featured", title: "Featured", cards: featured },
-      { key: "archive", title: featured.length > 0 ? "More stories" : "All stories", cards: rest },
+      { key: "archive", title: featured.length > 0 ? "More replays" : "All replays", cards: rest },
     ];
     return (
       <div id={id} class="area">
         {hasChoices && <h2>{name}</h2>}
-        {sections.filter(({ cards }) => cards.length).map(({ key, title, cards }) => (
-          <section class={key === "archive" ? "archive" : undefined} aria-labelledby={`${id}-${key}`}>
-            {hasChoices
-              ? <h3 class="group-heading" id={`${id}-${key}`}>{title}</h3>
-              : <h2 class="group-heading" id={`${id}-${key}`}>{title}</h2>}
-            <div class={key === "featured" ? "featured-grid" : "story-grid"}>
-              {cards.map(({ story, path, featured }) => (
-                <article class:list={["card", { featured }]}>
-                  <p class="eyebrow">{story.topic} · {story.period}</p>
-                  {hasChoices
-                    ? <h4><a href={href(`stories/${path}/`)}>{story.title}</a></h4>
-                    : <h3><a href={href(`stories/${path}/`)}>{story.title}</a></h3>}
-                  <p class="desc">{story.description}</p>
-                  {featured && story.highlights.length > 0 && (
-                    <dl class="featured-data" aria-label={story.metric}>
-                      {story.highlights.map(({ label, value }) => <div><dt>{label}</dt><dd class="num">{value}</dd></div>)}
-                    </dl>
-                  )}
-                </article>
-              ))}
-            </div>
+        {(tours.length > 0 || picks.length > 0) && (
+          <section class="band flyovers" aria-labelledby={`${id}-flyovers`}>
+            <header class="band-heading">
+              <svg class="band-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 18c3-1 4-6 8-7s5-5 6-6" /><circle cx="5" cy="18" r="2.2" /><circle cx="13" cy="11" r="2.2" /><circle cx="19" cy="5" r="2.2" />
+              </svg>
+              <div>
+                <Section id={`${id}-flyovers`}>Flyovers</Section>
+                <p>Map tours. The camera flies from place to place and stops where the data picks out something worth seeing.</p>
+              </div>
+            </header>
+            {tours.length > 0 && (
+              <div class="tour-grid">{tours.map((built) => <FlyoverCard built={built} level={hasChoices ? 4 : 3} />)}</div>
+            )}
+            {picks.length > 0 && <DistrictTourMap region={id} name={name} tours={picks} level={hasChoices ? 4 : 3} />}
           </section>
-        ))}
-        {tours.length > 0 && <DistrictTourMap region={id} name={name} tours={tours} />}
+        )}
+        {replays.length > 0 && (
+          <section class="band replays" aria-labelledby={`${id}-replays`}>
+            <header class="band-heading">
+              <svg class="band-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 19V5M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /><path d="m17 7 2 1 0 2" />
+              </svg>
+              <div>
+                <Section id={`${id}-replays`}>Replays</Section>
+                <p>Animated charts. Press play to watch one measure change week by week or year by year.</p>
+              </div>
+            </header>
+            {groups.filter(({ cards }) => cards.length).map(({ key, title, cards }) => (
+              <section class={key === "archive" ? "archive" : undefined} aria-labelledby={`${id}-${key}`}>
+                <Group class="group-heading" id={`${id}-${key}`}>{title}</Group>
+                <div class={key === "featured" ? "featured-grid" : "story-grid"}>
+                  {cards.map(({ story, path, featured }) => (
+                    <article class:list={["card", { featured }]}>
+                      <p class="eyebrow">{story.topic} · {story.period}</p>
+                      <Card><a href={href(`stories/${path}/`)}>{story.title}</a></Card>
+                      <p class="desc">{story.description}</p>
+                      {featured && story.highlights.length > 0 && (
+                        <dl class="featured-data" aria-label={story.metric}>
+                          {story.highlights.map(({ label, value }) => <div><dt>{label}</dt><dd class="num">{value}</dd></div>)}
+                        </dl>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </section>
+        )}
       </div>
     );
   })}
 </Base>
 
 <style>
-  .collection-heading { margin-bottom: 1.25rem; }
+  .collection-heading { margin-bottom: 1.5rem; }
   .collection-heading h1 { margin-bottom: .15em; }
-  .collection-heading .lede { max-width: 80ch; margin: 0; }
+  .collection-heading .lede { max-width: 72ch; margin: 0; }
+  .collection-heading strong { font-weight: 600; color: var(--ink); }
+  .area-nav ul { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; padding-left: 0; list-style: none; }
+  .area + .area { margin-top: 2.5rem; }
+
+  .band + .band { margin-top: 2.5rem; }
+  .band-heading { display: flex; gap: .85rem; align-items: flex-start; margin-bottom: 1rem; }
+  .band-heading :is(h2, h3) { margin: 0 0 .1rem; font-size: clamp(1.4rem, 2.4vw, 1.75rem); }
+  .band-heading p { margin: 0; max-width: 70ch; color: var(--ink-2); font-size: .95rem; }
+  .band-icon {
+    flex: none; width: 2.5rem; height: 2.5rem; padding: .45rem; border-radius: 50%;
+    fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .flyovers .band-icon { background: var(--accent-tint); stroke: var(--accent-ink); }
+  .flyovers .band-icon circle { fill: var(--accent-tint); }
+  .replays .band-icon { background: var(--paper-2); stroke: var(--ink-2); border: 1px solid var(--rule); }
+
+  /* The flyover band sits on its own tinted panel so the two kinds never blur together. */
+  .flyovers {
+    padding: clamp(1rem, 2.5vw, 1.5rem); border-radius: calc(var(--radius) * 1.5);
+    background: var(--paper-2); border: 1px solid var(--rule);
+  }
+  .tour-grid { display: grid; gap: .85rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
+
   .group-heading {
     margin: 0 0 .6rem; font-family: var(--font-mono); font-weight: 500; font-size: .75rem; letter-spacing: .06em;
     text-transform: uppercase; color: var(--ink-3);
   }
-  .area-nav ul { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; padding-left: 0; list-style: none; }
-  .area + .area { margin-top: 2rem; }
   section + .archive { margin-top: 1.5rem; }
   .featured-grid, .story-grid { display: grid; gap: .75rem; }
   .featured-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); }
@@ -97,8 +162,8 @@ const hasChoices = groups.size > 1;
   .card.featured { background: var(--paper-2); }
   .card:hover, .card:focus-within { border-color: var(--accent); }
   .card .eyebrow { margin: 0 0 .35rem; }
-  .card :is(h3, h4) { margin: 0 0 .35rem; font-family: var(--font-serif); font-size: 1.15rem; line-height: 1.25; }
-  .card.featured :is(h3, h4) { font-size: clamp(1.25rem, 2vw, 1.5rem); }
+  .card :is(h3, h4, h5) { margin: 0 0 .35rem; font-family: var(--font-serif); font-size: 1.15rem; line-height: 1.25; }
+  .card.featured :is(h3, h4, h5) { font-size: clamp(1.25rem, 2vw, 1.5rem); }
   .card a { color: var(--ink); text-decoration: none; }
   .card a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
   .card a:focus-visible { outline: none; }

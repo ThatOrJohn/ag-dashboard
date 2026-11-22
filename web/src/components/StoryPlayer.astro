@@ -54,9 +54,11 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   {flyover && <>
     <FlyoverMap stops={flyover.stops} context={context} />
     <FlyoverCards stops={flyover.stops} sources={context.sources} />
-    <div class="route chapters" role="group" aria-label="Flyover route" data-flyover-route hidden>
-      {story.chapters.map(({ frame, label }) => (
-        <button type="button" data-story-week={frame} aria-pressed={frame === 0 ? "true" : "false"}>{label}</button>
+    <div class="route chapters" role="group" aria-label="Flyover route" data-flyover-route hidden style={`--hold: ${chapterHoldMs}ms`}>
+      {story.chapters.map(({ frame, label }, i) => (
+        <button type="button" data-story-week={frame} aria-pressed={frame === 0 ? "true" : "false"}>
+          <span class="stn" aria-hidden="true">{i === 0 || i === story.chapters.length - 1 ? "◎" : i}</span>{label}
+        </button>
       ))}
     </div>
   </>}
@@ -297,9 +299,36 @@ const districts = story.series.flatMap(({ slug, name }) => slug ? [{ slug, name 
   .play .i-pause, .play.playing .i-play { display: none; }
   .play.playing .i-pause { display: inline; }
   .chapters { display: flex; flex-wrap: wrap; gap: .4rem; }
-  .route { grid-area: timeline; min-width: 0; padding: .5rem .75rem; overflow-x: auto; flex-wrap: nowrap; border-top: 1px solid var(--rule); }
+  /* The flyover route reads like a transit line: numbered stations on a rule, visited ones filled,
+     and the current one shows how long it holds while playing. */
+  .route {
+    grid-area: timeline; min-width: 0; padding: .5rem .75rem; overflow-x: auto; flex-wrap: nowrap; gap: 0;
+    border-top: 1px solid var(--rule); scrollbar-width: thin;
+    mask-image: linear-gradient(90deg, transparent, #000 .75rem, #000 calc(100% - 1.5rem), transparent);
+  }
   .route[hidden] { display: none; }
-  .route button { flex: 0 0 auto; }
+  .route button {
+    position: relative; flex: 0 0 auto; gap: .4rem; overflow: hidden;
+    border-color: transparent; background: none; padding-inline: .45rem .7rem;
+  }
+  .route button + button { margin-left: 1.1rem; }
+  .route button + button::before {
+    content: ""; position: absolute; right: 100%; top: 50%; width: 1.1rem; border-top: 2px dotted var(--ink-3);
+  }
+  .route .stn {
+    display: inline-grid; place-items: center; flex: none; width: 1.45rem; height: 1.45rem; border-radius: 50%;
+    border: 1.5px solid var(--ink-3); font: 600 .72rem var(--font-mono); color: var(--ink-2); background: var(--paper);
+  }
+  .route button:has(~ [aria-pressed="true"]) .stn { border-color: var(--accent); background: var(--accent-tint); color: var(--accent-ink); }
+  .route button[aria-pressed="true"] .stn { border-color: var(--accent); background: var(--accent); color: var(--paper); }
+  .route button[aria-pressed="true"]::after {
+    content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+    background: var(--accent); transform-origin: left;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .is-playing .route button[aria-pressed="true"]::after { animation: hold var(--hold, 2.6s) linear both; }
+    @keyframes hold { from { transform: scaleX(0); } }
+  }
   .story-stage.kind-flyover {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
