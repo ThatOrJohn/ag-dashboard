@@ -448,6 +448,26 @@ test("every page has a 1200x630 share image", async ({ page, request }) => {
   }
 });
 
+test("the header is one row on every page and screen width", async ({ page }) => {
+  for (const width of [1920, 1440, 1280, 1279, 1101, 1024, 700, 640, 540, 390, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const path of ["", "district/east-texas-north/", "stories/", "about/"]) {
+      await page.goto(path);
+      const fit = await page.locator(".masthead-row").evaluate((row) => {
+        const [brand, nav] = [row.querySelector(".brand")!, row.querySelector(".nav")!].map((el) => el.getBoundingClientRect());
+        return { oneRow: Math.abs(brand.top + brand.height / 2 - (nav.top + nav.height / 2)) < 2,
+          inside: nav.right <= row.getBoundingClientRect().right, scroll: document.documentElement.scrollWidth <= innerWidth };
+      });
+      expect(fit, `${width}px ${path || "home"}`).toEqual({ oneRow: true, inside: true, scroll: true });
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("about/");
+  await page.locator(".nav-menu summary").click();
+  await page.locator(".nav-menu-list").getByRole("link", { name: "All of Texas" }).click();
+  await expect(page).toHaveURL(/\/ag-dashboard\/$/);
+});
+
 test("on narrow screens the districts fold into a menu that works", async ({ page }) => {
   await page.setViewportSize({ width: 412, height: 800 });
   await page.goto("");

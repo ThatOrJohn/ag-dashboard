@@ -1,12 +1,15 @@
 ---
 import Base from "../../layouts/Base.astro";
+import BandArt from "../../components/story/BandArt.astro";
 import DistrictTourMap from "../../components/story/DistrictTourMap.astro";
 import FlyoverCard from "../../components/story/FlyoverCard.astro";
 import { href } from "../../lib/format";
 import { buildStories, profileTourSlug, storiesDescription, type BuiltStory, type Story } from "../../lib/stories";
 
-// Two kinds of story, shown as two bands: flyovers (map tours of places, 0027) and replays (one measure
-// animated over time, 0024). Flyovers get a route thumbnail so the difference shows before anyone reads.
+// Two kinds of story, shown as two bands side by side on wide screens so both show at once: flyovers (map
+// tours of places, 0027) and replays (one measure animated over time, 0024). Each band heading has a small
+// looping vignette of what that kind does, and flyovers get a route thumbnail. The district picker is a
+// full-width flyover band below both (decision 0028).
 interface Area {
   name: string;
   tours: BuiltStory[];
@@ -65,29 +68,23 @@ const base = hasChoices ? 3 : 2;
     return (
       <div id={id} class="area">
         {hasChoices && <h2>{name}</h2>}
-        {(tours.length > 0 || picks.length > 0) && (
+        <div class="bands">
+        {tours.length > 0 && (
           <section class="band flyovers" aria-labelledby={`${id}-flyovers`}>
             <header class="band-heading">
-              <svg class="band-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 18c3-1 4-6 8-7s5-5 6-6" /><circle cx="5" cy="18" r="2.2" /><circle cx="13" cy="11" r="2.2" /><circle cx="19" cy="5" r="2.2" />
-              </svg>
+              <BandArt kind="flyover" id={`${id}-flyover-art`} />
               <div>
                 <Section id={`${id}-flyovers`}>Flyovers</Section>
                 <p>Map tours. The camera flies from place to place and stops where the data picks out something worth seeing.</p>
               </div>
             </header>
-            {tours.length > 0 && (
-              <div class="tour-grid">{tours.map((built) => <FlyoverCard built={built} level={hasChoices ? 4 : 3} />)}</div>
-            )}
-            {picks.length > 0 && <DistrictTourMap region={id} name={name} tours={picks} level={hasChoices ? 4 : 3} />}
+            <div class="tour-grid">{tours.map((built) => <FlyoverCard built={built} level={hasChoices ? 4 : 3} />)}</div>
           </section>
         )}
         {replays.length > 0 && (
           <section class="band replays" aria-labelledby={`${id}-replays`}>
             <header class="band-heading">
-              <svg class="band-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 19V5M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /><path d="m17 7 2 1 0 2" />
-              </svg>
+              <BandArt kind="replay" id={`${id}-replay-art`} />
               <div>
                 <Section id={`${id}-replays`}>Replays</Section>
                 <p>Animated charts. Press play to watch one measure change week by week or year by year.</p>
@@ -114,6 +111,12 @@ const base = hasChoices ? 3 : 2;
             ))}
           </section>
         )}
+        </div>
+        {picks.length > 0 && (
+          <div class="band flyovers picker">
+            <DistrictTourMap region={id} name={name} tours={picks} level={base} />
+          </div>
+        )}
       </div>
     );
   })}
@@ -127,24 +130,29 @@ const base = hasChoices ? 3 : 2;
   .area-nav ul { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; padding-left: 0; list-style: none; }
   .area + .area { margin-top: 2.5rem; }
 
-  .band + .band { margin-top: 2.5rem; }
-  .band-heading { display: flex; gap: .85rem; align-items: flex-start; margin-bottom: 1rem; }
+  .bands { display: grid; gap: 2.5rem; }
+  .bands > .band { min-width: 0; }
+  .picker { margin-top: 2.5rem; }
+  .picker :global(.district-tours) { margin-top: 0; }
+  .picker :global(.district-tours) > :global(:is(h2, h3)) { margin-top: 0; font-size: clamp(1.4rem, 2.4vw, 1.75rem); }
+  /* Wide screens: flyovers and replays side by side, so both kinds show without scrolling. */
+  @media (min-width: 1024px) {
+    .bands { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    .bands .tour-grid { grid-template-columns: minmax(0, 1fr); }
+    .bands .featured-grid { grid-template-columns: minmax(0, 1fr); }
+    /* Same top inset as the flyover panel, so the two band headings line up. */
+    .bands .replays { padding-top: clamp(1rem, 2.5vw, 1.5rem); }
+  }
+  .band-heading { display: flex; gap: .85rem; align-items: center; margin-bottom: 1rem; }
   .band-heading :is(h2, h3) { margin: 0 0 .1rem; font-size: clamp(1.4rem, 2.4vw, 1.75rem); }
   .band-heading p { margin: 0; max-width: 70ch; color: var(--ink-2); font-size: .95rem; }
-  .band-icon {
-    flex: none; width: 2.5rem; height: 2.5rem; padding: .45rem; border-radius: 50%;
-    fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-  }
-  .flyovers .band-icon { background: var(--accent-tint); stroke: var(--accent-ink); }
-  .flyovers .band-icon circle { fill: var(--accent-tint); }
-  .replays .band-icon { background: var(--paper-2); stroke: var(--ink-2); border: 1px solid var(--rule); }
 
   /* The flyover band sits on its own tinted panel so the two kinds never blur together. */
   .flyovers {
     padding: clamp(1rem, 2.5vw, 1.5rem); border-radius: calc(var(--radius) * 1.5);
     background: var(--paper-2); border: 1px solid var(--rule);
   }
-  .tour-grid { display: grid; gap: .85rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
+  .tour-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr)); }
 
   .group-heading {
     margin: 0 0 .6rem; font-family: var(--font-mono); font-weight: 500; font-size: .75rem; letter-spacing: .06em;
@@ -153,7 +161,7 @@ const base = hasChoices ? 3 : 2;
   section + .archive { margin-top: 1.5rem; }
   .featured-grid, .story-grid { display: grid; gap: .75rem; }
   .featured-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); }
-  .story-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
+  .story-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
   /* Each card is one link target: the title link stretches over the whole card. */
   .card {
     position: relative; display: flex; flex-direction: column;

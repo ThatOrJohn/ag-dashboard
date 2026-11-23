@@ -27,6 +27,8 @@
 - Stories: animated replays of two years of county drought maps, the cotton harvest race, reservoirs since 1950, Ogallala wells, the Brazos at Richmond, a year of calf prices,
   Census farms by county, and five weeks of district rain ([0024](decisions/0024-animated-stories.md)), each
   fitting one desktop screen ([0025](decisions/0025-stories-fit-one-screen.md)).
+- One-row header on every page and width; Stories index shows flyovers and replays side by side with
+  animated band headings ([0028](decisions/0028-one-row-header-stories-columns.md)).
 - Public repo on GitHub Pages ([0002](decisions/0002-hosting-github-pages.md)), neutral look.
 
 ## Next

@@ -1,6 +1,7 @@
 ---
 // A Stories index card for a flyover: a build-time thumbnail of the area with the tour's numbered route on
-// it, so tours read as places to visit rather than charts to replay (those keep the plain text card).
+// it, so tours read as places to visit rather than charts to replay (those keep the plain text card). A card
+// wider than 24rem lays out sideways with a smaller thumbnail, so a column of tours stays short.
 import { href } from "../../lib/format";
 import type { BuiltStory } from "../../lib/stories";
 import { flyoverGeometry } from "../../lib/stories/flyoverMap";
@@ -21,6 +22,7 @@ const r = (n: number) => n.toFixed(1);
 ---
 {story && (
   <article class="tour-card">
+   <div class="tour-inner">
     <svg class:list={["thumb", { busy: places.length > 7 }]} viewBox={whole.join(" ")} aria-hidden="true" style={`--z: ${z}`}>
       {shapes.map(({ d, stop }) => <path class:list={["land", { visited: stop != null }]} d={d} />)}
       <path class="edge" d={borders} />
@@ -40,12 +42,13 @@ const r = (n: number) => n.toFixed(1);
         {places.length > shown.length && <li class="more">+{places.length - shown.length} more</li>}
       </ol>
     </div>
+   </div>
   </article>
 )}
 
 <style>
   .tour-card {
-    position: relative; display: flex; flex-direction: column; overflow: hidden;
+    position: relative; overflow: hidden; container-type: inline-size;
     border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper);
     --sea: var(--paper-2); --land: var(--paper);
   }
@@ -70,6 +73,17 @@ const r = (n: number) => n.toFixed(1);
   @media (prefers-reduced-motion: reduce) { .tour-card:hover .leg { animation: none; } }
   @keyframes march { to { stroke-dashoffset: calc(var(--z) * -9px); } }
 
+  .tour-inner { display: flex; flex-direction: column; height: 100%; }
+  @container (min-width: 24rem) {
+    .tour-inner { flex-direction: row; }
+    .thumb { width: 10.5rem; flex: none; height: auto; aspect-ratio: auto; min-height: 7rem;
+      border-bottom: 0; border-right: 1px solid var(--rule); }
+    .body { padding: .7rem .95rem .8rem; }
+    .title { font-size: 1.08rem; }
+    .desc { margin-bottom: .5rem; font-size: .86rem; display: -webkit-box; -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+    .route { font-size: .76rem; gap: .25rem .7rem; }
+  }
   .body { display: flex; flex-direction: column; flex: 1; padding: .85rem 1.1rem 1rem; }
   .eyebrow { margin: 0 0 .35rem; }
   .kind { color: var(--accent-ink); font-weight: 600; }
