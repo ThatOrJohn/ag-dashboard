@@ -61,7 +61,7 @@ const pests = screwworm && detection ? [{
   validUntil: screwworm.stale_at,
 }] : [];
 ---
-<Base title={`${D.name} district, Texas: this week · Texas Ag Dashboard`} description={`Drought, rain, burn bans and cattle prices for the ${D.name} district of Texas, county by county, from public data.`} current={slug}>
+<Base title={`${D.name} district, Texas: this week · Ag Dashboard`} description={`Drought, rain, burn bans and cattle prices for the ${D.name} district of Texas, county by county, from public data.`} current={slug}>
   <div class="overview">
     <div>
       <span class="eyebrow"><a href={href()}>Texas</a> · NASS district{sum.home ? " · featured district" : ""} · week of {day(L.asof)}</span>

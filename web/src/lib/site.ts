@@ -1,5 +1,5 @@
 // Site name and mark, shared by the masthead (Base.astro) and the share images (og.ts).
-export const SITE_NAME = "Texas Ag Dashboard";
+export const SITE_NAME = "Ag Dashboard";
 
 /** The mark: crop rows running to the horizon under a sun. public/icon.svg is the same drawing. */
 export function markSvg(bg: string, fg: string): string {
