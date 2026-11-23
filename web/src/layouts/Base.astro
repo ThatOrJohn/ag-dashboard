@@ -60,6 +60,8 @@ const THEME_INIT =
         </a>
         <nav class="nav" aria-label="Site">
           <a class="nav-state" href={href()} aria-current={current === "texas" ? "page" : undefined}>Texas</a>
+          {/* The rule sets the whole state apart from its districts. */}
+          <span class="nav-sep" aria-hidden="true" />
           {homes.map((d) => (
             <a class="nav-district" href={href(`district/${d.slug}/`)} aria-current={current === d.slug ? "page" : undefined}>{d.name}</a>
           ))}

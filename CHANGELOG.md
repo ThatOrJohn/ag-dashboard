@@ -3,6 +3,8 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- In the header, "Texas" now stands apart from the districts: it is always bold, with a thin rule between it and
+  the district links. The page you are on gets a blue bar under its link, not bold text alone.
 - The site is now called "Ag Dashboard" everywhere: the masthead, browser tabs and share images. Each page
   title still names Texas, and the nav still says which state you are in, so Texas no longer shows twice.
 - The header is one row on every page and screen. Featured districts fold into the Districts menu when they
