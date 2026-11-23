@@ -71,7 +71,6 @@ p { margin: 0 0 .8em; }
 .brand .mark { display: block; width: 32px; height: 32px; flex: none; }
 .brand .mark svg { display: block; width: 100%; height: 100%; }
 .brand .wm { font-family: var(--font-serif); font-weight: 600; font-size: 1.3rem; letter-spacing: -0.01em; white-space: nowrap; }
-.brand .section { font-family: var(--font-mono); font-size: .8rem; color: var(--ink-2); border-left: 1px solid var(--rule); padding-left: 10px; }
 /* The header is always one row: the nav never wraps, and items fold into the district menu or drop out as the
    screen narrows (breakpoints below). */
 .nav { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; white-space: nowrap; }
@@ -98,10 +97,6 @@ p { margin: 0 0 .8em; }
   .nav a, .nav-menu summary { padding-inline: 8px; }
   .nav-menu-list { left: 0; right: auto; }
 }
-@media (min-width: 1280px) and (max-width: 1439px) {
-  /* The nav "Texas" link already says which state this is. */
-  .brand .section { display: none; }
-}
 @media (max-width: 1279px) {
   .nav .nav-district { display: none; }
   .nav-menu .nav-wide { display: none; }
@@ -109,7 +104,6 @@ p { margin: 0 0 .8em; }
   .nav-menu a.nav-narrow { display: flex; }
 }
 @media (max-width: 699px) {
-  .brand .section { display: none; }
   .nav { gap: 0; }
   .nav a, .nav-menu summary { padding-inline: 8px; }
   .nav a.nav-stories { margin-inline: 2px; padding-inline: 11px; }

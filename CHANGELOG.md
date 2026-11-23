@@ -3,6 +3,8 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- The site is now called "Ag Dashboard" everywhere: the masthead, browser tabs and share images. Each page
+  title still names Texas, and the nav still says which state you are in, so Texas no longer shows twice.
 - The header is one row on every page and screen. Featured districts fold into the Districts menu when they
   don't fit, and on phones the "Texas" link moves to the top of that menu. The nav now says "About".
 - The Stories link is a pill without the arrow, which had looked like a menu that expands.

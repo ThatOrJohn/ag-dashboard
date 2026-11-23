@@ -1,4 +1,4 @@
-# Texas Ag Dashboard architecture
+# Ag Dashboard architecture
 
 The dashboard is a static site with a scheduled data pipeline. Python fetches public data, keeps a history of observations, and turns that history into JSON for Astro. Astro reads the JSON during the build and publishes HTML, SVG, share images, and JSON to GitHub Pages. A page visit uses the published snapshot. Start with the [Quickstart](../QUICKSTART.md) to run it locally.
 

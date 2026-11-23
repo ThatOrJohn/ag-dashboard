@@ -11,7 +11,7 @@ interface Props { built: BuiltStory }
 const { story, fallback, image, context } = Astro.props.built;
 const title = story?.title ?? fallback.title;
 ---
-<Base title={title + " · Stories · Texas Ag Dashboard"} description={story?.description ?? fallback.description} current="stories" shareImage={image}>
+<Base title={title + " · Stories · Ag Dashboard"} description={story?.description ?? fallback.description} current="stories" shareImage={image}>
   <article>
     <header class:list={["story-heading", { "cattle-heading": story?.visual.kind === "cattle" }]}>
       <p class="story-crumbs">

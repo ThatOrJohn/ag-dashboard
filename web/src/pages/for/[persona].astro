@@ -45,7 +45,7 @@ const title = (b: Block) => b.kind === "cards"
 const ready: Record<string, boolean> = { drought: !!tx.drought, rain: !S.nclimgrid.stale, burn_bans: !!tx.burn_bans, cattle: cattleMarkets.some((m) => !m.stale) };
 const notReady = (b: Block) => b.kind === "section" && ready[b.id] === false;
 ---
-<Base title={`${persona.name}: Texas this week · Texas Ag Dashboard`} description={`${persona.name} in Texas this week: ${persona.blurb ?? ""}`} current={`for-${persona.id}`}>
+<Base title={`${persona.name}: Texas this week · Ag Dashboard`} description={`${persona.name} in Texas this week: ${persona.blurb ?? ""}`} current={`for-${persona.id}`}>
   <span class="eyebrow"><a href={href()}>Texas</a> · for {persona.name} · week of {day(L.asof)}</span>
   <h1>{persona.name}</h1>
   {persona.blurb && <p class="muted">{persona.blurb}</p>}
