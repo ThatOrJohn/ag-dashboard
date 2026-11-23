@@ -3,6 +3,12 @@
 User-visible changes, newest first.
 
 ## Unreleased
+- The header is one row on every page and screen. Featured districts fold into the Districts menu when they
+  don't fit, and on phones the "Texas" link moves to the top of that menu. The nav now says "About".
+- The Stories link is a pill without the arrow, which had looked like a menu that expands.
+- On desktop, the Stories page shows flyovers and replays side by side with smaller flyover cards, so both
+  kinds show right away. The pick-a-district map sits below them. Each section's heading has a small
+  animation of what it does: a camera hopping along a route, and a chart playing from left to right.
 - Flyovers: map tours that fly between places and stop where the data picks out something worth seeing.
   Texas has a tour of this week's conditions across its districts, and every district has a profile tour of
   its counties and a this-week tour. A dotted route links numbered stops; the camera pulls back between

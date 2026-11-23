@@ -1,0 +1,130 @@
+---
+// A small looping vignette for a Stories band heading, so each kind of story shows what it does before anyone
+// reads: a flyover's camera hops between waypoints on a map, and a replay's chart plays from left to right.
+// Decorative only (aria-hidden). With reduced motion, or before CSS animations run, it shows the finished frame.
+interface Props {
+  kind: "flyover" | "replay";
+  /** Unique per page: the clip and mask ids hang off it. */
+  id: string;
+}
+const { kind, id } = Astro.props;
+// Flyover waypoints and the route through them (straight legs; the keyframes below assume these points).
+const stops = [[18, 46], [50, 22], [82, 40], [104, 16]];
+const route = `M${stops.map(([x, y]) => `${x} ${y}`).join("L")}`;
+// Replay line: one measure over time, ending higher than it started.
+const line = [[8, 48], [20, 42], [32, 45], [44, 33], [56, 37], [68, 26], [80, 30], [92, 19], [108, 14]];
+const linePath = `M${line.map(([x, y]) => `${x} ${y}`).join("L")}`;
+---
+{kind === "flyover" ? (
+  <svg class="art flyover" viewBox="0 0 120 64" aria-hidden="true">
+    <path class="land" d="M10 30 C14 14 34 8 52 10 S86 4 100 8 S116 22 112 36 S100 58 78 56 S40 60 24 56 S6 44 10 30Z" />
+    <mask id={`${id}-reveal`} maskUnits="userSpaceOnUse">
+      <path class="reveal" d={route} pathLength="100" />
+    </mask>
+    <path class="route" d={route} mask={`url(#${id}-reveal)`} />
+    {stops.map(([x, y], i) => <circle class={`wp wp-${i}`} cx={x} cy={y} r="3.2" />)}
+    <g class="cam">
+      <g class="cam-frame">
+        <path d="M-7 -3v-4h4M3 -7h4v4M7 3v4h-4M-3 7h-4v-4" />
+      </g>
+    </g>
+  </svg>
+) : (
+  <svg class="art replay" viewBox="0 0 120 64" aria-hidden="true">
+    <path class="axis" d="M6 6v48h108" />
+    {[20, 44, 68, 92].map((x) => <path class="tick" d={`M${x} 54v3`} />)}
+    <clipPath id={`${id}-reveal`}>
+      <rect class="reveal" x="8" y="0" width="101" height="64" />
+    </clipPath>
+    <g clip-path={`url(#${id}-reveal)`}>
+      <path class="fill" d={`${linePath}L108 54L8 54Z`} />
+      <path class="line" d={linePath} />
+    </g>
+    <g class="head">
+      <path class="playhead" d="M108 6v48" />
+    </g>
+    <g class="play">
+      <circle cx="60" cy="32" r="11" />
+      <path d="M56.5 26.5v11l9-5.5z" />
+    </g>
+  </svg>
+)}
+
+<style>
+  .art {
+    flex: none; display: block; width: 7.5rem; height: 4rem; border-radius: var(--radius);
+    background: var(--paper); border: 1px solid var(--rule);
+  }
+  @media (max-width: 600px) { .art { width: 5.25rem; height: 2.8rem; } }
+  /* Flyover: map, dashed route, waypoints, camera frame. */
+  .flyover .land { fill: var(--accent-tint); stroke: var(--rule); stroke-width: .8; }
+  .flyover .reveal { fill: none; stroke: #fff; stroke-width: 6; stroke-linecap: round; }
+  .flyover .route { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 3 2.4; stroke-linecap: round; }
+  .flyover .wp { fill: var(--accent); stroke: var(--paper); stroke-width: 1.2; }
+  .flyover .cam { transform: translate(104px, 16px); }
+  .flyover .cam-frame path { fill: none; stroke: var(--accent-ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Replay: axis, line drawing left to right behind a playhead, and a play button that starts it. */
+  .replay .axis, .replay .tick { fill: none; stroke: var(--rule); stroke-width: 1.2; }
+  .replay .fill { fill: var(--orange-tint); }
+  .replay .line { fill: none; stroke: var(--orange); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .replay .playhead { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 2; }
+  .replay .play { opacity: 0; }
+  .replay .play circle { fill: var(--ink); }
+  .replay .play path { fill: var(--paper); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .flyover .reveal { stroke-dasharray: 100 100; animation: fly-route 8s linear infinite; }
+    .flyover .cam { animation: fly-cam 8s ease-in-out infinite; }
+    .flyover .cam-frame { animation: fly-snap 8s ease-out infinite; }
+    .flyover .wp { transform-box: fill-box; transform-origin: center; animation: 8s ease-out infinite; }
+    .flyover .wp-1 { animation-name: fly-wp-1; }
+    .flyover .wp-2 { animation-name: fly-wp-2; }
+    .flyover .wp-3 { animation-name: fly-wp-3; }
+
+    .replay .reveal { transform-origin: 8px 0; animation: replay-reveal 7s linear infinite; }
+    .replay .head { animation: replay-head 7s linear infinite; }
+    .replay .play { transform-box: fill-box; transform-origin: center; animation: replay-play 7s ease-out infinite; }
+  }
+
+  /* Leg lengths split the route 38 / 34 / 28 percent; the camera holds at each stop while the route waits. */
+  @keyframes fly-route {
+    0%, 8% { stroke-dashoffset: 100; opacity: 1; }
+    25%, 35% { stroke-dashoffset: 61.7; }
+    52%, 62% { stroke-dashoffset: 27.9; }
+    79%, 92% { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+  @keyframes fly-cam {
+    0%, 8% { transform: translate(18px, 46px); opacity: 1; }
+    25%, 35% { transform: translate(50px, 22px); }
+    52%, 62% { transform: translate(82px, 40px); }
+    79%, 92% { transform: translate(104px, 16px); opacity: 1; }
+    100% { transform: translate(104px, 16px); opacity: 0; }
+  }
+  /* The frame tightens a little each time the camera arrives, like a lens settling. */
+  @keyframes fly-snap {
+    0%, 8%, 25%, 52%, 79% { transform: scale(1.35); }
+    4%, 30%, 57%, 84%, 100% { transform: scale(1); }
+  }
+  @keyframes fly-wp-1 { 0%, 24% { opacity: .35; transform: scale(.7); } 28% { opacity: 1; transform: scale(1.3); } 32%, 100% { opacity: 1; transform: scale(1); } }
+  @keyframes fly-wp-2 { 0%, 51% { opacity: .35; transform: scale(.7); } 55% { opacity: 1; transform: scale(1.3); } 59%, 100% { opacity: 1; transform: scale(1); } }
+  @keyframes fly-wp-3 { 0%, 78% { opacity: .35; transform: scale(.7); } 82% { opacity: 1; transform: scale(1.3); } 86%, 100% { opacity: 1; transform: scale(1); } }
+
+  @keyframes replay-reveal {
+    0%, 14% { transform: scaleX(0); opacity: 1; }
+    80%, 92% { transform: scaleX(1); opacity: 1; }
+    100% { transform: scaleX(1); opacity: 0; }
+  }
+  @keyframes replay-head {
+    0%, 14% { transform: translateX(-100px); opacity: 1; }
+    80%, 92% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(0); opacity: 0; }
+  }
+  @keyframes replay-play {
+    0% { opacity: 0; transform: scale(.8); }
+    3%, 9% { opacity: 1; transform: scale(1); }
+    11% { opacity: 1; transform: scale(.85); }
+    15%, 100% { opacity: 0; transform: scale(.85); }
+  }
+</style>
