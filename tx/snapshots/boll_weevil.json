@@ -1,0 +1,28 @@
+{
+ "week": "2026-11-16",
+ "zones": [
+  {
+   "name": "Lower Rio Grande Valley",
+   "traps": 14623,
+   "captures": 0,
+   "captures_ytd": 54,
+   "acres_treated": 0.0
+  },
+  {
+   "name": "East Texas Maintenance Area",
+   "traps": 1833,
+   "captures": 0,
+   "captures_ytd": 0,
+   "acres_treated": 0.0
+  },
+  {
+   "name": "West Texas Maintenance Area",
+   "traps": 2655,
+   "captures": 0,
+   "captures_ytd": 0,
+   "acres_treated": 0.0
+  }
+ ],
+ "url": "https://tbwef.org/wp-content/uploads/2026/04/Weekly-Report-11-16-2026.pdf",
+ "fetched_at": "2026-11-28T04:43:39+00:00"
+}

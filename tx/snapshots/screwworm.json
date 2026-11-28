@@ -1,0 +1,779 @@
+{
+ "fetched_at": "2026-11-28T04:43:39+00:00",
+ "detections": [
+  {
+   "fips": "48507",
+   "date": "2026-06-03",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48507",
+   "date": "2026-06-05",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48283",
+   "date": "2026-06-07",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48171",
+   "date": "2026-06-08",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48283",
+   "date": "2026-06-08",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48137",
+   "date": "2026-06-09",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48137",
+   "date": "2026-06-11",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48137",
+   "date": "2026-06-11",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48451",
+   "date": "2026-06-11",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48507",
+   "date": "2026-06-11",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48435",
+   "date": "2026-06-12",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-20",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48137",
+   "date": "2026-06-21",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48443",
+   "date": "2026-06-22",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48443",
+   "date": "2026-06-23",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48443",
+   "date": "2026-06-23",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48443",
+   "date": "2026-06-23",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-24",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-24",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-24",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-24",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48137",
+   "date": "2026-06-24",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48325",
+   "date": "2026-06-24",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48247",
+   "date": "2026-06-26",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-27",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48371",
+   "date": "2026-06-29",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48463",
+   "date": "2026-06-29",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-30",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-06-30",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-07-03",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-07-07",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48043",
+   "date": "2026-07-09",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-07-10",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48043",
+   "date": "2026-07-13",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48435",
+   "date": "2026-07-13",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48371",
+   "date": "2026-07-14",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48371",
+   "date": "2026-07-14",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48413",
+   "date": "2026-07-18",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48427",
+   "date": "2026-07-18",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48435",
+   "date": "2026-07-21",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48043",
+   "date": "2026-07-29",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48043",
+   "date": "2026-07-30",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48371",
+   "date": "2026-07-31",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48443",
+   "date": "2026-08-05",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48465",
+   "date": "2026-08-16",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48465",
+   "date": "2026-08-25",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-08-31",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48377",
+   "date": "2026-09-09",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48043",
+   "date": "2026-09-25",
+   "fly_trap": true,
+   "active": false
+  },
+  {
+   "fips": "48105",
+   "date": "2026-09-26",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48043",
+   "date": "2026-10-02",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48371",
+   "date": "2026-10-10",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48043",
+   "date": "2026-10-18",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48243",
+   "date": "2026-10-20",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48465",
+   "date": "2026-10-21",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48371",
+   "date": "2026-10-21",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48229",
+   "date": "2026-10-23",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48229",
+   "date": "2026-10-23",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48141",
+   "date": "2026-10-27",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48377",
+   "date": "2026-10-28",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48229",
+   "date": "2026-10-29",
+   "fly_trap": true,
+   "active": false
+  },
+  {
+   "fips": "48243",
+   "date": "2026-10-29",
+   "fly_trap": true,
+   "active": false
+  },
+  {
+   "fips": "48371",
+   "date": "2026-10-29",
+   "fly_trap": true,
+   "active": false
+  },
+  {
+   "fips": "48229",
+   "date": "2026-10-30",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48377",
+   "date": "2026-10-31",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48141",
+   "date": "2026-11-01",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48243",
+   "date": "2026-11-02",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48427",
+   "date": "2026-11-02",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48505",
+   "date": "2026-11-02",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48229",
+   "date": "2026-11-03",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48229",
+   "date": "2026-11-03",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48229",
+   "date": "2026-11-03",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48371",
+   "date": "2026-11-03",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48371",
+   "date": "2026-11-03",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48371",
+   "date": "2026-11-03",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48427",
+   "date": "2026-11-04",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48243",
+   "date": "2026-11-04",
+   "fly_trap": false,
+   "active": false
+  },
+  {
+   "fips": "48229",
+   "date": "2026-11-05",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48229",
+   "date": "2026-11-05",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48335",
+   "date": "2026-11-05",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48141",
+   "date": "2026-11-08",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48229",
+   "date": "2026-11-08",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48019",
+   "date": "2026-11-09",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48383",
+   "date": "2026-11-09",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48465",
+   "date": "2026-11-09",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48443",
+   "date": "2026-11-11",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48465",
+   "date": "2026-11-11",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48175",
+   "date": "2026-11-13",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48247",
+   "date": "2026-11-13",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48283",
+   "date": "2026-11-13",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48283",
+   "date": "2026-11-13",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48443",
+   "date": "2026-11-13",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48443",
+   "date": "2026-11-13",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48043",
+   "date": "2026-11-15",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48427",
+   "date": "2026-11-16",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48215",
+   "date": "2026-11-17",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48479",
+   "date": "2026-11-17",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48325",
+   "date": "2026-11-18",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48247",
+   "date": "2026-11-19",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48377",
+   "date": "2026-11-19",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48427",
+   "date": "2026-11-19",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48131",
+   "date": "2026-11-20",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48329",
+   "date": "2026-11-20",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48427",
+   "date": "2026-11-20",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48427",
+   "date": "2026-11-20",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48479",
+   "date": "2026-11-20",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48427",
+   "date": "2026-11-21",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48479",
+   "date": "2026-11-21",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48479",
+   "date": "2026-11-21",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48479",
+   "date": "2026-11-21",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48479",
+   "date": "2026-11-21",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48215",
+   "date": "2026-11-22",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48215",
+   "date": "2026-11-22",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48505",
+   "date": "2026-11-23",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48043",
+   "date": "2026-11-24",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48043",
+   "date": "2026-11-24",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48043",
+   "date": "2026-11-24",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48061",
+   "date": "2026-11-24",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48131",
+   "date": "2026-11-24",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48479",
+   "date": "2026-11-24",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48047",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48131",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48131",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48131",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48215",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48247",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48247",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48283",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  },
+  {
+   "fips": "48311",
+   "date": "2026-11-25",
+   "fly_trap": false,
+   "active": true
+  }
+ ]
+}

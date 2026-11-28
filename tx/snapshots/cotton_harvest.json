@@ -1,0 +1,36 @@
+{
+  "2026-11-22": {
+    "issued_at": "2026-11-22T00:37:12+00:00",
+    "input_week": "2026-11-15",
+    "input_pct": 68.0,
+    "target_week": "2026-11-22",
+    "model": "recent-pace-ridge-v1",
+    "estimate": 75.6,
+    "predictions": {
+      "seasonal-median-v1": 78.0,
+      "recent-pace-ridge-v1": 75.6
+    },
+    "range": [
+      72,
+      79
+    ],
+    "actual": 78.0,
+    "scored_at": "2026-11-24T00:54:08+00:00"
+  },
+  "2026-11-29": {
+    "issued_at": "2026-11-24T00:54:08+00:00",
+    "input_week": "2026-11-22",
+    "input_pct": 78.0,
+    "target_week": "2026-11-29",
+    "model": "recent-pace-ridge-v1",
+    "estimate": 87.0,
+    "predictions": {
+      "seasonal-median-v1": 86.0,
+      "recent-pace-ridge-v1": 87.0
+    },
+    "range": [
+      84,
+      90
+    ]
+  }
+}
